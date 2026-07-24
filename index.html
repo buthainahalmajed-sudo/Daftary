@@ -1,0 +1,1673 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>دفتري للأمان المالي</title>
+<meta name="theme-color" content="#2E5C5A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="دفتري">
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAYAAAA9zQYyAAAE1klEQVR4nO3csWocVxiG4XHIdaRwa7BaN1aVLndgDAKFkGsSJgKB8R2kS+U0amVw6yI34hTJwErsand2zplz5pvnaWzQgg7aV//+uzurYQAAAAAAAAC250XrA0zx+v27763PsFVfPn5aRStdH1LA/eo18O4OJeL16SnuLg4i4hyt4276zYWcq1XYP7T4psMg5nSt7t/Ff4uEvD1LTutFJ7SYt2nJ+32R3xwhM6o9ratPaDGzq3YPVYMWM/vU7KJa0GLmObX6qBK0mDlFjU6KBy1mpijdS9Ggxcw5SnZTLGgxM0epfpq99Q01FAnadKaEEh3NDlrMlDS3JysHUWYFbTpTw5yuzg5azNR0bl9WDqKcFbTpzBLO6ezHGgfpycPdbesjdOfi6rr1EaqJDVrIh40/m8SwJ396oPd1Q8jT9R72lE+5RD0pPDXmb18/D9++fq58mvVIGgJRQcOkoHteN5KmTAs9//ymdGdCEyUi6J6ny5ok/BwjgobRyUH3vD+T79T+TGiiCJoogiaKoIkiaKIImiiCJoqgiSJoogiaKIImiqCJImiiCJoogiaKoIkiaKIImiiCJoqgiSJoogiaKLF/Tneui6vrP1ufobSHu9tfWp+hNhOaKIImipXjgC08PCcyoYkiaKIImiiCJoqgiSJoogiaKIImiqCJImiiCJoogiaKoIkiaKIImiiuhz6g949guV57PxOaKIImipXjAA/p62RCE0XQRBE0UQRNFEETRdBEETRRBE0UQRNF0EQRNFEETRRBE0XQRBE0UVwPfUDvH8E6ZqvXc5vQRBE0UawcB2z1IXvtTGiiCJoogiaKoIkiaKIImiiCJoqgiSJoogiaKN763pD7P35+9utvfv1roZPUI+hwxyJ+etuby//+//vnnyqdqC4rR7ApMT91c/lPwZMsx4QONCfkXWPUa5rWJnSYUjHvWtO0FnSQGjGP1hK1oEPUjHm0hqgFTRRBB1hiOo96n9KCXrkaMb/57e9nv95z1ILmkTHmY1H3StActMaoBb1ipdeNpwHff3h78La9rh2CZhiGaTH3TNCscrU4JCLoi6vr1kfo1jmxrnU6D0NI0Ox3yisWKavGKCZoU/qxp6Huizot5mEICnqKl68uh5evLlsfo6p9ce4GnLQ374oK2pR+7FjUx267Ri+m3Pj1+3ffax2ktIe729ZHWMQpr0Ufm8bnxLz0Rf9fPn46qdWoCb3r4uraxP7fc8GmTOZR/Eew0qO+OfGpwP2Ht7F7867YCb0VUx76x2n89N+a33Npk3boYVjXHr0lS11b0SLmU/fnYTChCSPoEEtMzp5XjdHkoKeMf5ZVM7hWMU/tzYQOUyO8NUzmUfzLdls0Bjj3ieKaQh6dNaGtHeswJ8geYj6nMxM63G6YxyZ2DxHPNWvSek2aWs7dAmY9KbR6UMOcrrzKQZTZQZvSlDS3pyITWtSUUKIjKwdRigVtSjNHqX6KTmhRc46S3RRfOUTNFKV7qbJDi5pT1Oik2pNCUfOcWn1UfZVD1OxTs4vqL9uJml21e1g0NhczbddSg23RN1ZM621a8n5vFphpna/FAGv21rdpna3V/dtFVKZ1jtaDqougd4l7fVpHvKubg+wj7n71FPGuLg91iMDb6TVgAAAAAAAAzvQvEW9ofI5oN/oAAAAASUVORK5CYII=">
+<link rel="icon" type="image/png" sizes="512x512" href="data:image/png;base64,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">
+<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%20%22%D8%AF%D9%81%D8%AA%D8%B1%D9%8A%20%D9%84%D9%84%D8%A3%D9%85%D8%A7%D9%86%20%D8%A7%D9%84%D9%85%D8%A7%D9%84%D9%8A%22%2C%20%22short_name%22%3A%20%22%D8%AF%D9%81%D8%AA%D8%B1%D9%8A%22%2C%20%22description%22%3A%20%22%D9%85%D8%B3%D8%A7%D8%AD%D8%AA%D9%83%20%D8%A7%D9%84%D9%8A%D9%88%D9%85%D9%8A%D8%A9%20%D9%84%D9%84%D8%AA%D9%86%D8%B8%D9%8A%D9%85%20%D9%88%D8%A7%D9%84%D8%A3%D9%87%D8%AF%D8%A7%D9%81%20%D9%88%D8%A7%D9%84%D8%A5%D9%86%D8%AC%D8%A7%D8%B2%22%2C%20%22start_url%22%3A%20%22./%22%2C%20%22display%22%3A%20%22standalone%22%2C%20%22background_color%22%3A%20%22%23F6F1E7%22%2C%20%22theme_color%22%3A%20%22%232E5C5A%22%2C%20%22dir%22%3A%20%22rtl%22%2C%20%22lang%22%3A%20%22ar%22%2C%20%22icons%22%3A%20%5B%7B%22src%22%3A%20%22data%3Aimage/png%3Bbase64%2CiVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAYAAAD0eNT6AAAPjElEQVR4nO3dsY4cxRqG4eLI10FAioRTJzgi4w4QkiUjxDVZCEuWEHdARgSJUyOd9ATcCCcwi8e7s7vTPd1df9X3PBIJAm%2B7q6f/t2vG49YAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOBan/Q%2BAGr54ttv/u59DMB%2B/vz5F/d9WmsCII4BDzxEIOSw0BMz7IEtiII5WdSJGPjAEQTBHCziwAx8oAJBMCaLNhhDH6hMDIzDQg3A0AdGJAZqszhFGfrATMRAPRakGIMfmJkQqMNCFGDoA4nEQF9OfkcGP4AQ6MVJ78DgB7hLCBzLyT6QwQ/wOCFwDCf5AAY/wHJCYF9O7o4MfoDrCYF9/Kf3AczK8AfYhvvpPlTVxlyoAPuxG7AdJ3IjBj/AcYTA9bwFsAHDH%2BBY7rvXU1BXcAEC9Gc3YB07ACsZ/gA1uB%2BvIwBWcLEB1OK%2BvJxtkwVcYAD1eUvgMnYALmT4A4zB/foyAuACLiaAsbhvP842yQNcQADj85bAeXYA7mH4A8zB/fw8AXCGiwVgLu7rdwmAW1wkAHNyf/%2BYADjh4gCYm/v8BwLgHy4KgAzu9%2B8JgOZiAEjjvi8AXAQAodLv/9EBkL74AOmS50BsACQvOgAfpM6DyABIXWwAzkucC3EBkLjIADwubT5EBUDa4gKwTNKciAmApEUFYL2UeRERACmLCcA2EubG9AGQsIgAbG/2%2BTF1AMy%2BeADsa%2BY5MnUAAADnTRsAM1cbAMeZdZ5MGQCzLhYAfcw4V6YLgBkXCYD%2BZpsv0wUAAPC4qQJgtjoDoJaZ5sw0ATDTogBQ1yzzZooAmGUxABjDDHNnigAAAJYZPgBmqDAAxjP6/Bk6AEY/%2BQCMbeQ5NHQAAADrDBsAI1cXAPMYdR4NGwAAwHpDBsCotQXAnEacS8MFwIgnGYD5jTafhgsAAOB6QwXAaHUFQJaR5tRQAQAAbGOYABipqgDINcq8GiYAAIDtDBEAo9QUALQ2xtwaIgAAgG2VD4ARKgoAbqs%2Bv8oHAACwvU96H8BDqtcT13n35nXvQ4ASnr542fsQ2NGfP/9SctY%2B6X0A5DDw4bzT14YY4CgCgN0Z/HA5McBRSm5LtGb7fwYGP2xDCIyv4tsAPgTILgx/2I7XE3soVyStefofmRsV7MtuwLiq7QLYAWAzhj/sz%2BuMrQgANuGmBMfxemML5QLA9v943IzgeF5346k238oFAGNxE4J%2BvP64hu8BYLVeN5///ff3s//%2Bs8%2BfH3wk0N%2B7N699MJBVSu0AVNseAYAtVZpzpQKAcdh6hDq8HllDALCYmw3U43XJUmUCoNK2CADspcq8KxMAjMFTBtTl9ckSAgAAAgkALubpAurzOuVSJQKgyvshAHCECnOvRAAAAMcSAAAQSABwEe8rwji8XrlE9wCo8D4IAByt9/zrHgAAwPEEAAAEEgAAEEgAAECgrgHQ%2BwMQANBTzzloBwAAAgkAAAgkAAAgkAAAgEACAAACCQAACCQAACBQtwDwHQAA0G8e2gEAgEACAAACCQAACCQAACCQAACAQAIAAAIJAAAIJAAAIJAAAIBAAgAAAgkAAAgkAAAgkAAAgEACAAACCQAACCQAACCQAACAQAIAAAIJAAAIJAAAIJAAAIBAAgAAAgkAAAgkAAAgkAAAgEACAAACCQAACCQAACCQAACAQAIAAAIJAAAIJAAAIJAAAIBAAgAAAgkAAAgkAAAgkAAAgEACAAACCQAACCQAACCQAACAQAIAAAIJAAAIJAAAIJAAAIBAAgAAAgkAAAgkAAAgkAAAgEACAAACCQAACCQAACCQAACAQAIAAAIJAAAI9KT3AUB1T1%2B8/LX3MTCPd29ef937GKA1OwAAEEkAAEAgAQAAgQQAAAQSAAAQSAAAQCABAACBBAAABBIAABDINwHCI3xzGzAjOwAAEEgAAEAgAQAAgQQAAAQSAAAQSAAAQCABAACBBAAABBIAABBIAABAIAEAAIEEAAAEEgAAEEgAAEAgAQAAgQQAAAQSAAAQSAAAQCABAACBBAAABBIAABBIAABAIAEAAIEEAAAEEgAAEEgAAEAgAQAAgQQAAAQSAAAQSAAAQCABAACBBAAABBIAABBIAABAIAEAAIEEAAAEEgAAEEgAAEAgAQAAgQQAAAQSAAAQSAAAQKAnvQ8Aqnv64uWvvY%2BBdd69ef1172OAquwAAEAgAQAAgQQAAAQSAAAQSAAAQCABAACBBAAABBIAABBIAABAIN8ECI/wbXLAjOwAAEAgAQAAgQQAAAQSAAAQSAAAQCABAACBBAAABBIAABBIAABAIAEAAIEEAAAEEgAAEEgAAEAgAQAAgQQAAAQSAAAQSAAAQCABAACBBAAABBIAABBIAABAIAEAAIEEAAAEEgAAEEgAAEAgAQAAgQQAAAQSAAAQSAAAQCABAACBBAAABBIAABBIAABAIAEAAIEEAAAEEgAAEEgAAEAgAQAAgQQAAAQSAAAQSAAAQCABAACBBAAABHrS%2BwCguqcvXv7a%2Bxio5d2b11/3Pga4lh0AAAgkAAAgkAAAgEACAAACCQAACCQAACCQAACAQAIAAAIJAAAI5JsA4RG%2B9Q2YkR0AAAgkAAAgkAAAgEACAAACCQAACCQAACCQAACAQAIAAAIJAAAIJAAAIJAAAIBAAgAAAgkAAAgkAAAgkAAAgEACAAACCQAACCQAACCQAACAQAIAAAIJAAAIJAAAIJAAAIBAAgAAAgkAAAgkAAAgkAAAgEACAAACCQAACCQAACCQAACAQE96HwBAurc/fbXq/3v23W8bHwlJBADAwdYO/Md%2BHUHAEgIAYGdbDfwlP%2BfV89Z%2B%2BP3TQ34uYxIAADs5avDf59Xzv1prQoDzBADAxnoP/tuEAOcIAICNVBv8twkBTgkAgCtVH/y3CQFa8z0AAFcZbfifugkBMtkBAFhh5MF/ym5ALjsAAAvNMvxP2Q3IIwAAFphx%2BN8QAVkEAMCFZh7%2BN0RADp8BAHhEwuA/5XMBGewAADwgbfifshswNwEAAIEEAMA9kp/%2Bb9gFmJcAADjD8P9ABMxJAADcYvjfJQLmIwAAThj%2B9xMBcxEAABBIAAD8w9P/4%2BwCzEMAADTDfwkRMAcBAACBBAAQz9P/cnYBxicAACCQAACiefpfzy7A2AQAwOSeff9H70OgIAEAxEp4%2Br8Z/ntFgF2AcQkAgEndHvrPvv/DbgD/EgBApISn//tsHQF2AcYkAAAm9NiQtxuAAACYzJLBLgJyCQCAiSwd6G9//HKnI6E6AQDEmfX9/57D3%2BcAxiMAACCQAACYgK1/lhIAAIMz/FlDAHCRpy9e9j4E2MRs7/9XGv4%2BBzAWAQAQwpM/pwQAwKD8GX6uIQC4mLcBoI5KW/%2BMSQAA7GiPp3TDny0IAICd7PFX8Rr%2BbEUAsIi3AeAy5/4qXqikWwD8%2BfMvn/T62QB7um/YXxsBnv7n1Gse2gFgMbsAcN4lf8Xu2ggw/NmaAGAVEQAf23OL3/BnDwIA4EpLB/SS/97wZy9Peh8A43r64mV79%2Bb14T/3s8%2BfH/4z4SFvf/xyVQQY1vRkB4CreCsA3lszzLf%2BvICgYAkBwNVEALy3ZQQY/uxNALAJEcAonn33266//hYRMOrw/%2BH3T3sfAgt0DQDfBTAXEQDrrf1TBFWGP%2Bv0nIN2ANjU0xcvhQDx1g7lS75HALYiANiFCCDdEU/mnv65hgBgN3YDqGrvzwHc2HNAVxv%2B3v8fjwBgd0KAZHsM6mrDnzGV%2BBDeF99%2B83fvY%2BB4Pb5ECG68/emrQ3/elu/tVwwAOwDL9f4gvG8CpBu7AvT06uAvlFzzbYH3/TqwBW8BAJF6PLFeO7yrDn9P/2MSAAADqDr8GVeJAOj9PgiQaZRdgMrD39P/OhXmXokAAEhSeaCTQwAA0Xo9wd6OgLc/fvnvPw/9d5V4%2Bh%2BbAADo5Ga43zf0Kw9/xtf9PYhTvg8A6OXV8796H8JQPP2vV%2BH9/9bsAABAJAEA0DzRLuFczaFUAFTZFgEyGWyPc46uU2nOlQoAAOAYAgDghCfc%2Bzk3cykXAJW2R4BMBt1dzsn1qs23cgEAUIGB94FzMScBAHAPg885mFnJAKi2TQIA16g410oGAEAVyU/Ayb/3BOWK5JSvBgYqSfm6YIN/WxWf/luzAwBwsYTBmPB75D0BALDAzANy5t8bd5UOgKrbJkC2GQfljL%2BnCirPsSe9DwBgRDcDc/TPBRj8uUrvALRWu54ARh6gIx/7CKrPLzsAAFcabTfA4Ke14n8M8JQ/EgiMomoIGPzHqf7035odAIDNVdsRMPg5p3yhnLILAIyoVwgY/H2M8PTfmh0AgN3dHsR7BYGBzxJDVMopuwDAbNYGgYFfzyhP/63ZAQDoziCnh/LfA3DbSHUFQI7R5tNwAdDaeCcZgLmNOJeGDAAA4DrDBsCItQXAfEadR8MGAACw3tABMGp1ATCHkefQ0AHQ2tgnH4BxjT5/hg8AAGC5KQJg9AoDYCwzzJ0pAqC1ORYDgPpmmTfTBEBr8ywKADXNNGemCgAA4DLTBcBMdQZAHbPNl%2BkCoLX5FgmAvmacK1MGQGtzLhYAx5t1nkwbAADA/aYOgFmrDYBjzDxHpg6A1uZePAD2M/v8mD4AWpt/EQHYVsLciAiA1jIWE4DrpcyLmABoLWdRAVgnaU5EBUBrWYsLwOXS5kNcALSWt8gAPCxxLkQGQGuZiw3AXanzIDYAWstddADeS54D0QHQWvbiAyRLv//HB0BrLgKANO77AuBfLgaADO737wmAEy4KgLm5z38gAG5xcQDMyf39YwLgDBcJwFzc1%2B8SAPdwsQDMwf38PCflAl98%2B83fvY8BgGUM/ofZAbiAiwhgLO7bjxMAF3IxAYzB/foyTtIK3hIAqMfgX8YOwAouMoBa3JeXEwArudgAanA/XsdJ24C3BACOZ/Bfxw7ABlyEAMdy372eE7gxuwEA%2BzH4t%2BNE7kQIAGzH4N%2BetwB24mIF2Ib76T6c1APYDQBYzuDfl5N7ICEA8DiD/xhOcgdCAOAug/9YTnZHQgDA4O/FSS9ACACJDP6%2BnPxixAAwM0O/DgtRlBAAZmLw12NBBiAGgBEZ%2BrVZnMGIAaAyQ38cFmpgYgCowNAfk0WbiCAAjmDgz8EiTkwQAFsw8OdkUcOIAuAhhn0OC81HBALMzYAHAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAdvN/2OLHU%2BUAFO0AAAAASUVORK5CYII%3D%22%2C%20%22sizes%22%3A%20%22512x512%22%2C%20%22type%22%3A%20%22image/png%22%2C%20%22purpose%22%3A%20%22any%20maskable%22%7D%5D%7D">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Aref+Ruqaa:wght@400;700&family=Tajawal:wght@300;400;500;700;800&display=swap');
+
+:root{
+  --ink:#1F3A3D;
+  --petrol:#2E5C5A;
+  --petrol-dark:#1D3E3C;
+  --parchment:#F6F1E7;
+  --paper:#FFFDF8;
+  --rose:#B24C63;
+  --rose-dark:#8F3A4E;
+  --gold:#C79A3C;
+  --sage:#8FA998;
+  --line:#DDD2BA;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--parchment);
+  background-image:radial-gradient(var(--line) 1px, transparent 1px);
+  background-size:22px 22px;
+  color:var(--ink);
+  font-family:'Tajawal',sans-serif;
+  min-height:100vh;
+}
+#app{max-width:640px;margin:0 auto;padding:18px 16px 100px;min-height:100vh;position:relative;}
+h1,h2,h3{font-family:'Aref Ruqaa',serif;margin:0;font-weight:700;}
+.hidden{display:none!important;}
+button{font-family:'Tajawal',sans-serif;cursor:pointer;border:none;}
+input,select,textarea{font-family:'Tajawal',sans-serif;}
+
+/* ---------- top bar ---------- */
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.brand{display:flex;align-items:center;gap:8px;}
+.brand .seal{width:34px;height:34px;border-radius:50%;background:var(--petrol);color:var(--paper);display:flex;align-items:center;justify-content:center;font-family:'Aref Ruqaa',serif;font-size:20px;flex-shrink:0;}
+.brand h1{font-size:22px;color:var(--petrol-dark);}
+.date-chip{font-size:12px;background:var(--paper);border:1px solid var(--line);border-radius:20px;padding:6px 12px;color:var(--petrol-dark);}
+
+/* ---------- date navigator ---------- */
+.date-nav{display:flex;align-items:center;gap:8px;margin-bottom:16px;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:8px 10px;}
+.date-nav .arrow{width:34px;height:34px;border-radius:9px;background:var(--parchment);border:1px solid var(--line);color:var(--petrol-dark);font-size:16px;flex-shrink:0;}
+.date-nav .arrow:hover{background:var(--sage);color:#fff;}
+.date-nav .mid{flex:1;text-align:center;}
+.date-nav .mid .dname{font-family:'Aref Ruqaa',serif;font-size:18px;color:var(--petrol-dark);}
+.date-nav .mid .ddate{font-size:11.5px;color:#6b7a78;}
+.date-nav input[type=date]{border:none;background:none;color:#6b7a78;font-size:11px;width:26px;padding:0;opacity:0;position:absolute;}
+.date-nav .picker{position:relative;}
+.today-btn{font-size:11px;background:var(--sage);color:#fff;padding:6px 10px;border-radius:8px;font-weight:700;flex-shrink:0;}
+.browsing-badge{display:inline-block;font-size:11px;background:rgba(178,76,99,.12);color:var(--rose-dark);padding:3px 10px;border-radius:20px;font-weight:700;margin-bottom:10px;}
+
+/* ---------- cards ---------- */
+.card{
+  background:var(--paper);
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:18px;
+  margin-bottom:16px;
+  box-shadow:0 1px 0 rgba(31,58,61,0.03);
+}
+.card-title{display:flex;align-items:center;gap:8px;margin-bottom:10px;justify-content:space-between;}
+.card-title h3{font-size:19px;color:var(--petrol-dark);}
+.eyebrow{font-size:11px;letter-spacing:.4px;color:var(--rose-dark);font-weight:700;margin-bottom:4px;display:block;}
+.muted{color:#6b7a78;font-size:13px;}
+.quote-box{background:var(--parchment);border-right:3px solid var(--gold);border-radius:8px;padding:10px 14px;margin-bottom:10px;}
+.quote-box p{font-family:'Aref Ruqaa',serif;font-size:17px;color:var(--petrol-dark);margin:0;line-height:1.6;}
+
+/* ---------- buttons ---------- */
+.btn{
+  background:var(--petrol);color:#fff;border-radius:10px;padding:11px 18px;
+  font-size:14px;font-weight:700;transition:transform .12s ease, background .15s ease;
+}
+.btn:hover{background:var(--petrol-dark);}
+.btn:active{transform:scale(.97);}
+.btn.rose{background:var(--rose);}
+.btn.rose:hover{background:var(--rose-dark);}
+.btn.ghost{background:transparent;color:var(--petrol);border:1.5px solid var(--petrol);}
+.btn.ghost:hover{background:rgba(46,92,90,.06);}
+.btn.sm{padding:7px 12px;font-size:12.5px;border-radius:8px;}
+.btn:disabled{opacity:.45;cursor:not-allowed;}
+.btn-block{width:100%;}
+.icon-btn{background:none;color:var(--petrol);font-size:16px;padding:4px 8px;border-radius:6px;}
+.icon-btn:hover{background:rgba(46,92,90,.08);}
+
+/* ---------- inputs ---------- */
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:13px;font-weight:700;color:var(--petrol-dark);margin-bottom:6px;}
+.field input[type=text], .field input[type=email], .field select, .field textarea{
+  width:100%;padding:11px 12px;border:1.5px solid var(--line);border-radius:10px;
+  background:var(--parchment);font-size:14.5px;color:var(--ink);
+}
+.field textarea{resize:vertical;min-height:56px;}
+.field input:focus, .field select:focus, .field textarea:focus{outline:2px solid var(--sage);outline-offset:1px;}
+
+/* ---------- chips ---------- */
+.chip-row{display:flex;flex-wrap:wrap;gap:8px;}
+.chip{
+  padding:8px 14px;border-radius:20px;border:1.5px solid var(--line);background:var(--parchment);
+  font-size:13.5px;font-weight:500;color:var(--ink);transition:all .15s ease;
+}
+.chip.selected{background:var(--sage);border-color:var(--sage);color:#fff;font-weight:700;}
+.chip.cat{font-size:14px;}
+
+/* ---------- task/habit rows ---------- */
+.task-row{display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px dashed var(--line);}
+.task-row:last-child{border-bottom:none;}
+.check{
+  width:26px;height:26px;border-radius:50%;border:2px solid var(--petrol);flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;background:var(--paper);position:relative;
+}
+.check.done{background:var(--gold);border-color:var(--gold);}
+.check svg{width:14px;height:14px;stroke:#fff;stroke-width:3;fill:none;}
+.task-title{flex:1;font-size:14.5px;}
+.task-title.done{text-decoration:line-through;color:#9aa6a4;}
+.tag{font-size:10.5px;background:rgba(46,92,90,.09);color:var(--petrol-dark);padding:2px 8px;border-radius:10px;font-weight:700;}
+.tag.p-عالية{background:rgba(178,76,99,.13);color:var(--rose-dark);}
+.tag.p-متوسطة{background:rgba(199,154,60,.15);color:#8a6a1f;}
+
+/* ---------- stamp ---------- */
+.stamp-pop{
+  position:fixed;top:50%;right:50%;transform:translate(50%,-50%) scale(.4) rotate(-18deg);
+  opacity:0;pointer-events:none;z-index:50;transition:all .45s cubic-bezier(.2,1.4,.4,1);
+}
+.stamp-pop.show{opacity:1;transform:translate(50%,-50%) scale(1) rotate(-10deg);}
+.stamp-pop svg{width:150px;height:150px;filter:drop-shadow(0 6px 14px rgba(0,0,0,.25));}
+
+/* ---------- nav ---------- */
+.nav{
+  position:fixed;bottom:0;right:0;left:0;background:var(--paper);border-top:1px solid var(--line);
+  display:flex;justify-content:center;padding:8px 12px calc(8px + env(safe-area-inset-bottom));z-index:40;
+}
+.nav-inner{max-width:640px;width:100%;display:flex;justify-content:space-around;}
+.nav-btn{background:none;display:flex;flex-direction:column;align-items:center;gap:3px;color:#8b9694;font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:10px;}
+.nav-btn.active{color:var(--petrol);}
+.nav-btn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;}
+
+/* ---------- goal pill ---------- */
+.goal-card{border-right:4px solid var(--sage);}
+
+/* mood */
+.mood-scale{display:flex;justify-content:space-between;gap:6px;}
+.mood-dot{flex:1;text-align:center;padding:10px 4px;border-radius:12px;border:1.5px solid var(--line);font-size:22px;background:var(--parchment);}
+.mood-dot.selected{background:var(--petrol);border-color:var(--petrol);}
+.mood-dot.selected .ml{color:#fff;}
+.ml{display:block;font-size:10px;margin-top:3px;color:#6b7a78;font-weight:700;}
+
+/* period tabs */
+.period-tabs{display:flex;gap:6px;margin-bottom:8px;}
+.period-tab{flex:1;text-align:center;padding:7px;border-radius:8px;background:var(--parchment);border:1px solid var(--line);font-size:12.5px;font-weight:700;color:#6b7a78;}
+.period-tab.active{background:var(--petrol);color:#fff;border-color:var(--petrol);}
+
+.empty{text-align:center;padding:26px 10px;color:#8b9694;font-size:13.5px;}
+.spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;display:inline-block;animation:spin .7s linear infinite;vertical-align:middle;margin-left:6px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.ai-box{background:linear-gradient(135deg, rgba(46,92,90,.06), rgba(178,76,99,.06));border:1.5px dashed var(--petrol);}
+
+/* habit rows in day view */
+.habit-item{display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px dashed var(--line);}
+.habit-item:last-child{border-bottom:none;}
+.hbox{width:22px;height:22px;border-radius:6px;border:2px solid var(--sage);background:var(--paper);flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.hbox.done{background:var(--sage);}
+.hbox svg{width:12px;height:12px;stroke:#fff;stroke-width:3;fill:none;}
+.habit-label{flex:1;font-size:14px;}
+.habit-label.done{color:#9aa6a4;text-decoration:line-through;}
+
+/* weekly habit table */
+.week-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px;}
+.week-nav .lbl{font-size:12.5px;color:var(--petrol-dark);font-weight:700;text-align:center;flex:1;}
+.htable-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+table.htable{border-collapse:collapse;width:100%;min-width:560px;font-size:12px;}
+table.htable th, table.htable td{padding:6px;text-align:center;border-bottom:1px solid var(--line);}
+table.htable th{font-size:11px;color:var(--petrol-dark);font-weight:700;}
+table.htable th .d{display:block;font-size:9.5px;color:#8b9694;font-weight:400;}
+table.htable td.habit-label-cell{text-align:right;font-size:12px;padding-right:4px;white-space:nowrap;}
+.gcheck{width:20px;height:20px;border-radius:5px;border:1.5px solid var(--sage);background:var(--paper);display:inline-flex;align-items:center;justify-content:center;}
+.gcheck.done{background:var(--sage);}
+.gcheck svg{width:11px;height:11px;stroke:#fff;stroke-width:3;fill:none;}
+.gcheck.na{border-color:var(--line);background:var(--parchment);cursor:default;}
+.pct-row td{font-weight:700;color:var(--petrol-dark);background:rgba(46,92,90,.04);}
+
+/* inbox / brain-dump page */
+.inbox-row{display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px dashed var(--line);}
+.inbox-row:last-child{border-bottom:none;}
+.inbox-row .dot{width:7px;height:7px;border-radius:50%;background:var(--rose);flex-shrink:0;}
+.inbox-row .txt{flex:1;font-size:14.5px;}
+.plan-item{background:var(--parchment);border:1.5px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;}
+.plan-item .ptxt{font-size:14.5px;font-weight:700;color:var(--petrol-dark);margin-bottom:6px;}
+.plan-item .pnote{font-size:12.5px;color:#6b7a78;margin-top:6px;line-height:1.6;}
+.plan-item.excluded{opacity:.45;}
+.plan-check{width:22px;height:22px;border-radius:6px;border:2px solid var(--sage);background:var(--paper);flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;margin-left:8px;}
+.plan-check.on{background:var(--sage);}
+.plan-check svg{width:12px;height:12px;stroke:#fff;stroke-width:3;fill:none;}
+.plan-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+
+@media(max-width:400px){
+  .brand h1{font-size:19px;}
+  .mood-dot{font-size:18px;padding:8px 2px;}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* ============ constants ============ */
+const CATS = [
+  {id:'health', label:'الصحة والجسم', icon:'🏃‍♀️'},
+  {id:'hair', label:'الشعر والجمال', icon:'💇‍♀️'},
+  {id:'finance', label:'الأمور المالية', icon:'💰'},
+  {id:'selfdev', label:'تطوير الذات', icon:'📚'},
+  {id:'career', label:'العمل والمهنة', icon:'💼'},
+  {id:'relationships', label:'العلاقات', icon:'❤️'},
+  {id:'spiritual', label:'الروحانيات', icon:'🕊️'},
+  {id:'other', label:'أخرى', icon:'✨'},
+];
+const CAT_MAP = Object.fromEntries(CATS.map(c=>[c.id,c]));
+
+/* categories used to classify raw inbox tasks (business/personal/etc.) */
+const TCATS = [
+  {id:'business', label:'عمل / بزنس', icon:'💼'},
+  {id:'project', label:'مشروع مهم', icon:'🚀'},
+  {id:'family', label:'عائلية', icon:'👨‍👩‍👧'},
+  {id:'personal', label:'شخصية', icon:'🌸'},
+  {id:'other', label:'أخرى', icon:'✨'},
+];
+const TCAT_MAP = Object.fromEntries(TCATS.map(c=>[c.id,c]));
+
+const QUESTIONS = {
+  health:['وش أول خطوة صغيرة تقدرين تبدئين فيها هالأسبوع؟','كم مرة بالأسبوع تبين تخصصين وقت لها؟'],
+  hair:['وش أكبر شي مضايقك في شعرك حالياً؟','عندك روتين معيّن تبين تبدئين فيه أو تكملين عليه؟'],
+  finance:['وش أول هدف مالي واضح تبين توصلينه هالسنة؟','تبين تتابعين مصروفك يومياً ولا أسبوعياً؟'],
+  selfdev:['أي مهارة أو عادة تبين تطورينها أول شي؟','كم دقيقة يومياً تقدرين تخصصين لها؟'],
+  career:['وش أقرب خطوة محسوسة في مسارك المهني؟','فيه شهادة أو مهارة معينة تبين تحصلينها؟'],
+  relationships:['مين الشخص أو العلاقة اللي تبين تعطينها وقت أكثر؟','وش تحسين ينقص علاقاتك حالياً؟'],
+  spiritual:['وش تبين تضيفينه لروتينك الروحاني؟','فيه وقت معيّن باليوم يناسبك له؟'],
+  other:['وش أول خطوة عملية لهالهدف؟','متى تبين تبدئين فيها؟'],
+};
+
+const TIPS = {
+  health:['امشي 15 دقيقة اليوم، حتى لو داخل البيت.','اشربي كوب ماء زيادة قبل كل وجبة.','خصصي 5 دقائق تمدد قبل النوم.'],
+  hair:['استخدمي زيت تدليك لفروة الرأس مرتين هالأسبوع.','قصي أطراف شعرك كل 8-10 أسابيع.','قللي حرارة الأدوات وابدئي روتين ترطيب أسبوعي.'],
+  finance:['سجلي كل مصروف اليوم في قائمة بسيطة.','حددي مبلغ ثابت للادخار قبل ما تصرفين.','راجعي اشتراكاتك الشهرية وألغي اللي ما تستخدمينه.'],
+  selfdev:['اقرئي 10 صفحات اليوم من كتاب يفيدك.','دوّني 3 أشياء تعلمتيها هالأسبوع.','جربي مهارة جديدة لمدة 20 دقيقة.'],
+  career:['حدثي جزء بسيط من سيرتك الذاتية اليوم.','تواصلي مع شخص واحد في مجالك.','دوّني 3 إنجازات مهنية هالشهر لملفك.'],
+  relationships:['ابعتي رسالة لطيفة لشخص تحبينه بدون مناسبة.','خصصي وقت بدون جوال مع شخص مهم لك.','اسألي شخص قريب منك كيف حاله فعلاً.'],
+  spiritual:['خصصي 5 دقائق هدوء وتأمل الصبح.','دوّني 3 أشياء تشكرين عليها اليوم.','اقرئي شي يغذي روحك قبل النوم.'],
+  other:['قسمي هدفك إلى خطوة صغيرة تسويها اليوم.','راجعي تقدمك في هذا الهدف هالأسبوع.','اكتبي سبب أهمية هالهدف لك.'],
+};
+
+const MOODS = [
+  {id:'مركزة',e:'🎯'},{id:'هادئة',e:'🌿'},{id:'نشيطة',e:'⚡'},
+  {id:'مرتاحة',e:'☁️'},{id:'متحمسة',e:'✨'},{id:'ممتنة',e:'🌸'},
+];
+const PERIODS = [{id:'صباح',label:'صباحاً'},{id:'ظهر',label:'ظهراً'},{id:'مساء',label:'مساءً'}];
+const PRIORITIES = ['عالية','متوسطة','منخفضة'];
+
+const DOW_NAMES = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+const MONTHS = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+
+/* recurring daily reflection questions, taken from the user's own routine notes */
+const DEFAULT_QUESTIONS = [
+  'ما الشعور الذي أريده لهذا اليوم؟',
+  'ماهي خطوة تحسين البيع اليوم؟',
+  'كيف أحسّن أداء متدربات الماراثون هذا الأسبوع؟',
+];
+
+/* default weekday routine templates, built from the user's uploaded routine notes.
+   Friday/Saturday left empty for her to fill in. */
+function H(label){ return {label, enabled:true}; }
+function defaultTemplates(){
+  return {
+    0:{ name:'الأحد', motto:'', note:'', timeLabel:'4:30 - 6:15 صباحًا', learning:'كلود',
+        habits:['كوب ماء','حركة صباحية (15-20 دقيقة)','مشي خفيف','تمارين مرونة','تنشيط للمفاصل','استحمام','تجهيز الإفطار مع القرآن والأدعية'].map(H) },
+    1:{ name:'الإثنين', motto:'الحركة تصنع الطاقة', note:'', timeLabel:'4:30 - 6:15 صباحًا', learning:'',
+        habits:['كوب ماء','حركة صباحية (15-20 دقيقة)','تمارين مرونة','تنشيط الجسم','تمارين توازن خفيفة','استحمام'].map(H) },
+    2:{ name:'الثلاثاء', motto:'كل فكرة أتعلمها اليوم يجب أن تتحول إلى تطبيق', note:'الثلاثاء = يوم التعلم العميق، بدون تغيير جذري في الروتين.', timeLabel:'4:30 - 6:15 صباحًا', learning:'',
+        habits:['كوب ماء'].map(H) },
+    3:{ name:'الأربعاء', motto:'العناية بالنفس ليست رفاهية، بل وقود لما بعده', note:'الأربعاء = يوم للعناية بالنفس', timeLabel:'4:30 - 6:15 صباحًا', learning:'',
+        habits:['كوب ماء','حركة صباحية (15-20 دقيقة)','تمارين مرونة','تنشيط الجسم','تمارين توازن خفيفة','استحمام'].map(H) },
+    4:{ name:'الخميس', motto:'العلاقات التي أعتني بها اليوم هي أجمل استثمار للمستقبل', note:'الخميس هو اليوم اللي تبدأين فيه بأجواء الويكند.', timeLabel:'4:30 - 6:15 صباحًا', learning:'',
+        habits:[] },
+    5:{ name:'الجمعة', motto:'', note:'', timeLabel:'', learning:'', habits:[] },
+    6:{ name:'السبت', motto:'', note:'', timeLabel:'', learning:'', habits:[] },
+  };
+}
+
+/* ready-made habit suggestions the user can pin to any day's routine */
+const PRESET_HABITS = [
+  {label:'نشاط عائلي', icon:'👨‍👩‍👧'},
+  {label:'عناية بالشعر والجمال', icon:'💇‍♀️'},
+  {label:'وقت استرخاء', icon:'🌸'},
+  {label:'قراءة قبل النوم', icon:'📖'},
+  {label:'تواصل مع صديقة أو قريبة', icon:'📞'},
+  {label:'ترتيب المساحة', icon:'🧹'},
+  {label:'مشي خفيف مسائي', icon:'🚶‍♀️'},
+  {label:'وقت بدون شاشة', icon:'📵'},
+];
+
+
+/* ============ state ============ */
+let state = {
+  name:'', onboarded:false,
+  goals:[], tasks:[],
+  dayTemplates: defaultTemplates(),
+  dailyLogs:{}, /* dateStr -> {habits:{label:bool}, answers:[..], mood:[..], reflection:num|null} */
+  tipIndex:{},
+  inbox:[], /* {id, text, category, addedAt} - unsorted brain-dump items */
+};
+let view = 'home';
+let selectedDate = null;
+let weekRef = null;
+let _habitPickDow = new Date().getDay();
+let goalWizard = null;
+let taskDraft = null;
+let templateDraft = null;
+let aiLoading = false;
+let aiSuggestion = null;
+let aiError = null;
+let storageReady = false;
+let inboxDraftText = '';
+let inboxBulkText = '';
+let bulkSplitLoading = false;
+let bulkSplitError = null;
+let importPasteText = '';
+let importError = null;
+let importSugError = null;
+let aiPlan = null; /* array of {id, text, priority, period, due, note, include} once organized */
+let aiPlanLoading = false;
+let aiPlanError = null;
+
+const pad = n=> String(n).padStart(2,'0');
+function toISO(dt){ return dt.getFullYear()+'-'+pad(dt.getMonth()+1)+'-'+pad(dt.getDate()); }
+function parseISO(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+const todayStr = ()=> toISO(new Date());
+const uid = ()=> Math.random().toString(36).slice(2,10);
+function addDays(dateStr, n){ const dt=parseISO(dateStr); dt.setDate(dt.getDate()+n); return toISO(dt); }
+function dowOf(dateStr){ return parseISO(dateStr).getDay(); }
+function startOfWeek(dateStr){ const dt=parseISO(dateStr); dt.setDate(dt.getDate()-dt.getDay()); return toISO(dt); }
+function formatDateAr(dateStr){ const dt=parseISO(dateStr); return `${dt.getDate()} ${MONTHS[dt.getMonth()]} ${dt.getFullYear()}`; }
+
+function getLog(dateStr){
+  if(!state.dailyLogs[dateStr]) state.dailyLogs[dateStr] = {habits:{}, answers:['','',''], mood:[], reflection:null};
+  if(!state.dailyLogs[dateStr].answers) state.dailyLogs[dateStr].answers=['','',''];
+  if(!state.dailyLogs[dateStr].mood) state.dailyLogs[dateStr].mood=[];
+  if(!state.dailyLogs[dateStr].habits) state.dailyLogs[dateStr].habits={};
+  return state.dailyLogs[dateStr];
+}
+
+/* ============ persistence (local device storage — works fully offline, no account needed) ============ */
+async function loadState(){
+  try{
+    const raw = localStorage.getItem('plannerState');
+    if(raw){
+      const parsed = JSON.parse(raw);
+      state = Object.assign(state, parsed);
+      if(!state.dayTemplates) state.dayTemplates = defaultTemplates();
+      if(!state.dailyLogs) state.dailyLogs = {};
+      if(!state.inbox) state.inbox = [];
+      /* migrate old plain-string habits into {label, enabled} objects */
+      Object.keys(state.dayTemplates).forEach(k=>{
+        const tpl = state.dayTemplates[k];
+        if(tpl && Array.isArray(tpl.habits)){
+          tpl.habits = tpl.habits.map(h => (typeof h === 'string') ? {label:h, enabled:true} : h);
+        }
+      });
+      /* migrate old single-day mood/reflection fields if present */
+      if((parsed.todayMood && parsed.todayMood.length) || parsed.reflection){
+        const d = parsed.lastActiveDate || todayStr();
+        const log = getLog(d);
+        if(parsed.todayMood) log.mood = parsed.todayMood;
+        if(parsed.reflection) log.reflection = parsed.reflection;
+      }
+    }
+  }catch(e){ console.error('تعذر القراءة', e); }
+  storageReady = true;
+  selectedDate = todayStr();
+  weekRef = todayStr();
+  render();
+}
+async function saveState(){
+  try{
+    localStorage.setItem('plannerState', JSON.stringify(state));
+  }catch(e){
+    console.error('تعذر الحفظ', e);
+  }
+}
+
+/* ============ scoring: top tasks ============ */
+function scoreTask(t){
+  let s = 0;
+  s += t.priority==='عالية'?3:t.priority==='متوسطة'?2:1;
+  if(t.goalId) s += 1;
+  if(t.due === todayStr()) s += 2;
+  if(t.due && t.due < todayStr()) s += 3;
+  return s;
+}
+function topTasks(){
+  return state.tasks.filter(t=>!t.done).sort((a,b)=>scoreTask(b)-scoreTask(a)).slice(0,3);
+}
+
+/* ============ render root ============ */
+function render(){
+  const app = document.getElementById('app');
+  if(!storageReady){ app.innerHTML = '<div class="empty">جارٍ فتح دفترك…</div>'; return; }
+  if(!state.onboarded){ app.innerHTML = renderOnboarding(); attachOnboardingEvents(); return; }
+  if(goalWizard){ app.innerHTML = renderGoalWizard(); attachGoalWizardEvents(); return; }
+  if(taskDraft){ app.innerHTML = renderTaskDraft(); attachTaskDraftEvents(); return; }
+  if(templateDraft){ app.innerHTML = renderTemplateDraft(); attachTemplateDraftEvents(); return; }
+
+  let body = '';
+  if(view==='home') body = renderHome();
+  else if(view==='tasks') body = renderTasks();
+  else if(view==='goals') body = renderGoals();
+  else if(view==='habits') body = renderHabitsPage();
+  else if(view==='inbox') body = renderInboxPage();
+
+  app.innerHTML = `
+    ${renderTopbar()}
+    ${body}
+    ${renderNav()}
+    <div class="stamp-pop" id="stampPop">${stampSVG('أنجزتها','ماشاءالله')}</div>
+  `;
+  attachGlobalEvents();
+}
+
+function stampSVG(line1, line2){
+  return `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="none" stroke="#C79A3C" stroke-width="5"/><circle cx="50" cy="50" r="37" fill="none" stroke="#C79A3C" stroke-width="2"/><text x="50" y="46" text-anchor="middle" font-family="Aref Ruqaa, serif" font-size="15" fill="#C79A3C" font-weight="700">${line1}</text><text x="50" y="64" text-anchor="middle" font-family="Tajawal, sans-serif" font-size="9" fill="#C79A3C" font-weight="700">${line2}</text></svg>`;
+}
+
+/* ============ onboarding ============ */
+function renderOnboarding(){
+  return `
+  <div style="min-height:90vh;display:flex;flex-direction:column;justify-content:center;">
+    <div style="text-align:center;margin-bottom:26px;">
+      <div class="brand" style="justify-content:center;margin-bottom:10px;">
+        <div class="seal">د</div>
+      </div>
+      <h1 style="font-size:26px;color:var(--petrol-dark);">دفتري للأمان المالي</h1>
+      <p class="muted" style="font-size:14px;margin-top:6px;">مساحتك اليومية للتنظيم، الأهداف، والإنجاز</p>
+    </div>
+    <div class="card">
+      <div class="card-title"><h3>هلا فيك 🌿</h3></div>
+      <p class="muted" style="margin-bottom:16px;line-height:1.8;">قبل نبدأ، وش اسمك؟ عشان أخاطبك فيه كل صباح، وأساعدك تبنين يومك حوالين أهدافك.</p>
+      <div class="field">
+        <label>اسمك</label>
+        <input type="text" id="onName" placeholder="مثال: سارة" value="${escapeHtml(state.name)}"/>
+      </div>
+      <button class="btn btn-block" id="onNext">يلا نبدأ</button>
+    </div>
+  </div>`;
+}
+function attachOnboardingEvents(){
+  document.getElementById('onNext').onclick = ()=>{
+    const val = document.getElementById('onName').value.trim();
+    if(!val){ document.getElementById('onName').focus(); return; }
+    state.name = val;
+    state.onboarded = true;
+    saveState();
+    goalWizard = {title:'', cat:'health', answers:['','']};
+    render();
+  };
+}
+
+/* ============ goal wizard ============ */
+function renderGoalWizard(){
+  const qs = QUESTIONS[goalWizard.cat] || [];
+  return `
+  <div style="padding-top:10px;">
+    <div class="card">
+      <span class="eyebrow">هدف سنوي جديد</span>
+      <h3 style="margin-bottom:14px;">وش الهدف اللي حابة تشتغلين عليه؟</h3>
+      <div class="field">
+        <label>اسم الهدف</label>
+        <input type="text" id="gwTitle" placeholder="مثال: تحسين صحة شعري" value="${escapeHtml(goalWizard.title)}"/>
+      </div>
+      <div class="field">
+        <label>يندرج تحت</label>
+        <div class="chip-row" id="gwCats">
+          ${CATS.map(c=>`<button type="button" class="chip cat ${goalWizard.cat===c.id?'selected':''}" data-cat="${c.id}">${c.icon} ${c.label}</button>`).join('')}
+        </div>
+      </div>
+      <hr style="border:none;border-top:1px dashed var(--line);margin:16px 0;">
+      <span class="eyebrow">عشان أساعدك أبني مهامك اليومية</span>
+      ${qs.map((q,i)=>`
+        <div class="field">
+          <label>${q}</label>
+          <textarea id="gwAns${i}" placeholder="اكتبي إجابتك هنا…">${escapeHtml(goalWizard.answers[i]||'')}</textarea>
+        </div>`).join('')}
+      <div style="display:flex;gap:10px;margin-top:8px;">
+        <button class="btn btn-block" id="gwSave">حفظ الهدف</button>
+        <button class="btn ghost" id="gwCancel">${state.goals.length||state.tasks.length?'إلغاء':'تخطي الآن'}</button>
+      </div>
+    </div>
+  </div>`;
+}
+function attachGoalWizardEvents(){
+  document.querySelectorAll('#gwCats .chip').forEach(b=>{
+    b.onclick = ()=>{
+      goalWizard.title = document.getElementById('gwTitle').value;
+      goalWizard.cat = b.dataset.cat;
+      goalWizard.answers = ['',''];
+      render();
+    };
+  });
+  document.getElementById('gwSave').onclick = ()=>{
+    const title = document.getElementById('gwTitle').value.trim();
+    if(!title){ document.getElementById('gwTitle').focus(); return; }
+    const qs = QUESTIONS[goalWizard.cat]||[];
+    const answers = qs.map((_,i)=> (document.getElementById('gwAns'+i)?.value||'').trim());
+    state.goals.push({id:uid(), title, cat:goalWizard.cat, answers, createdAt:todayStr()});
+    saveState();
+    goalWizard = null;
+    view = 'goals';
+    render();
+  };
+  document.getElementById('gwCancel').onclick = ()=>{
+    goalWizard = null;
+    view = state.goals.length?'goals':'home';
+    render();
+  };
+}
+
+/* ============ template (day routine) editor ============ */
+function renderTemplateDraft(){
+  const d = templateDraft;
+  return `
+  <div style="padding-top:10px;">
+    <div class="card">
+      <span class="eyebrow">روتين ثابت لكل ${d.name}</span>
+      <h3 style="margin-bottom:6px;">تعديل روتين يوم ${d.name}</h3>
+      <p class="muted" style="margin-bottom:16px;">أي تعديل هنا ينطبق على كل يوم ${d.name} في المستقبل.</p>
+      <div class="field">
+        <label>شعار اليوم</label>
+        <input type="text" id="tdMotto" value="${escapeHtml(d.motto)}" placeholder="مثال: الحركة تصنع الطاقة"/>
+      </div>
+      <div class="field">
+        <label>ملاحظة إضافية (اختياري)</label>
+        <textarea id="tdNote" placeholder="أي تفاصيل زيادة عن طابع اليوم…">${escapeHtml(d.note)}</textarea>
+      </div>
+      <div class="field">
+        <label>وقت الروتين</label>
+        <input type="text" id="tdTime" value="${escapeHtml(d.timeLabel)}" placeholder="مثال: 4:30 - 6:15 صباحًا"/>
+      </div>
+      <div class="field">
+        <label>تعلّم اليوم (اختياري)</label>
+        <input type="text" id="tdLearning" value="${escapeHtml(d.learning)}" placeholder="مثال: كورس أو كتاب"/>
+      </div>
+      <p class="muted" style="margin-bottom:16px;">📌 إدارة عادات هذا اليوم (إضافة، تفعيل، تعطيل) صارت من صفحة "العادات".</p>
+      <div style="display:flex;gap:10px;margin-top:8px;">
+        <button class="btn btn-block" id="tdSaveTemplate">حفظ الروتين</button>
+        <button class="btn ghost" id="tdCancelTemplate">إلغاء</button>
+      </div>
+    </div>
+  </div>`;
+}
+function attachTemplateDraftEvents(){
+  document.getElementById('tdSaveTemplate').onclick = ()=>{
+    syncTemplateDraftFields();
+    const existingHabits = state.dayTemplates[templateDraft.dow].habits;
+    state.dayTemplates[templateDraft.dow] = {
+      name: templateDraft.name, motto: templateDraft.motto, note: templateDraft.note,
+      timeLabel: templateDraft.timeLabel, learning: templateDraft.learning, habits: existingHabits
+    };
+    saveState();
+    templateDraft = null;
+    render();
+  };
+  document.getElementById('tdCancelTemplate').onclick = ()=>{ templateDraft=null; render(); };
+}
+function syncTemplateDraftFields(){
+  templateDraft.motto = document.getElementById('tdMotto').value;
+  templateDraft.note = document.getElementById('tdNote').value;
+  templateDraft.timeLabel = document.getElementById('tdTime').value;
+  templateDraft.learning = document.getElementById('tdLearning').value;
+}
+
+/* ============ topbar ============ */
+function renderTopbar(){
+  const d = new Date();
+  return `
+  <div class="topbar">
+    <div class="brand"><div class="seal">د</div><h1 style="font-size:17px;">دفتري للأمان المالي</h1></div>
+    <div class="date-chip">${DOW_NAMES[d.getDay()]}، ${d.getDate()} ${MONTHS[d.getMonth()]}</div>
+  </div>`;
+}
+
+/* ============ date navigator (used on Home) ============ */
+function renderDateNav(){
+  const dow = dowOf(selectedDate);
+  const isToday = selectedDate === todayStr();
+  return `
+  <div class="date-nav">
+    <button type="button" class="arrow" id="prevDay">‹</button>
+    <div class="mid picker" id="dateMidClick">
+      <div class="dname">${DOW_NAMES[dow]}</div>
+      <div class="ddate">${formatDateAr(selectedDate)}</div>
+      <input type="date" id="datePick" value="${selectedDate}"/>
+    </div>
+    <button type="button" class="arrow" id="nextDay">›</button>
+    ${!isToday? `<button type="button" class="today-btn" id="jumpToday">اليوم</button>`:''}
+  </div>
+  ${!isToday? `<span class="browsing-badge">${selectedDate > todayStr() ? '📅 تخطيط ليوم قادم' : '📖 تصفح يوم سابق'}</span>`:''}
+  `;
+}
+
+/* ============ HOME ============ */
+function renderHome(){
+  const isToday = selectedDate === todayStr();
+  const dow = dowOf(selectedDate);
+  const tpl = state.dayTemplates[dow];
+  const log = getLog(selectedDate);
+  const doneToday = state.tasks.filter(t=>t.done && t.doneAt===selectedDate).length;
+
+  return `
+  ${renderDateNav()}
+  <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:4px;">${isToday? `صباحك أهداف، ${escapeHtml(state.name)} 🌿` : `روتين يوم ${tpl.name}`}</h2>
+  <p class="muted" style="margin-bottom:18px;">${isToday? (doneToday>0? `أنجزتي ${doneToday} مهمة اليوم، استمري كذا!` : 'يلا نبني يومك خطوة خطوة') : 'تقدرين تراجعين أو تخططين لهذا اليوم من هنا'}</p>
+
+  ${renderTemplateCard(tpl, dow)}
+  ${renderHabitsCard(tpl, log, dow)}
+  ${renderQuestionsCard(log)}
+
+  <div class="card">
+    <div class="card-title"><h3>شلون تبين تحسين هالليوم؟</h3></div>
+    <div class="mood-scale">
+      ${MOODS.map(m=>`<button type="button" class="mood-dot ${log.mood.includes(m.id)?'selected':''}" data-mood="${m.id}">${m.e}<span class="ml">${m.id}</span></button>`).join('')}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><h3>${isToday? 'أهم 3 مهام اليوم':'مهام هذا التاريخ'}</h3>
+      ${isToday? `<button class="icon-btn sm" id="refreshTop" title="إعادة الاختيار">↻</button>`:''}
+    </div>
+    ${renderTasksForDate(isToday)}
+    <button class="btn ghost btn-block" style="margin-top:12px;" id="goAddTask">+ إضافة مهمة</button>
+  </div>
+
+  ${isToday? renderScheduleCard():''}
+  ${isToday? renderSuggestionsCard():''}
+  ${renderReflectionCard(log)}
+  `;
+}
+
+function renderTemplateCard(tpl, dow){
+  return `
+  <div class="card">
+    <div class="card-title"><h3>${tpl.name}</h3>
+      <button class="icon-btn sm" data-edit-template="${dow}">تعديل الروتين</button>
+    </div>
+    ${tpl.motto? `<div class="quote-box"><p>"${escapeHtml(tpl.motto)}"</p></div>`:''}
+    ${tpl.note? `<p class="muted" style="margin-bottom:8px;">${escapeHtml(tpl.note)}</p>`:''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      ${tpl.timeLabel? `<span class="tag">⏰ ${escapeHtml(tpl.timeLabel)}</span>`:''}
+      ${tpl.learning? `<span class="tag">📖 تعلّم: ${escapeHtml(tpl.learning)}</span>`:''}
+    </div>
+    ${(!tpl.motto && !tpl.timeLabel && !tpl.habits.length)? `<p class="muted" style="margin-top:10px;">ما فيه روتين محدد لهذا اليوم بعد، اضغطي "تعديل الروتين" عشان تبنينه.</p>`:''}
+  </div>`;
+}
+
+function renderHabitsCard(tpl, log, dow){
+  const active = tpl.habits.filter(h=>h.enabled!==false);
+  return `
+  <div class="card">
+    <div class="card-title"><h3>عادات ${tpl.name}</h3>
+      <button class="icon-btn sm" data-goto-habits="1">إدارة العادات</button>
+    </div>
+    ${active.length===0? `<p class="muted" style="margin-bottom:10px;">ما فيه عادات مفعّلة لهذا اليوم. أضيفي أو فعّلي من صفحة "العادات".</p>`:''}
+    ${active.map(h=>{
+      const done = !!log.habits[h.label];
+      return `<div class="habit-item">
+        <button type="button" class="hbox ${done?'done':''}" data-habit="${escapeHtml(h.label)}">${done?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
+        <span class="habit-label ${done?'done':''}" style="flex:1;">${escapeHtml(h.label)}</span>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function renderQuestionsCard(log){
+  return `
+  <div class="card">
+    <div class="card-title"><h3>تساؤلات اليوم</h3></div>
+    ${DEFAULT_QUESTIONS.map((q,i)=>`
+      <div class="field" style="margin-bottom:12px;">
+        <label>${q}</label>
+        <textarea data-qidx="${i}" placeholder="اكتبي إجابتك…">${escapeHtml(log.answers[i]||'')}</textarea>
+      </div>`).join('')}
+  </div>`;
+}
+
+function renderTasksForDate(isToday){
+  const list = isToday? topTasks() : state.tasks.filter(t=>t.due===selectedDate);
+  if(list.length===0){
+    return `<div class="empty">${isToday? 'ما فيه مهام بعد.':'ما فيه مهام مجدولة لهذا التاريخ.'}</div>`;
+  }
+  return list.map(t=>taskRowHtml(t)).join('');
+}
+
+function taskRowHtml(t){
+  const g = t.goalId? state.goals.find(x=>x.id===t.goalId): null;
+  return `
+  <div class="task-row" data-task="${t.id}">
+    <button class="check ${t.done?'done':''}" data-toggle="${t.id}">${t.done?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
+    <div style="flex:1;">
+      <div class="task-title ${t.done?'done':''}">${escapeHtml(t.title)}</div>
+      <div style="margin-top:3px;display:flex;gap:6px;flex-wrap:wrap;">
+        <span class="tag p-${t.priority}">${t.priority}</span>
+        ${t.category? `<span class="tag">${TCAT_MAP[t.category]?.icon||''} ${TCAT_MAP[t.category]?.label||''}</span>`:''}
+        ${g? `<span class="tag">${CAT_MAP[g.cat]?.icon||''} ${escapeHtml(g.title)}</span>`:''}
+        ${t.period? `<span class="tag">${t.period}</span>`:''}
+        ${t.due? `<span class="tag">📅 ${t.due}</span>`:''}
+      </div>
+    </div>
+    <button class="icon-btn" data-del="${t.id}">✕</button>
+  </div>`;
+}
+
+function renderScheduleCard(){
+  const period = window.__activePeriod || 'صباح';
+  window.__activePeriod = period;
+  const items = state.tasks.filter(t=>!t.done && t.period===period);
+  return `
+  <div class="card">
+    <div class="card-title"><h3>جدول يومك</h3></div>
+    <div class="period-tabs">
+      ${PERIODS.map(p=>`<button type="button" class="period-tab ${period===p.id?'active':''}" data-period="${p.id}">${p.label}</button>`).join('')}
+    </div>
+    ${items.length===0? `<div class="empty">ما فيه مهام في هالفترة. وزّعي مهامك من صفحة المهام.</div>` : items.map(t=>taskRowHtml(t)).join('')}
+  </div>`;
+}
+
+function renderSuggestionsCard(){
+  const hasGoals = state.goals.length>0;
+  const hasInbox = state.inbox.length>0;
+  let tipCard = '';
+  if(!hasGoals){
+    tipCard = `<div class="card">
+      <div class="card-title"><h3>مقترحات ذكية</h3></div>
+      <p class="muted">أضيفي هدفك الأول عشان أقدر أعطيك مقترحات مبنية عليه.</p>
+      <button class="btn rose btn-block" id="goAddGoal">+ إضافة هدف</button>
+    </div>`;
+  }else{
+    const g = state.goals[(new Date().getDate()) % state.goals.length];
+    const tips = TIPS[g.cat]||[];
+    const idx = (state.tipIndex[g.id]||0) % (tips.length||1);
+    const tip = tips[idx] || '';
+    tipCard = `
+    <div class="card">
+      <div class="card-title"><h3>مقترح اليوم</h3></div>
+      <p class="muted" style="margin-bottom:8px;">مبني على هدفك: <b style="color:var(--petrol-dark);">${CAT_MAP[g.cat]?.icon||''} ${escapeHtml(g.title)}</b></p>
+      <p style="font-size:15px;margin-bottom:12px;">${escapeHtml(tip)}</p>
+      <div style="display:flex;gap:8px;">
+        <button class="btn sm" id="addTipTask" data-tip="${escapeHtml(tip)}" data-goal="${g.id}">أضيفيها لمهامي</button>
+        <button class="btn ghost sm" id="anotherTip" data-goal="${g.id}">اقتراح ثاني</button>
+      </div>
+    </div>`;
+  }
+
+  if(!hasGoals && !hasInbox) return tipCard;
+
+  return `
+  ${tipCard}
+  <div class="card" style="border-color:var(--sage);">
+    <div class="card-title"><h3>📥 مقترح من المحادثة</h3></div>
+    <p class="muted" style="margin-bottom:8px;">قوليلي بالمحادثة "اقترح لي مهمة اليوم"، وألصقي ردّي هنا — طريقة أكيدة تشتغل دايم.</p>
+    ${importSugError? `<p class="muted" style="color:var(--rose-dark);margin-bottom:8px;">${escapeHtml(importSugError)}</p>`:''}
+    <div style="display:flex;gap:8px;">
+      <input type="text" id="importSugInput" placeholder="الصقي المهمة هنا…" style="flex:1;"/>
+      <button class="btn sm" id="importSugBtn">أضيفيها</button>
+    </div>
+  </div>
+
+  <details>
+    <summary class="muted" style="cursor:pointer;font-size:12.5px;">تجربة الاتصال المباشر بالذكاء الاصطناعي (يشتغل فقط داخل Claude.ai، مو بالنسخة المستضافة)</summary>
+    <div class="card ai-box" style="margin-top:10px;">
+      <p class="muted" style="margin-bottom:10px;">يحلل أهدافك السنوية ومهام صندوقك ويقترح أفضل مهمة لليوم.</p>
+      ${aiError? `<p class="muted" style="color:var(--rose-dark);margin-bottom:10px;">${escapeHtml(aiError)}</p>`:''}
+      ${aiSuggestion? `
+        <div class="card" style="margin:0 0 10px;background:var(--parchment);">
+          <p style="font-size:14.5px;margin-bottom:10px;">${escapeHtml(aiSuggestion.text)}</p>
+          <button class="btn sm" id="acceptAiTask">أضيفيها لمهامي</button>
+        </div>
+      `:''}
+      <button class="btn ghost btn-block" id="askAi" ${aiLoading?'disabled':''}>
+        ${aiLoading? 'جاري التفكير…<span class="spinner"></span>' : 'اقترح لي مهمة ذكية'}
+      </button>
+    </div>
+  </details>`;
+}
+
+function renderReflectionCard(log){
+  return `
+  <div class="card">
+    <div class="card-title"><h3>وش نتيجة هالليوم؟</h3></div>
+    <p class="muted" style="margin-bottom:10px;">قيّمي رضاك عن إنجاز هذا اليوم</p>
+    <div class="chip-row">
+      ${[1,2,3,4,5].map(n=>`<button type="button" class="chip ${log.reflection===n?'selected':''}" data-refl="${n}">${'⭐'.repeat(n)}</button>`).join('')}
+    </div>
+  </div>`;
+}
+
+/* ============ TASKS page ============ */
+function renderTasks(){
+  const list = state.tasks.slice().sort((a,b)=> (a.done - b.done) || (scoreTask(b)-scoreTask(a)));
+  return `
+  <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:14px;">مهامي</h2>
+  <button class="btn btn-block" id="goAddTask2" style="margin-bottom:16px;">+ إضافة مهمة جديدة</button>
+  <div class="card">
+    ${list.length===0? `<div class="empty">ما عندك مهام بعد.</div>` : list.map(t=>taskRowHtml(t)).join('')}
+  </div>`;
+}
+
+/* ============ GOALS page ============ */
+function renderGoals(){
+  return `
+  <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:14px;">أهدافي السنوية</h2>
+  <button class="btn btn-block" id="goAddGoal2" style="margin-bottom:16px;">+ إضافة هدف جديد</button>
+  ${state.goals.length===0? `<div class="card"><div class="empty">لسا ما أضفتي أهداف. ابدئي بأول هدف يمثلك هالسنة.</div></div>` :
+    state.goals.map(g=>`
+    <div class="card goal-card">
+      <div class="card-title" style="justify-content:space-between;">
+        <h3>${CAT_MAP[g.cat]?.icon||''} ${escapeHtml(g.title)}</h3>
+        <button class="icon-btn" data-delgoal="${g.id}">✕</button>
+      </div>
+      ${g.answers && g.answers.some(a=>a) ? `
+        <div style="margin-top:6px;">
+          ${QUESTIONS[g.cat].map((q,i)=> g.answers[i]? `<p class="muted" style="margin-bottom:6px;"><b style="color:var(--petrol-dark);">${q}</b><br>${escapeHtml(g.answers[i])}</p>`:'').join('')}
+        </div>`:''}
+      <button class="btn ghost sm" data-addtaskfor="${g.id}" style="margin-top:8px;">+ إضافة مهمة لهالهدف</button>
+    </div>
+  `).join('')}`;
+}
+
+/* ============ HABITS (weekly tracker) page ============ */
+function renderHabitsPage(){
+  const start = startOfWeek(weekRef);
+  const dates = Array.from({length:7},(_,i)=>addDays(start,i));
+  /* union of active (enabled) habit labels across this week's templates, in day order, de-duplicated */
+  const habitSet = [];
+  dates.forEach(d=>{
+    const tpl = state.dayTemplates[dowOf(d)];
+    tpl.habits.filter(h=>h.enabled!==false).forEach(h=>{ if(!habitSet.includes(h.label)) habitSet.push(h.label); });
+  });
+
+  const rangeLabel = `${formatDateAr(dates[0])} – ${formatDateAr(dates[6])}`;
+
+  let rows = '';
+  if(habitSet.length===0){
+    rows = `<tr><td colspan="8" style="padding:20px;color:#8b9694;">ما فيه عادات مفعّلة لأيام هالأسبوع. أضيفي وفعّلي عادات من الإدارة تحت.</td></tr>`;
+  }else{
+    rows = habitSet.map(label=>{
+      let cells = dates.map(d=>{
+        const tpl = state.dayTemplates[dowOf(d)];
+        const active = tpl.habits.filter(h=>h.enabled!==false).map(h=>h.label);
+        if(!active.includes(label)) return `<td><span class="gcheck na">–</span></td>`;
+        const log = getLog(d);
+        const done = !!log.habits[label];
+        return `<td><button type="button" class="gcheck ${done?'done':''}" data-gdate="${d}" data-glabel="${escapeHtml(label)}">${done?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button></td>`;
+      }).join('');
+      return `<tr><td class="habit-label-cell">${escapeHtml(label)}</td>${cells}</tr>`;
+    }).join('');
+  }
+
+  let pctCells = dates.map(d=>{
+    const tpl = state.dayTemplates[dowOf(d)];
+    const active = tpl.habits.filter(h=>h.enabled!==false);
+    if(!active.length) return `<td>–</td>`;
+    const log = getLog(d);
+    const done = active.filter(h=>log.habits[h.label]).length;
+    return `<td>${done}/${active.length}</td>`;
+  }).join('');
+
+  return `
+  <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:14px;">متابعة العادات الأسبوعية</h2>
+  <div class="card">
+    <div class="week-nav">
+      <button type="button" class="arrow" id="prevWeek" style="width:32px;height:32px;border-radius:8px;background:var(--parchment);border:1px solid var(--line);">‹</button>
+      <span class="lbl">${rangeLabel}${startOfWeek(todayStr())===start? ' (الأسبوع الحالي)':''}</span>
+      <button type="button" class="arrow" id="nextWeek" style="width:32px;height:32px;border-radius:8px;background:var(--parchment);border:1px solid var(--line);">›</button>
+    </div>
+    <div class="htable-wrap">
+      <table class="htable">
+        <thead>
+          <tr>
+            <th style="text-align:right;">العادة</th>
+            ${dates.map(d=>`<th>${DOW_NAMES[dowOf(d)].replace('ال','')}<span class="d">${parseISO(d).getDate()}</span></th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+          ${habitSet.length? `<tr class="pct-row"><td class="habit-label-cell">الإنجاز</td>${pctCells}</tr>`:''}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <p class="muted" style="padding:0 4px;">العلامة "–" تعني إن هالعادة مو ضمن روتين ذاك اليوم. الإدارة الكاملة تحت 👇</p>
+
+  <div class="card" style="margin-top:16px;">
+    <div class="card-title"><h3>إدارة عادات يوم ${DOW_NAMES[_habitPickDow]}</h3></div>
+    <p class="muted" style="margin-bottom:10px;">اختاري اليوم، وفعّلي أو عطّلي أو عدّلي أو احذفي أي عادة منه.</p>
+    <div class="chip-row" style="margin-bottom:14px;" id="habitDowPicker">
+      ${DOW_NAMES.map((n,i)=>`<button type="button" class="chip ${(_habitPickDow===i)?'selected':''}" data-pick-dow="${i}">${n}</button>`).join('')}
+    </div>
+    ${state.dayTemplates[_habitPickDow].habits.length===0? `<p class="muted" style="margin-bottom:10px;">ما فيه عادات ليوم ${DOW_NAMES[_habitPickDow]} بعد.</p>`:''}
+    ${state.dayTemplates[_habitPickDow].habits.map((h,idx)=>{
+      const isOn = h.enabled!==false;
+      return `<div class="habit-item" style="${isOn?'':'opacity:.45;'}">
+        <input type="text" data-mgmt-habit-i="${idx}" value="${escapeHtml(h.label)}" style="flex:1;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;background:${isOn?'var(--parchment)':'#eee'};font-size:13.5px;"/>
+        <button type="button" class="btn ${isOn?'ghost':''} sm" data-toggle-active="${idx}" data-toggle-dow="${_habitPickDow}">${isOn?'تعطيل':'تفعيل'}</button>
+        <button type="button" class="icon-btn" data-mgmt-del="${idx}">✕</button>
+      </div>`;
+    }).join('')}
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <input type="text" id="pageHabitInput" placeholder="اسم عادة جديدة…" style="flex:1;"/>
+      <button class="btn sm" id="pageHabitAdd">إضافة</button>
+    </div>
+    <div class="chip-row" style="margin-top:10px;">
+      ${PRESET_HABITS.map(p=>`<button type="button" class="chip" data-page-preset="${escapeHtml(p.label)}">${p.icon} ${p.label}</button>`).join('')}
+    </div>
+  </div>
+  `;
+}
+
+/* ============ INBOX (brain-dump) page ============ */
+function renderInboxPage(){
+  return `
+  <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:6px;">صندوق المهام</h2>
+  <p class="muted" style="margin-bottom:16px;">دزّي هنا أي مهمة تجيك في بالك بدون ما تفكرين بترتيبها، وأنا أنظمها لك بعدين.</p>
+
+  <div class="card" style="border-color:var(--sage);">
+    <div class="card-title"><h3>📥 استيراد نتيجة من المحادثة</h3></div>
+    <p class="muted" style="margin-bottom:8px;">الصقي هنا مهامك (منفردة أو ملزقة مع بعض) واطلبي مني بالمحادثة أنظمها، وألصقي ردّي هنا واضغطي "استوردي" — هذي الطريقة تشتغل دايم.</p>
+    <div class="field" style="margin-bottom:8px;">
+      <textarea id="importPaste" placeholder="الصقي هنا رد كلود من المحادثة…" style="min-height:90px;">${escapeHtml(importPasteText)}</textarea>
+    </div>
+    ${importError? `<p class="muted" style="color:var(--rose-dark);margin-bottom:8px;">${escapeHtml(importError)}</p>`:''}
+    <button class="btn btn-block" id="importBtn">استوردي النتيجة</button>
+    <p class="muted" style="margin-top:8px;font-size:11.5px;">الصيغة اللي أرجعها لك: <br>نص المهمة | التصنيف | الأولوية | الفترة | الموعد — كل مهمة بسطر.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><h3>إضافة سريعة</h3></div>
+    <div class="field" style="margin-bottom:10px;">
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="inboxNew" placeholder="اكتبي مهمة وضيفيها…" value="${escapeHtml(inboxDraftText)}" style="flex:1;"/>
+        <button class="btn sm" id="inboxAddBtn">إضافة</button>
+      </div>
+    </div>
+    ${state.inbox.length===0? `<div class="empty">الصندوق فاضي. ابدئي تضيفين اللي في بالك.</div>` :
+      state.inbox.map(it=>`
+        <div class="inbox-row" data-inbox-row="${it.id}">
+          <span class="dot"></span>
+          <div style="flex:1;">
+            <div class="txt">${escapeHtml(it.text)}</div>
+            <span class="tag" style="margin-top:4px;display:inline-block;">${it.category? (TCAT_MAP[it.category]?.icon+' '+TCAT_MAP[it.category]?.label) : 'غير مصنّفة'}</span>
+          </div>
+          <button class="icon-btn" data-del-inbox="${it.id}">✕</button>
+        </div>`).join('')}
+  </div>
+
+  <details style="margin-bottom:16px;">
+    <summary class="muted" style="cursor:pointer;font-size:12.5px;">تجربة الاتصال المباشر بالذكاء الاصطناعي (يشتغل فقط داخل Claude.ai، مو بالنسخة المستضافة)</summary>
+    <div class="card" style="margin-top:10px;">
+      <div class="field" style="margin-bottom:8px;">
+        <textarea id="bulkPaste" placeholder="الصقي هنا…" style="min-height:70px;">${escapeHtml(inboxBulkText)}</textarea>
+      </div>
+      ${bulkSplitError? `<p class="muted" style="color:var(--rose-dark);margin-bottom:8px;">${escapeHtml(bulkSplitError)}</p>`:''}
+      <button class="btn ghost btn-block" id="bulkSplitBtn" ${bulkSplitLoading?'disabled':''} style="margin-bottom:10px;">
+        ${bulkSplitLoading? 'جاري الفصل والتصنيف…<span class="spinner"></span>' : '🤖 قسّمي وصنّفي المهام'}
+      </button>
+      ${state.inbox.length>0? `
+      <button class="btn ghost btn-block" id="organizeBtn" ${aiPlanLoading?'disabled':''}>
+        ${aiPlanLoading? 'جاري الترتيب…<span class="spinner"></span>' : '🤖 رتّبي المهام بالذكاء الاصطناعي'}
+      </button>`:''}
+      ${aiPlanError? `<p class="muted" style="color:var(--rose-dark);margin-top:8px;">${escapeHtml(aiPlanError)}</p>`:''}
+    </div>
+  </details>
+
+  ${aiPlan? renderAiPlanReview():''}
+  `;
+}
+
+function renderAiPlanReview(){
+  return `
+  <div class="card">
+    <div class="card-title"><h3>الخطة المقترحة</h3></div>
+    <p class="muted" style="margin-bottom:12px;">راجعي المقترحات، ألغي أي وحدة ما تبينها الحين، وبعدين اعتمدي الخطة عشان تنضاف لمهامك.</p>
+    ${aiPlan.map((p,i)=>`
+      <div class="plan-item ${p.include?'':'excluded'}">
+        <div class="plan-head">
+          <span class="ptxt">${escapeHtml(p.text)}</span>
+          <button type="button" class="plan-check ${p.include?'on':''}" data-plan-toggle="${i}">${p.include?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          ${p.category? `<span class="tag">${TCAT_MAP[p.category]?.icon||''} ${TCAT_MAP[p.category]?.label||p.category}</span>`:''}
+          <span class="tag p-${p.priority}">${p.priority}</span>
+          ${p.period? `<span class="tag">${p.period}</span>`:''}
+          ${p.due? `<span class="tag">📅 ${p.due}</span>`:''}
+        </div>
+        ${p.note? `<div class="pnote">${escapeHtml(p.note)}</div>`:''}
+      </div>
+    `).join('')}
+    <div style="display:flex;gap:10px;margin-top:6px;">
+      <button class="btn btn-block" id="acceptPlan">اعتمدي الخطة المحددة</button>
+      <button class="btn ghost" id="discardPlan">تراجعي</button>
+    </div>
+  </div>`;
+}
+
+/* ============ task draft (add/edit) ============ */
+function renderTaskDraft(){
+  const d = taskDraft;
+  return `
+  <div style="padding-top:10px;">
+    <div class="card">
+      <span class="eyebrow">مهمة جديدة</span>
+      <h3 style="margin-bottom:14px;">وش المهمة؟</h3>
+      <div class="field">
+        <label>عنوان المهمة</label>
+        <input type="text" id="tdTitle" value="${escapeHtml(d.title)}" placeholder="مثال: اتصال بالبنك"/>
+      </div>
+      <div class="field">
+        <label>مرتبطة بهدف؟ (اختياري)</label>
+        <select id="tdGoal">
+          <option value="">بدون هدف محدد</option>
+          ${state.goals.map(g=>`<option value="${g.id}" ${d.goalId===g.id?'selected':''}>${CAT_MAP[g.cat]?.icon||''} ${escapeHtml(g.title)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field">
+        <label>الأولوية</label>
+        <div class="chip-row">
+          ${PRIORITIES.map(p=>`<button type="button" class="chip ${d.priority===p?'selected':''}" data-pri="${p}">${p}</button>`).join('')}
+        </div>
+      </div>
+      <div class="field">
+        <label>فترة اليوم</label>
+        <div class="chip-row">
+          ${PERIODS.map(p=>`<button type="button" class="chip ${d.period===p.id?'selected':''}" data-per="${p.id}">${p.label}</button>`).join('')}
+        </div>
+      </div>
+      <div class="field">
+        <label>موعدها (اختياري)</label>
+        <input type="date" id="tdDue" value="${d.due||''}"/>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:8px;">
+        <button class="btn btn-block" id="tdSave">حفظ المهمة</button>
+        <button class="btn ghost" id="tdCancel">إلغاء</button>
+      </div>
+    </div>
+  </div>`;
+}
+function attachTaskDraftEvents(){
+  document.querySelectorAll('[data-pri]').forEach(b=> b.onclick=()=>{ syncDraft(); taskDraft.priority=b.dataset.pri; render(); });
+  document.querySelectorAll('[data-per]').forEach(b=> b.onclick=()=>{ syncDraft(); taskDraft.period = (taskDraft.period===b.dataset.per? null : b.dataset.per); render(); });
+  document.getElementById('tdSave').onclick = ()=>{
+    syncDraft();
+    if(!taskDraft.title.trim()){ document.getElementById('tdTitle').focus(); return; }
+    state.tasks.push({
+      id:uid(), title:taskDraft.title.trim(), goalId:taskDraft.goalId||null,
+      priority:taskDraft.priority, period:taskDraft.period||null, due:taskDraft.due||null,
+      done:false, createdAt:todayStr()
+    });
+    saveState();
+    taskDraft = null;
+    render();
+  };
+  document.getElementById('tdCancel').onclick = ()=>{ taskDraft=null; render(); };
+}
+function syncDraft(){
+  taskDraft.title = document.getElementById('tdTitle').value;
+  taskDraft.goalId = document.getElementById('tdGoal').value;
+  taskDraft.due = document.getElementById('tdDue').value;
+}
+
+/* ============ nav ============ */
+function renderNav(){
+  const items = [
+    {id:'home', label:'اليوم', icon:'<circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>'},
+    {id:'tasks', label:'المهام', icon:'<polyline points="4 7 8 11 15 4"/><path d="M3 15h18M3 20h18"/>'},
+    {id:'goals', label:'أهدافي', icon:'<path d="M12 2v20M2 12h20"/><circle cx="12" cy="12" r="9"/>'},
+    {id:'habits', label:'العادات', icon:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/>'},
+    {id:'inbox', label:'الصندوق', icon:'<path d="M3 8l2-4h14l2 4M3 8v10a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V8M3 8h18M8 12h8"/>'},
+  ];
+  return `<div class="nav"><div class="nav-inner">
+    ${items.map(i=>`<button type="button" class="nav-btn ${view===i.id?'active':''}" data-nav="${i.id}"><svg viewBox="0 0 24 24">${i.icon}</svg>${i.label}</button>`).join('')}
+  </div></div>`;
+}
+
+/* ============ global events ============ */
+function attachGlobalEvents(){
+  document.querySelectorAll('[data-nav]').forEach(b=> b.onclick=()=>{ view=b.dataset.nav; render(); });
+
+  /* date navigator */
+  const prevDay = document.getElementById('prevDay');
+  if(prevDay) prevDay.onclick = ()=>{ selectedDate = addDays(selectedDate,-1); render(); };
+  const nextDay = document.getElementById('nextDay');
+  if(nextDay) nextDay.onclick = ()=>{ selectedDate = addDays(selectedDate,1); render(); };
+  const jumpToday = document.getElementById('jumpToday');
+  if(jumpToday) jumpToday.onclick = ()=>{ selectedDate = todayStr(); render(); };
+  const datePick = document.getElementById('datePick');
+  const dateMid = document.getElementById('dateMidClick');
+  if(datePick){
+    datePick.onchange = ()=>{ if(datePick.value){ selectedDate = datePick.value; render(); } };
+    if(dateMid) dateMid.onclick = ()=>{ datePick.showPicker ? datePick.showPicker() : datePick.focus(); };
+  }
+
+  document.querySelectorAll('[data-edit-template]').forEach(b=> b.onclick=()=>{
+    const dow = parseInt(b.dataset.editTemplate,10);
+    const tpl = state.dayTemplates[dow];
+    templateDraft = {dow, name:tpl.name, motto:tpl.motto, note:tpl.note, timeLabel:tpl.timeLabel, learning:tpl.learning, habits:tpl.habits.map(h=>({label:h.label, enabled:h.enabled}))};
+    render();
+  });
+
+  document.querySelectorAll('[data-habit]').forEach(b=> b.onclick=()=>{
+    const label = b.dataset.habit;
+    const log = getLog(selectedDate);
+    const wasDone = !!log.habits[label];
+    log.habits[label] = !wasDone;
+    const tpl = state.dayTemplates[dowOf(selectedDate)];
+    const active = tpl.habits.filter(h=>h.enabled!==false);
+    saveState();
+    if(!wasDone && active.length && active.every(h=>log.habits[h.label])){
+      popStamp('يوم متكامل!','ماشاءالله عليك');
+    }
+    render();
+  });
+
+  document.querySelectorAll('[data-goto-habits]').forEach(b=> b.onclick=()=>{ view='habits'; render(); });
+
+  document.querySelectorAll('[data-toggle-active]').forEach(b=> b.onclick=()=>{
+    const dow = parseInt(b.dataset.toggleDow,10);
+    const idx = parseInt(b.dataset.toggleActive,10);
+    const h = state.dayTemplates[dow].habits[idx];
+    if(h) h.enabled = !h.enabled;
+    saveState(); render();
+  });
+
+  document.querySelectorAll('[data-gdate]').forEach(b=> b.onclick=()=>{
+    const d = b.dataset.gdate, label = b.dataset.glabel;
+    const log = getLog(d);
+    log.habits[label] = !log.habits[label];
+    saveState(); render();
+  });
+
+  document.querySelectorAll('[data-qidx]').forEach(ta=>{
+    ta.onchange = ()=>{
+      const log = getLog(selectedDate);
+      log.answers[parseInt(ta.dataset.qidx,10)] = ta.value;
+      saveState();
+    };
+  });
+
+  document.querySelectorAll('[data-mood]').forEach(b=> b.onclick=()=>{
+    const log = getLog(selectedDate);
+    const m=b.dataset.mood;
+    const i = log.mood.indexOf(m);
+    if(i>-1) log.mood.splice(i,1); else log.mood.push(m);
+    saveState(); render();
+  });
+
+  document.querySelectorAll('[data-toggle]').forEach(b=> b.onclick=()=>{
+    const t = state.tasks.find(x=>x.id===b.dataset.toggle);
+    if(!t) return;
+    t.done = !t.done;
+    t.doneAt = t.done? selectedDate: null;
+    saveState();
+    if(t.done){ popStamp('أنجزتها','ماشاءالله'); }
+    render();
+  });
+
+  document.querySelectorAll('[data-del]').forEach(b=> b.onclick=()=>{
+    state.tasks = state.tasks.filter(x=>x.id!==b.dataset.del);
+    saveState(); render();
+  });
+  document.querySelectorAll('[data-delgoal]').forEach(b=> b.onclick=()=>{
+    state.goals = state.goals.filter(x=>x.id!==b.dataset.delgoal);
+    state.tasks.forEach(t=>{ if(t.goalId===b.dataset.delgoal) t.goalId=null; });
+    saveState(); render();
+  });
+
+  const refresh = document.getElementById('refreshTop');
+  if(refresh) refresh.onclick = ()=> render();
+
+  const addTask = document.getElementById('goAddTask') || document.getElementById('goAddTask2');
+  if(addTask) addTask.onclick = ()=>{ taskDraft={title:'',goalId:'',priority:'متوسطة',period:null,due: selectedDate!==todayStr()? selectedDate : ''}; render(); };
+
+  document.querySelectorAll('[data-addtaskfor]').forEach(b=> b.onclick=()=>{
+    taskDraft={title:'',goalId:b.dataset.addtaskfor,priority:'متوسطة',period:null,due:''}; render();
+  });
+
+  const addGoal = document.getElementById('goAddGoal') || document.getElementById('goAddGoal2');
+  if(addGoal) addGoal.onclick = ()=>{ goalWizard={title:'',cat:'health',answers:['','']}; render(); };
+
+  document.querySelectorAll('[data-period]').forEach(b=> b.onclick=()=>{ window.__activePeriod=b.dataset.period; render(); });
+
+  const addTip = document.getElementById('addTipTask');
+  if(addTip) addTip.onclick = ()=>{
+    state.tasks.push({id:uid(), title:addTip.dataset.tip, goalId:addTip.dataset.goal, priority:'متوسطة', period:null, due:todayStr(), done:false, createdAt:todayStr()});
+    saveState(); render();
+  };
+  const anotherTip = document.getElementById('anotherTip');
+  if(anotherTip) anotherTip.onclick = ()=>{
+    const gid = anotherTip.dataset.goal;
+    state.tipIndex[gid] = (state.tipIndex[gid]||0)+1;
+    saveState(); render();
+  };
+
+  document.querySelectorAll('[data-refl]').forEach(b=> b.onclick=()=>{
+    const log = getLog(selectedDate);
+    log.reflection = parseInt(b.dataset.refl,10);
+    saveState(); render();
+  });
+
+  const askAi = document.getElementById('askAi');
+  if(askAi) askAi.onclick = runAiSuggestion;
+  const acceptAi = document.getElementById('acceptAiTask');
+  if(acceptAi) acceptAi.onclick = ()=>{
+    if(!aiSuggestion) return;
+    const srcItem = aiSuggestion.sourceId? state.inbox.find(it=>it.id===aiSuggestion.sourceId) : null;
+    state.tasks.push({
+      id:uid(), title:aiSuggestion.text, goalId:null,
+      category: srcItem? srcItem.category : null,
+      priority:'متوسطة', period:null, due:todayStr(), done:false, createdAt:todayStr()
+    });
+    if(aiSuggestion.sourceId) state.inbox = state.inbox.filter(it=>it.id!==aiSuggestion.sourceId);
+    aiSuggestion=null;
+    saveState(); render();
+  };
+
+  const importSugBtn = document.getElementById('importSugBtn');
+  if(importSugBtn) importSugBtn.onclick = ()=>{
+    const inp = document.getElementById('importSugInput');
+    const val = (inp? inp.value : '').trim().replace(/^[-•\d.\)]+\s*/,'');
+    if(!val){ importSugError = 'الصقي نص المهمة أول.'; render(); return; }
+    importSugError = null;
+    state.tasks.push({id:uid(), title:val, goalId:null, category:null, priority:'متوسطة', period:null, due:todayStr(), done:false, createdAt:todayStr()});
+    saveState(); render();
+  };
+
+  const prevWeek = document.getElementById('prevWeek');
+  if(prevWeek) prevWeek.onclick = ()=>{ weekRef = addDays(weekRef,-7); render(); };
+  const nextWeek = document.getElementById('nextWeek');
+  if(nextWeek) nextWeek.onclick = ()=>{ weekRef = addDays(weekRef,7); render(); };
+
+  document.querySelectorAll('[data-pick-dow]').forEach(b=> b.onclick=()=>{
+    _habitPickDow = parseInt(b.dataset.pickDow,10);
+    render();
+  });
+  const pageHabitAdd = document.getElementById('pageHabitAdd');
+  if(pageHabitAdd) pageHabitAdd.onclick = ()=>{
+    const inp = document.getElementById('pageHabitInput');
+    const val = (inp?inp.value:'').trim();
+    if(!val) return;
+    state.dayTemplates[_habitPickDow].habits.push({label:val, enabled:true});
+    saveState(); render();
+  };
+  document.querySelectorAll('[data-page-preset]').forEach(b=> b.onclick=()=>{
+    const label = b.dataset.pagePreset;
+    const tpl = state.dayTemplates[_habitPickDow];
+    if(!tpl.habits.some(h=>h.label===label)) tpl.habits.push({label, enabled:true});
+    saveState(); render();
+  });
+
+  document.querySelectorAll('[data-mgmt-habit-i]').forEach(inp=>{
+    inp.onchange = ()=>{
+      const idx = parseInt(inp.dataset.mgmtHabitI,10);
+      const h = state.dayTemplates[_habitPickDow].habits[idx];
+      if(h){ h.label = inp.value.trim() || h.label; saveState(); }
+    };
+  });
+  document.querySelectorAll('[data-mgmt-del]').forEach(b=> b.onclick=()=>{
+    const idx = parseInt(b.dataset.mgmtDel,10);
+    state.dayTemplates[_habitPickDow].habits.splice(idx,1);
+    saveState(); render();
+  });
+
+  /* inbox / brain-dump */
+  const inboxNew = document.getElementById('inboxNew');
+  if(inboxNew){
+    inboxNew.oninput = ()=>{ inboxDraftText = inboxNew.value; };
+    inboxNew.onkeydown = (ev)=>{ if(ev.key==='Enter'){ ev.preventDefault(); addInboxItem(); } };
+  }
+  const inboxAddBtn = document.getElementById('inboxAddBtn');
+  if(inboxAddBtn) inboxAddBtn.onclick = addInboxItem;
+
+  const importPaste = document.getElementById('importPaste');
+  if(importPaste) importPaste.oninput = ()=>{ importPasteText = importPaste.value; };
+  const importBtn = document.getElementById('importBtn');
+  if(importBtn) importBtn.onclick = runImportPaste;
+
+  const bulkPaste = document.getElementById('bulkPaste');
+  if(bulkPaste) bulkPaste.oninput = ()=>{ inboxBulkText = bulkPaste.value; };
+  const bulkSplitBtn = document.getElementById('bulkSplitBtn');
+  if(bulkSplitBtn) bulkSplitBtn.onclick = runBulkSplit;
+
+  document.querySelectorAll('[data-del-inbox]').forEach(b=> b.onclick=()=>{
+    state.inbox = state.inbox.filter(x=>x.id!==b.dataset.delInbox);
+    saveState(); render();
+  });
+
+  const organizeBtn = document.getElementById('organizeBtn');
+  if(organizeBtn) organizeBtn.onclick = runInboxOrganizer;
+
+  document.querySelectorAll('[data-plan-toggle]').forEach(b=> b.onclick=()=>{
+    const i = parseInt(b.dataset.planToggle,10);
+    aiPlan[i].include = !aiPlan[i].include;
+    render();
+  });
+
+  const acceptPlan = document.getElementById('acceptPlan');
+  if(acceptPlan) acceptPlan.onclick = ()=>{
+    const accepted = aiPlan.filter(p=>p.include);
+    accepted.forEach(p=>{
+      state.tasks.push({
+        id:uid(), title:p.text, goalId:null, category:p.category||null, priority:p.priority||'متوسطة',
+        period:p.period||null, due:p.due||null, done:false, createdAt:todayStr()
+      });
+    });
+    const acceptedIds = new Set(accepted.map(p=>p.sourceId));
+    state.inbox = state.inbox.filter(it=>!acceptedIds.has(it.id));
+    aiPlan = null;
+    saveState(); render();
+  };
+  const discardPlan = document.getElementById('discardPlan');
+  if(discardPlan) discardPlan.onclick = ()=>{ aiPlan=null; aiPlanError=null; render(); };
+}
+
+function addInboxItem(){
+  const inp = document.getElementById('inboxNew');
+  const val = (inp?inp.value:inboxDraftText).trim();
+  if(!val) return;
+  state.inbox.push({id:uid(), text:val, category:null, addedAt:todayStr()});
+  inboxDraftText = '';
+  saveState(); render();
+}
+
+/* parses lines like: "نص المهمة | تصنيف | أولوية | فترة | موعد"
+   pasted from a chat reply, with no network call involved. */
+function guessCategory(raw){
+  const s = (raw||'').trim();
+  if(/عمل|بزنس|business/i.test(s)) return 'business';
+  if(/مشروع|project/i.test(s)) return 'project';
+  if(/عائل|family/i.test(s)) return 'family';
+  if(/شخص|personal/i.test(s)) return 'personal';
+  return 'other';
+}
+function guessPriority(raw){
+  const s = (raw||'').trim();
+  if(/عالي|high/i.test(s)) return 'عالية';
+  if(/منخفض|low/i.test(s)) return 'منخفضة';
+  return 'متوسطة';
+}
+function guessPeriod(raw){
+  const s = (raw||'').trim();
+  if(/صباح/i.test(s)) return 'صباح';
+  if(/ظهر/i.test(s)) return 'ظهر';
+  if(/مساء/i.test(s)) return 'مساء';
+  return null;
+}
+function guessDue(raw){
+  const s = (raw||'').trim();
+  if(!s || s==='-') return null;
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  if(/اليوم|today/i.test(s)) return todayStr();
+  if(/بكرة|غدا|غداً|tomorrow/i.test(s)) return addDays(todayStr(),1);
+  if(/أسبوع|اسبوع|week/i.test(s)) return addDays(todayStr(),6);
+  return null;
+}
+function importPlanFromText(text){
+  const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
+  const items = [];
+  lines.forEach(line=>{
+    if(!line.includes('|')){
+      /* plain line with no separators: treat as a bare task title */
+      items.push({sourceId:uid(), text:line, category:null, priority:'متوسطة', period:null, due:null, note:'', include:true});
+      return;
+    }
+    const parts = line.split('|').map(p=>p.trim());
+    const [textPart, catPart, priPart, perPart, duePart] = parts;
+    if(!textPart) return;
+    items.push({
+      sourceId: uid(),
+      text: textPart.replace(/^[-•\d.\)]+\s*/,''),
+      category: catPart? guessCategory(catPart) : null,
+      priority: priPart? guessPriority(priPart) : 'متوسطة',
+      period: perPart? guessPeriod(perPart) : null,
+      due: duePart? guessDue(duePart) : null,
+      note: '',
+      include: true,
+    });
+  });
+  return items;
+}
+async function runImportPaste(){
+  const ta = document.getElementById('importPaste');
+  const text = (ta? ta.value : importPasteText).trim();
+  importError = null;
+  if(!text){ importError = 'الصقي النص أول.'; render(); return; }
+  const items = importPlanFromText(text);
+  if(items.length===0){ importError = 'ما لقيت مهام بالنص، تأكدي من التنسيق.'; render(); return; }
+  aiPlan = items;
+  importPasteText = '';
+  render();
+}
+
+function popStamp(line1, line2){
+  const el = document.getElementById('stampPop');
+  if(!el) return;
+  el.innerHTML = stampSVG(line1, line2);
+  el.classList.add('show');
+  setTimeout(()=> el.classList.remove('show'), 900);
+}
+
+/* ============ AI suggestion via Claude API ============ */
+async function runAiSuggestion(){
+  aiLoading = true; aiError = null; render();
+  try{
+    const goalsText = state.goals.map(g=>`- ${g.title} (${CAT_MAP[g.cat]?.label||g.cat}): ${g.answers.filter(Boolean).join(' | ')}`).join('\n') || 'لا توجد أهداف مسجلة بعد';
+    const tasksText = state.tasks.filter(t=>!t.done).map(t=>`- ${t.title}`).join('\n') || 'لا توجد مهام حالياً';
+    const inboxText = state.inbox.map((it,i)=>`${i}: ${it.text}${it.category? ' ('+(TCAT_MAP[it.category]?.label||it.category)+')':''}`).join('\n') || 'لا توجد مهام بصندوق المهام حالياً';
+    const log = getLog(todayStr());
+
+    const prompt = `أنت مساعدة تنظيم شخصي. هذه أهداف المستخدمة السنوية:
+${goalsText}
+
+هذه مهامها المجدولة حالياً غير المنجزة (لا تكرري شي يشبهها):
+${tasksText}
+
+هذه مهام بصندوقها العشوائي (لسا ما انضافت لجدولها):
+${inboxText}
+
+مزاجها اليوم: ${log.mood.join('، ')||'غير محددة'}
+
+اختاري أفضل مهمة واحدة تقرّبها من أهدافها اليوم: إما مهمة جديدة تخدم الهدف الأقل تغطية، أو -إذا فيه شي بصندوقها يخدم هدف واضح- اختاري نفس نصها بالضبط من الصندوق.
+أجيبي فقط بكائن JSON صالح وبدون أي نص أو markdown حوله، بهذا الشكل بالضبط:
+{"text":"جملة المهمة بالعربية العامية الخليجية الخفيفة، أقل من 18 كلمة، بدون علامات تنصيص","sourceInboxIndex": الرقم من الصندوق أو null إذا مهمة جديدة}`;
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method:"POST",
+      headers:{"Content-Type":"text/plain"},
+      body: JSON.stringify({
+        model:"claude-sonnet-4-6",
+        max_tokens:1000,
+        messages:[{role:"user", content: prompt}]
+      })
+    });
+    const data = await response.json();
+    if(!response.ok || data.type==='error'){
+      throw new Error(data?.error?.message || `فشل الاتصال (${response.status})`);
+    }
+    let raw = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join(' ').trim();
+    raw = raw.replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
+    const firstBrace = raw.indexOf('{');
+    const lastBrace = raw.lastIndexOf('}');
+    if(firstBrace>-1 && lastBrace>-1) raw = raw.slice(firstBrace, lastBrace+1);
+    if(!raw) throw new Error('ما رجع لي أي مقترح.');
+    const parsed = JSON.parse(raw);
+    const text = (parsed.text||'').replace(/^["“]|["”]$/g,'').trim();
+    if(!text) throw new Error('ما رجع لي أي مقترح.');
+    let sourceId = null;
+    if(parsed.sourceInboxIndex!==null && parsed.sourceInboxIndex!==undefined){
+      const it = state.inbox[parsed.sourceInboxIndex];
+      if(it) sourceId = it.id;
+    }
+    aiSuggestion = { text, sourceId };
+  }catch(e){
+    console.error('ai suggestion error', e);
+    aiError = 'صار خطأ: ' + friendlyErr(e);
+    aiSuggestion = null;
+  }
+  aiLoading = false;
+  render();
+}
+
+async function runInboxOrganizer(){
+  aiPlanLoading = true; aiPlanError = null; render();
+  try{
+    const items = state.inbox;
+    const itemsText = items.map((it,i)=>`${i}: ${it.text}`).join('\n');
+    const goalsText = state.goals.map(g=>`- ${g.title} (${CAT_MAP[g.cat]?.label||g.cat})`).join('\n') || 'لا توجد أهداف مسجلة';
+    const busyText = state.tasks.filter(t=>!t.done).map(t=>`- ${t.title} (${t.priority}${t.due? '، موعدها '+t.due:''})`).join('\n') || 'لا توجد مهام أخرى حالياً';
+    const catList = TCATS.map(c=>`"${c.id}" (${c.label})`).join('، ');
+
+    const prompt = `أنت مساعدة تنظيم شخصي محترفة. اليوم هو ${todayStr()}.
+هذه أهداف المستخدمة السنوية:
+${goalsText}
+
+هذه مهامها الأخرى غير المنجزة حالياً (لا تكرري أي شي يشبهها):
+${busyText}
+
+هذه قائمة مهام عشوائية غير مرتبة كتبتها المستخدمة بدون أي ترتيب، وممكن بعضها ملزق مع بعض من نفس الفكرة:
+${itemsText}
+
+لكل عنصر بالقائمة أعلاه حددي:
+- category: وحدة من هذي القيم بالضبط: ${catList}
+- priority: "عالية" أو "متوسطة" أو "منخفضة"
+- period: "صباح" أو "ظهر" أو "مساء" أو null (أنسب وقت لتنفيذها)
+- due: "today" أو "tomorrow" أو "week" أو null (متى يفضل تنجزها)
+- note: سبب مختصر جداً بالعربية العامية الخليجية الخفيفة، أقل من 10 كلمات، بدون علامات تنصيص، اربطيه بهدفها إذا فيه ارتباط واضح
+
+أجيبي فقط بمصفوفة JSON صالحة (valid JSON array) وبدون أي نص أو شرح أو علامات markdown قبلها أو بعدها، بهذا الشكل بالضبط:
+[{"index":0,"category":"business","priority":"عالية","period":"صباح","due":"today","note":"..."}, ...]
+لازم تشمل كل عناصر القائمة بدون استثناء، وبنفس ترقيم index المعطى.`;
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method:"POST",
+      headers:{"Content-Type":"text/plain"},
+      body: JSON.stringify({
+        model:"claude-sonnet-4-6",
+        max_tokens:2000,
+        messages:[{role:"user", content: prompt}]
+      })
+    });
+    const data = await response.json();
+    if(!response.ok || data.type==='error'){
+      throw new Error(data?.error?.message || `فشل الاتصال (${response.status})`);
+    }
+    let raw = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join(' ').trim();
+    raw = raw.replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
+    const firstBracket = raw.indexOf('[');
+    const lastBracket = raw.lastIndexOf(']');
+    if(firstBracket>-1 && lastBracket>-1) raw = raw.slice(firstBracket, lastBracket+1);
+    if(!raw) throw new Error('ما رجع لي أي نتيجة، جربي مرة ثانية.');
+    const parsed = JSON.parse(raw);
+
+    const dueMap = { today: todayStr(), tomorrow: addDays(todayStr(),1), week: addDays(todayStr(),6) };
+    const validCat = TCATS.map(c=>c.id);
+    aiPlan = parsed.map(p=>{
+      const src = items[p.index];
+      if(!src) return null;
+      const cat = validCat.includes(p.category)? p.category : null;
+      if(cat) src.category = cat; /* persist classification back onto the inbox item */
+      return {
+        sourceId: src.id,
+        text: src.text,
+        category: cat,
+        priority: ['عالية','متوسطة','منخفضة'].includes(p.priority)? p.priority : 'متوسطة',
+        period: ['صباح','ظهر','مساء'].includes(p.period)? p.period : null,
+        due: dueMap[p.due] || null,
+        note: p.note || '',
+        include: true,
+      };
+    }).filter(Boolean);
+
+    if(aiPlan.length===0){ aiPlanError = 'ما قدرت أنظم القائمة هالمرة، جربي مرة ثانية.'; aiPlan=null; }
+    else{ saveState(); }
+  }catch(e){
+    console.error('inbox organizer error', e);
+    aiPlanError = 'صار خطأ أثناء الترتيب: ' + friendlyErr(e);
+    aiPlan = null;
+  }
+  aiPlanLoading = false;
+  render();
+}
+
+async function runBulkSplit(){
+  const ta = document.getElementById('bulkPaste');
+  const text = (ta? ta.value : inboxBulkText).trim();
+  if(!text) return;
+  bulkSplitLoading = true; bulkSplitError = null; render();
+  try{
+    const catList = TCATS.map(c=>`"${c.id}" (${c.label})`).join('، ');
+    const prompt = `هذا نص ملصوق من مصدر خارجي (ممكن يكون وصف حدث بتقويم أو ملاحظات) فيه أكثر من مهمة ملزقة مع بعض بدون فواصل واضحة:
+"""
+${text}
+"""
+
+افصلي هذا النص إلى مهام منفصلة ومحددة (كل مهمة سطر مستقل بصيغة فعل أمر واضحة)، وصنّفي كل مهمة تحت وحدة من هذي الفئات بالضبط: ${catList}.
+تجاهلي أي جزء مو مهمة فعلية (زي عناوين أو تواريخ فارغة).
+
+أجيبي فقط بمصفوفة JSON صالحة بدون أي نص إضافي ولا علامات markdown، بهذا الشكل بالضبط:
+[{"text":"...","category":"business"}, ...]`;
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method:"POST",
+      headers:{"Content-Type":"text/plain"},
+      body: JSON.stringify({
+        model:"claude-sonnet-4-6",
+        max_tokens:2000,
+        messages:[{role:"user", content: prompt}]
+      })
+    });
+    const data = await response.json();
+    if(!response.ok || data.type==='error'){
+      throw new Error(data?.error?.message || `فشل الاتصال (${response.status})`);
+    }
+    let raw = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join(' ').trim();
+    raw = raw.replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
+    const firstBracket = raw.indexOf('[');
+    const lastBracket = raw.lastIndexOf(']');
+    if(firstBracket>-1 && lastBracket>-1) raw = raw.slice(firstBracket, lastBracket+1);
+    if(!raw) throw new Error('ما قدرت أفصل النص، جربي صياغة أوضح.');
+    const parsed = JSON.parse(raw);
+    const validCat = TCATS.map(c=>c.id);
+    let added = 0;
+    parsed.forEach(p=>{
+      const t = (p.text||'').trim();
+      if(!t) return;
+      state.inbox.push({id:uid(), text:t, category: validCat.includes(p.category)? p.category : null, addedAt:todayStr()});
+      added++;
+    });
+    if(added===0) throw new Error('ما لقيت مهام واضحة بالنص.');
+    inboxBulkText = '';
+    saveState();
+  }catch(e){
+    console.error('bulk split error', e);
+    bulkSplitError = 'صار خطأ أثناء الفصل: ' + friendlyErr(e);
+  }
+  bulkSplitLoading = false;
+  render();
+}
+
+/* ============ utils ============ */
+function friendlyErr(e){
+  const msg = e && e.message ? e.message : '';
+  if(!msg) return 'حاولي مرة ثانية بعد شوي.';
+  if(/failed to fetch|networkerror|load failed/i.test(msg)){
+    return 'ما قدرت أوصل للخدمة (مشكلة اتصال أو حجب من المتصفح). تأكدي من الإنترنت وجربي تحدثين الصفحة.';
+  }
+  return msg;
+}
+function escapeHtml(s){
+  return (s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+/* ============ offline support ============ */
+/* Registers a tiny service worker (built inline, no separate file needed) that
+   caches this page so it keeps opening even with no internet connection. */
+function registerOfflineSupport(){
+  if(!('serviceWorker' in navigator)) return;
+  try{
+    const swCode = `
+      const CACHE = 'daftari-v1';
+      self.addEventListener('install', e => {
+        e.waitUntil(caches.open(CACHE).then(c => c.add(self.registration.scope)));
+        self.skipWaiting();
+      });
+      self.addEventListener('activate', e => { self.clients.claim(); });
+      self.addEventListener('fetch', e => {
+        if(e.request.method !== 'GET') return;
+        e.respondWith(
+          caches.match(e.request).then(cached => {
+            const fetchPromise = fetch(e.request).then(res => {
+              if(res && res.ok){ caches.open(CACHE).then(c => c.put(e.request, res.clone())); }
+              return res;
+            }).catch(() => cached);
+            return cached || fetchPromise;
+          })
+        );
+      });
+    `;
+    const blobUrl = URL.createObjectURL(new Blob([swCode], {type:'application/javascript'}));
+    navigator.serviceWorker.register(blobUrl).catch(()=>{ /* offline caching unavailable, app still works online */ });
+  }catch(e){ /* ignore — offline caching is a bonus, not required */ }
+}
+registerOfflineSupport();
+
+/* ============ init ============ */
+loadState();
+</script>
+</body>
+</html>
