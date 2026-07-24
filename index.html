@@ -2,6 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>دفتري للأمان المالي</title>
 <meta name="theme-color" content="#2E5C5A">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -40,7 +41,7 @@ body{
 h1,h2,h3{font-family:'Aref Ruqaa',serif;margin:0;font-weight:700;}
 .hidden{display:none!important;}
 button{font-family:'Tajawal',sans-serif;cursor:pointer;border:none;}
-input,select,textarea{font-family:'Tajawal',sans-serif;}
+input,select,textarea{font-family:'Tajawal',sans-serif;font-size:16px;}
 
 /* ---------- top bar ---------- */
 .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
@@ -48,6 +49,10 @@ input,select,textarea{font-family:'Tajawal',sans-serif;}
 .brand .seal{width:34px;height:34px;border-radius:50%;background:var(--petrol);color:var(--paper);display:flex;align-items:center;justify-content:center;font-family:'Aref Ruqaa',serif;font-size:20px;flex-shrink:0;}
 .brand h1{font-size:22px;color:var(--petrol-dark);}
 .date-chip{font-size:12px;background:var(--paper);border:1px solid var(--line);border-radius:20px;padding:6px 12px;color:var(--petrol-dark);}
+.size-ctrl{display:flex;align-items:center;gap:2px;background:var(--paper);border:1px solid var(--line);border-radius:20px;padding:3px;flex-shrink:0;}
+.size-ctrl button{width:28px;height:28px;border-radius:50%;background:none;color:var(--petrol-dark);font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;}
+.size-ctrl button:active{background:var(--parchment);}
+.size-ctrl button:disabled{opacity:.3;}
 
 /* ---------- date navigator ---------- */
 .date-nav{display:flex;align-items:center;gap:8px;margin-bottom:16px;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:8px 10px;}
@@ -71,16 +76,16 @@ input,select,textarea{font-family:'Tajawal',sans-serif;}
   box-shadow:0 1px 0 rgba(31,58,61,0.03);
 }
 .card-title{display:flex;align-items:center;gap:8px;margin-bottom:10px;justify-content:space-between;}
-.card-title h3{font-size:19px;color:var(--petrol-dark);}
+.card-title h3{font-size:20px;color:var(--petrol-dark);}
 .eyebrow{font-size:11px;letter-spacing:.4px;color:var(--rose-dark);font-weight:700;margin-bottom:4px;display:block;}
-.muted{color:#6b7a78;font-size:13px;}
+.muted{color:#6b7a78;font-size:14px;}
 .quote-box{background:var(--parchment);border-right:3px solid var(--gold);border-radius:8px;padding:10px 14px;margin-bottom:10px;}
 .quote-box p{font-family:'Aref Ruqaa',serif;font-size:17px;color:var(--petrol-dark);margin:0;line-height:1.6;}
 
 /* ---------- buttons ---------- */
 .btn{
-  background:var(--petrol);color:#fff;border-radius:10px;padding:11px 18px;
-  font-size:14px;font-weight:700;transition:transform .12s ease, background .15s ease;
+  background:var(--petrol);color:#fff;border-radius:10px;padding:12px 18px;
+  font-size:15px;font-weight:700;transition:transform .12s ease, background .15s ease;
 }
 .btn:hover{background:var(--petrol-dark);}
 .btn:active{transform:scale(.97);}
@@ -96,19 +101,19 @@ input,select,textarea{font-family:'Tajawal',sans-serif;}
 
 /* ---------- inputs ---------- */
 .field{margin-bottom:14px;}
-.field label{display:block;font-size:13px;font-weight:700;color:var(--petrol-dark);margin-bottom:6px;}
+.field label{display:block;font-size:14px;font-weight:700;color:var(--petrol-dark);margin-bottom:6px;}
 .field input[type=text], .field input[type=email], .field select, .field textarea{
-  width:100%;padding:11px 12px;border:1.5px solid var(--line);border-radius:10px;
-  background:var(--parchment);font-size:14.5px;color:var(--ink);
+  width:100%;padding:12px 13px;border:1.5px solid var(--line);border-radius:10px;
+  background:var(--parchment);font-size:16px;color:var(--ink);
 }
-.field textarea{resize:vertical;min-height:56px;}
+.field textarea{resize:vertical;min-height:60px;}
 .field input:focus, .field select:focus, .field textarea:focus{outline:2px solid var(--sage);outline-offset:1px;}
 
 /* ---------- chips ---------- */
 .chip-row{display:flex;flex-wrap:wrap;gap:8px;}
 .chip{
-  padding:8px 14px;border-radius:20px;border:1.5px solid var(--line);background:var(--parchment);
-  font-size:13.5px;font-weight:500;color:var(--ink);transition:all .15s ease;
+  padding:9px 15px;border-radius:20px;border:1.5px solid var(--line);background:var(--parchment);
+  font-size:14.5px;font-weight:500;color:var(--ink);transition:all .15s ease;
 }
 .chip.selected{background:var(--sage);border-color:var(--sage);color:#fff;font-weight:700;}
 .chip.cat{font-size:14px;}
@@ -122,7 +127,7 @@ input,select,textarea{font-family:'Tajawal',sans-serif;}
 }
 .check.done{background:var(--gold);border-color:var(--gold);}
 .check svg{width:14px;height:14px;stroke:#fff;stroke-width:3;fill:none;}
-.task-title{flex:1;font-size:14.5px;}
+.task-title{flex:1;font-size:15.5px;}
 .task-title.done{text-decoration:line-through;color:#9aa6a4;}
 .tag{font-size:10.5px;background:rgba(46,92,90,.09);color:var(--petrol-dark);padding:2px 8px;border-radius:10px;font-weight:700;}
 .tag.p-عالية{background:rgba(178,76,99,.13);color:var(--rose-dark);}
@@ -172,7 +177,7 @@ input,select,textarea{font-family:'Tajawal',sans-serif;}
 .hbox{width:22px;height:22px;border-radius:6px;border:2px solid var(--sage);background:var(--paper);flex-shrink:0;display:flex;align-items:center;justify-content:center;}
 .hbox.done{background:var(--sage);}
 .hbox svg{width:12px;height:12px;stroke:#fff;stroke-width:3;fill:none;}
-.habit-label{flex:1;font-size:14px;}
+.habit-label{flex:1;font-size:15px;}
 .habit-label.done{color:#9aa6a4;text-decoration:line-through;}
 
 /* weekly habit table */
@@ -194,9 +199,9 @@ table.htable td.habit-label-cell{text-align:right;font-size:12px;padding-right:4
 .inbox-row{display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px dashed var(--line);}
 .inbox-row:last-child{border-bottom:none;}
 .inbox-row .dot{width:7px;height:7px;border-radius:50%;background:var(--rose);flex-shrink:0;}
-.inbox-row .txt{flex:1;font-size:14.5px;}
+.inbox-row .txt{flex:1;font-size:15.5px;}
 .plan-item{background:var(--parchment);border:1.5px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;}
-.plan-item .ptxt{font-size:14.5px;font-weight:700;color:var(--petrol-dark);margin-bottom:6px;}
+.plan-item .ptxt{font-size:15.5px;font-weight:700;color:var(--petrol-dark);margin-bottom:6px;}
 .plan-item .pnote{font-size:12.5px;color:#6b7a78;margin-top:6px;line-height:1.6;}
 .plan-item.excluded{opacity:.45;}
 .plan-check{width:22px;height:22px;border-radius:6px;border:2px solid var(--sage);background:var(--paper);flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;margin-left:8px;}
@@ -332,6 +337,7 @@ let storageReady = false;
 let inboxDraftText = '';
 let inboxBulkText = '';
 let bulkSplitLoading = false;
+let textScale = 1;
 let bulkSplitError = null;
 let importPasteText = '';
 let importError = null;
@@ -592,7 +598,13 @@ function renderTopbar(){
   return `
   <div class="topbar">
     <div class="brand"><div class="seal">د</div><h1 style="font-size:17px;">دفتري للأمان المالي</h1></div>
-    <div class="date-chip">${DOW_NAMES[d.getDay()]}، ${d.getDate()} ${MONTHS[d.getMonth()]}</div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div class="size-ctrl">
+        <button type="button" id="sizeDown" title="تصغير الخط">A-</button>
+        <button type="button" id="sizeUp" title="تكبير الخط">A+</button>
+      </div>
+      <div class="date-chip">${DOW_NAMES[d.getDay()]}، ${d.getDate()} ${MONTHS[d.getMonth()]}</div>
+    </div>
   </div>`;
 }
 
@@ -1100,6 +1112,11 @@ function renderNav(){
 /* ============ global events ============ */
 function attachGlobalEvents(){
   document.querySelectorAll('[data-nav]').forEach(b=> b.onclick=()=>{ view=b.dataset.nav; render(); });
+
+  const sizeDown = document.getElementById('sizeDown');
+  if(sizeDown) sizeDown.onclick = ()=> changeTextScale(-0.1);
+  const sizeUp = document.getElementById('sizeUp');
+  if(sizeUp) sizeUp.onclick = ()=> changeTextScale(0.1);
 
   /* date navigator */
   const prevDay = document.getElementById('prevDay');
@@ -1665,6 +1682,24 @@ function registerOfflineSupport(){
   }catch(e){ /* ignore — offline caching is a bonus, not required */ }
 }
 registerOfflineSupport();
+
+/* ============ text size control (A-/A+) ============ */
+function applyTextScale(){
+  document.documentElement.style.zoom = textScale;
+}
+function loadTextScale(){
+  try{
+    const v = parseFloat(localStorage.getItem('plannerTextScale'));
+    if(!isNaN(v) && v>0) textScale = v;
+  }catch(e){}
+  applyTextScale();
+}
+function changeTextScale(delta){
+  textScale = Math.min(1.4, Math.max(0.85, +(textScale+delta).toFixed(2)));
+  applyTextScale();
+  try{ localStorage.setItem('plannerTextScale', textScale); }catch(e){}
+}
+loadTextScale();
 
 /* ============ init ============ */
 loadState();
