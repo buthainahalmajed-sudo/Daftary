@@ -321,6 +321,7 @@ let state = {
   dayTemplates: defaultTemplates(),
   dailyLogs:{}, /* dateStr -> {habits:{label:bool}, answers:[..], mood:[..], reflection:num|null} */
   tipIndex:{},
+  tipGoalIndex:0, tipLastDate:null,
   inbox:[], /* {id, text, category, addedAt} - unsorted brain-dump items */
 };
 let view = 'home';
@@ -376,7 +377,7 @@ let cloudStatusMsg = '';
 let cloudLastSync = null;
 
 function hydrateState(parsed){
-  state = Object.assign({name:'', onboarded:false, goals:[], tasks:[], dayTemplates: defaultTemplates(), dailyLogs:{}, tipIndex:{}, inbox:[]}, parsed);
+  state = Object.assign({name:'', onboarded:false, goals:[], tasks:[], dayTemplates: defaultTemplates(), dailyLogs:{}, tipIndex:{}, tipGoalIndex:0, tipLastDate:null, inbox:[]}, parsed);
   if(!state.dayTemplates) state.dayTemplates = defaultTemplates();
   if(!state.dailyLogs) state.dailyLogs = {};
   if(!state.inbox) state.inbox = [];
@@ -933,6 +934,7 @@ function taskRowHtml(t){
         ${t.due? `<span class="tag">📅 ${t.due}</span>`:''}
       </div>
     </div>
+    <button class="icon-btn" data-edit-task="${t.id}">✎</button>
     <button class="icon-btn" data-del="${t.id}">✕</button>
   </div>`;
 }
@@ -951,6 +953,19 @@ function renderScheduleCard(){
   </div>`;
 }
 
+function tipsPoolForGoal(g){
+  const personal = (g.answers||[]).filter(a=>a && a.trim()).map(a=>({text:a.trim(), personal:true}));
+  const canned = (TIPS[g.cat]||[]).map(t=>({text:t, personal:false}));
+  return [...personal, ...canned];
+}
+function ensureDailyTipRotation(){
+  if(state.goals.length===0) return;
+  if(state.tipLastDate !== todayStr()){
+    state.tipGoalIndex = ((state.tipGoalIndex||0)+1) % state.goals.length;
+    state.tipLastDate = todayStr();
+    saveState();
+  }
+}
 function renderSuggestionsCard(){
   const hasGoals = state.goals.length>0;
   const hasInbox = state.inbox.length>0;
@@ -962,17 +977,19 @@ function renderSuggestionsCard(){
       <button class="btn rose btn-block" id="goAddGoal">+ إضافة هدف</button>
     </div>`;
   }else{
-    const g = state.goals[(new Date().getDate()) % state.goals.length];
-    const tips = TIPS[g.cat]||[];
-    const idx = (state.tipIndex[g.id]||0) % (tips.length||1);
-    const tip = tips[idx] || '';
+    ensureDailyTipRotation();
+    const g = state.goals[(state.tipGoalIndex||0) % state.goals.length];
+    const pool = tipsPoolForGoal(g);
+    const idx = (state.tipIndex[g.id]||0) % (pool.length||1);
+    const entry = pool[idx] || {text:'', personal:false};
     tipCard = `
     <div class="card">
       <div class="card-title"><h3>مقترح اليوم</h3></div>
-      <p class="muted" style="margin-bottom:8px;">مبني على هدفك: <b style="color:var(--petrol-dark);">${CAT_MAP[g.cat]?.icon||''} ${escapeHtml(g.title)}</b></p>
-      <p style="font-size:15px;margin-bottom:12px;">${escapeHtml(tip)}</p>
+      <p class="muted" style="margin-bottom:8px;">مبني على هدفك: <b style="color:var(--petrol-dark);">${CAT_MAP[g.cat]?.icon||''} ${escapeHtml(g.title)}</b>${state.goals.length>1? ` <span class="muted">(هدف ${(( state.tipGoalIndex||0)%state.goals.length)+1} من ${state.goals.length})</span>`:''}</p>
+      ${entry.personal? `<p class="muted" style="margin-bottom:4px;">🎯 من إجابتك أنتِ:</p>`:''}
+      <p style="font-size:15px;margin-bottom:12px;">${escapeHtml(entry.text)}</p>
       <div style="display:flex;gap:8px;">
-        <button class="btn sm" id="addTipTask" data-tip="${escapeHtml(tip)}" data-goal="${g.id}">أضيفيها لمهامي</button>
+        <button class="btn sm" id="addTipTask" data-tip="${escapeHtml(entry.text)}" data-goal="${g.id}">أضيفيها لمهامي</button>
         <button class="btn ghost sm" id="anotherTip" data-goal="${g.id}">اقتراح ثاني</button>
       </div>
     </div>`;
@@ -1092,8 +1109,33 @@ function renderHabitsPage(){
     return `<td>${done}/${active.length}</td>`;
   }).join('');
 
+  const reflections = dates.map(d=> getLog(d).reflection);
+  const rated = reflections.filter(r=> r!=null);
+  const avg = rated.length? (rated.reduce((a,b)=>a+b,0)/rated.length) : null;
+
   return `
   <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:14px;">متابعة العادات الأسبوعية</h2>
+
+  <div class="card">
+    <div class="card-title"><h3>نتيجة أسبوعك</h3></div>
+    <p class="muted" style="margin-bottom:12px;">تقييمك اليومي (⭐) لكل يوم بالأسبوع، عشان تشوفين شلون كانت معظم أيامك.</p>
+    <div class="htable-wrap">
+      <table class="htable">
+        <thead>
+          <tr>
+            ${dates.map(d=>`<th>${DOW_NAMES[dowOf(d)].replace('ال','')}<span class="d">${parseISO(d).getDate()}</span></th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            ${dates.map((d,i)=>`<td style="font-size:14px;">${reflections[i]? '⭐'.repeat(reflections[i]) : '<span class="gcheck na">–</span>'}</td>`).join('')}
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    ${avg!=null? `<p class="muted" style="margin-top:10px;">متوسط تقييمك هالأسبوع: <b style="color:var(--petrol-dark);">${avg.toFixed(1)} ⭐</b> (من ${rated.length} يوم مقيّم)</p>` : `<p class="muted" style="margin-top:10px;">ما فيه تقييمات هالأسبوع بعد. قيّمي يومك من صفحة "اليوم" آخر كل يوم.</p>`}
+  </div>
+
   <div class="card">
     <div class="week-nav">
       <button type="button" class="arrow" id="prevWeek" style="width:32px;height:32px;border-radius:8px;background:var(--parchment);border:1px solid var(--line);">‹</button>
@@ -1235,7 +1277,7 @@ function renderTaskDraft(){
   return `
   <div style="padding-top:10px;">
     <div class="card">
-      <span class="eyebrow">مهمة جديدة</span>
+      <span class="eyebrow">${d.id? 'تعديل مهمة':'مهمة جديدة'}</span>
       <h3 style="margin-bottom:14px;">وش المهمة؟</h3>
       <div class="field">
         <label>عنوان المهمة</label>
@@ -1246,6 +1288,13 @@ function renderTaskDraft(){
         <select id="tdGoal">
           <option value="">بدون هدف محدد</option>
           ${state.goals.map(g=>`<option value="${g.id}" ${d.goalId===g.id?'selected':''}>${CAT_MAP[g.cat]?.icon||''} ${escapeHtml(g.title)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field">
+        <label>التصنيف (اختياري)</label>
+        <select id="tdCat">
+          <option value="">بدون تصنيف</option>
+          ${TCATS.map(c=>`<option value="${c.id}" ${d.category===c.id?'selected':''}>${c.icon} ${c.label}</option>`).join('')}
         </select>
       </div>
       <div class="field">
@@ -1277,11 +1326,23 @@ function attachTaskDraftEvents(){
   document.getElementById('tdSave').onclick = ()=>{
     syncDraft();
     if(!taskDraft.title.trim()){ document.getElementById('tdTitle').focus(); return; }
-    state.tasks.push({
-      id:uid(), title:taskDraft.title.trim(), goalId:taskDraft.goalId||null,
-      priority:taskDraft.priority, period:taskDraft.period||null, due:taskDraft.due||null,
-      done:false, createdAt:todayStr()
-    });
+    if(taskDraft.id){
+      const t = state.tasks.find(x=>x.id===taskDraft.id);
+      if(t){
+        t.title = taskDraft.title.trim();
+        t.goalId = taskDraft.goalId||null;
+        t.category = taskDraft.category||null;
+        t.priority = taskDraft.priority;
+        t.period = taskDraft.period||null;
+        t.due = taskDraft.due||null;
+      }
+    }else{
+      state.tasks.push({
+        id:uid(), title:taskDraft.title.trim(), goalId:taskDraft.goalId||null, category:taskDraft.category||null,
+        priority:taskDraft.priority, period:taskDraft.period||null, due:taskDraft.due||null,
+        done:false, createdAt:todayStr()
+      });
+    }
     saveState();
     taskDraft = null;
     render();
@@ -1291,6 +1352,7 @@ function attachTaskDraftEvents(){
 function syncDraft(){
   taskDraft.title = document.getElementById('tdTitle').value;
   taskDraft.goalId = document.getElementById('tdGoal').value;
+  taskDraft.category = document.getElementById('tdCat').value;
   taskDraft.due = document.getElementById('tdDue').value;
 }
 
@@ -1397,6 +1459,16 @@ function attachGlobalEvents(){
     render();
   });
 
+  document.querySelectorAll('[data-edit-task]').forEach(b=> b.onclick=()=>{
+    const t = state.tasks.find(x=>x.id===b.dataset.editTask);
+    if(!t) return;
+    taskDraft = {
+      id:t.id, title:t.title, goalId:t.goalId||'', category:t.category||'',
+      priority:t.priority, period:t.period||null, due:t.due||''
+    };
+    render();
+  });
+
   document.querySelectorAll('[data-del]').forEach(b=> b.onclick=()=>{
     state.tasks = state.tasks.filter(x=>x.id!==b.dataset.del);
     saveState(); render();
@@ -1430,7 +1502,13 @@ function attachGlobalEvents(){
   const anotherTip = document.getElementById('anotherTip');
   if(anotherTip) anotherTip.onclick = ()=>{
     const gid = anotherTip.dataset.goal;
-    state.tipIndex[gid] = (state.tipIndex[gid]||0)+1;
+    const g = state.goals.find(x=>x.id===gid);
+    const poolLen = g? tipsPoolForGoal(g).length : 1;
+    const next = (state.tipIndex[gid]||0)+1;
+    state.tipIndex[gid] = next;
+    if(state.goals.length>1 && next % (poolLen||1) === 0){
+      state.tipGoalIndex = ((state.tipGoalIndex||0)+1) % state.goals.length;
+    }
     saveState(); render();
   };
 
