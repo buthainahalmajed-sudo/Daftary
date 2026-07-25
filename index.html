@@ -368,32 +368,95 @@ function getLog(dateStr){
   return state.dailyLogs[dateStr];
 }
 
-/* ============ persistence (local device storage — works fully offline, no account needed) ============ */
-async function loadState(){
-  try{
-    const raw = localStorage.getItem('plannerState');
-    if(raw){
-      const parsed = JSON.parse(raw);
-      state = Object.assign(state, parsed);
-      if(!state.dayTemplates) state.dayTemplates = defaultTemplates();
-      if(!state.dailyLogs) state.dailyLogs = {};
-      if(!state.inbox) state.inbox = [];
-      /* migrate old plain-string habits into {label, enabled} objects */
-      Object.keys(state.dayTemplates).forEach(k=>{
-        const tpl = state.dayTemplates[k];
-        if(tpl && Array.isArray(tpl.habits)){
-          tpl.habits = tpl.habits.map(h => (typeof h === 'string') ? {label:h, enabled:true} : h);
-        }
-      });
-      /* migrate old single-day mood/reflection fields if present */
-      if((parsed.todayMood && parsed.todayMood.length) || parsed.reflection){
-        const d = parsed.lastActiveDate || todayStr();
-        const log = getLog(d);
-        if(parsed.todayMood) log.mood = parsed.todayMood;
-        if(parsed.reflection) log.reflection = parsed.reflection;
-      }
+/* ============ persistence (local device storage + optional GitHub Gist cloud sync) ============ */
+const CLOUD_FILENAME = 'daftari-data.json';
+let cloud = {token:'', gistId:'', linked:false};
+let cloudStatus = 'idle'; /* idle | syncing | synced | error */
+let cloudStatusMsg = '';
+let cloudLastSync = null;
+
+function hydrateState(parsed){
+  state = Object.assign({name:'', onboarded:false, goals:[], tasks:[], dayTemplates: defaultTemplates(), dailyLogs:{}, tipIndex:{}, inbox:[]}, parsed);
+  if(!state.dayTemplates) state.dayTemplates = defaultTemplates();
+  if(!state.dailyLogs) state.dailyLogs = {};
+  if(!state.inbox) state.inbox = [];
+  Object.keys(state.dayTemplates).forEach(k=>{
+    const tpl = state.dayTemplates[k];
+    if(tpl && Array.isArray(tpl.habits)){
+      tpl.habits = tpl.habits.map(h => (typeof h === 'string') ? {label:h, enabled:true} : h);
     }
-  }catch(e){ console.error('تعذر القراءة', e); }
+  });
+  if((parsed.todayMood && parsed.todayMood.length) || parsed.reflection){
+    const d = parsed.lastActiveDate || todayStr();
+    const log = getLog(d);
+    if(parsed.todayMood) log.mood = parsed.todayMood;
+    if(parsed.reflection) log.reflection = parsed.reflection;
+  }
+}
+
+function loadCloudCfg(){
+  try{
+    const raw = localStorage.getItem('plannerCloudCfg');
+    if(raw) cloud = Object.assign(cloud, JSON.parse(raw));
+  }catch(e){}
+}
+function saveCloudCfg(){
+  try{ localStorage.setItem('plannerCloudCfg', JSON.stringify(cloud)); }catch(e){}
+}
+function ghHeaders(extra){
+  return Object.assign({ 'Authorization':'token '+cloud.token, 'Accept':'application/vnd.github+json' }, extra||{});
+}
+async function cloudPull(){
+  if(!cloud.linked) return false;
+  cloudStatus='syncing'; cloudStatusMsg='';
+  try{
+    const res = await fetch('https://api.github.com/gists/'+cloud.gistId, { headers: ghHeaders() });
+    if(!res.ok) throw new Error('فشل الاتصال بالسحاب (كود '+res.status+')');
+    const data = await res.json();
+    const file = data.files && data.files[CLOUD_FILENAME];
+    if(!file) throw new Error('ما لقيت ملف البيانات داخل الـ Gist، تأكدي من اسم الملف.');
+    const parsed = JSON.parse(file.content || '{}');
+    if(parsed && typeof parsed==='object' && Array.isArray(parsed.tasks)){
+      hydrateState(parsed);
+      try{ localStorage.setItem('plannerState', JSON.stringify(state)); }catch(e){}
+    }
+    cloudStatus='synced'; cloudLastSync = new Date();
+    return true;
+  }catch(e){
+    console.error('cloud pull error', e);
+    cloudStatus='error'; cloudStatusMsg = friendlyErr(e);
+    return false;
+  }
+}
+async function cloudPush(){
+  if(!cloud.linked) return false;
+  cloudStatus='syncing'; cloudStatusMsg='';
+  try{
+    const res = await fetch('https://api.github.com/gists/'+cloud.gistId, {
+      method:'PATCH',
+      headers: ghHeaders({'Content-Type':'application/json'}),
+      body: JSON.stringify({ files:{ [CLOUD_FILENAME]:{ content: JSON.stringify(state) } } })
+    });
+    if(!res.ok) throw new Error('فشل الرفع للسحاب (كود '+res.status+')');
+    cloudStatus='synced'; cloudLastSync = new Date();
+    return true;
+  }catch(e){
+    console.error('cloud push error', e);
+    cloudStatus='error'; cloudStatusMsg = friendlyErr(e);
+    return false;
+  }
+}
+
+async function loadState(){
+  loadCloudCfg();
+  let usedCloud = false;
+  if(cloud.linked){ usedCloud = await cloudPull(); }
+  if(!usedCloud){
+    try{
+      const raw = localStorage.getItem('plannerState');
+      if(raw) hydrateState(JSON.parse(raw));
+    }catch(e){ console.error('تعذر القراءة', e); }
+  }
   storageReady = true;
   selectedDate = todayStr();
   weekRef = todayStr();
@@ -405,7 +468,9 @@ async function saveState(){
   }catch(e){
     console.error('تعذر الحفظ', e);
   }
+  if(cloud.linked){ cloudPush().then(render); }
 }
+
 
 /* ============ scoring: top tasks ============ */
 function scoreTask(t){
@@ -607,14 +672,42 @@ function decodeState(code){
   return JSON.parse(decodeURIComponent(escape(atob(code.trim()))));
 }
 function renderSettings(){
+  const statusLabel = {idle:'', syncing:'⏳ يتزامن…', synced:'☁️ متزامن ✓', error:'⚠️ خطأ بالتزامن'}[cloudStatus] || '';
   return `
   <div style="padding-top:10px;">
     <div class="card">
-      <div class="card-title"><h3>نسخ بياناتي لجهاز ثاني</h3>
+      <div class="card-title"><h3>☁️ التزامن التلقائي بين الأجهزة</h3>
         <button class="icon-btn" id="closeSettings">✕</button>
       </div>
-      <p class="muted" style="margin-bottom:12px;">هذا الجهاز يحفظ بياناته لحاله. عشان تنسخين كل بياناتك (أهدافك، مهامك، عاداتك) لجهاز ثاني، اضغطي "انسخي الكود"، وبعدين الصقيه بخانة الاستيراد بالجهاز الثاني.</p>
-      <button class="btn btn-block" id="genCode" style="margin-bottom:10px;">انسخي كود بياناتي</button>
+      ${!cloud.linked? `
+        <p class="muted" style="margin-bottom:12px;">اربطي دفتري بـ GitHub Gist عشان يتزامن تلقائياً بين أجهزتك كل ما تفتحين أو ترفرشين. تحتاجين Gist ID وToken (شوفي خطوات إنشائهم اللي شرحتها لك).</p>
+        <div class="field">
+          <label>Gist ID</label>
+          <input type="text" id="cfgGistId" placeholder="مثال: 8f2a1b3c..." value="${escapeHtml(cloud.gistId)}" style="direction:ltr;text-align:left;"/>
+        </div>
+        <div class="field">
+          <label>Personal Access Token</label>
+          <input type="text" id="cfgToken" placeholder="ghp_..." value="${escapeHtml(cloud.token)}" style="direction:ltr;text-align:left;"/>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-block" id="linkPush">🔼 ارفعي بيانات هذا الجهاز (أول مرة)</button>
+        </div>
+        <button class="btn ghost btn-block" id="linkPull" style="margin-top:10px;">🔽 اسحبي بيانات موجودة من جهاز ثاني</button>
+      `:`
+        <p class="muted" style="margin-bottom:8px;">مرتبط بنجاح ✓ ${cloudLastSync? 'آخر تزامن: '+cloudLastSync.toLocaleTimeString('ar'):''}</p>
+        ${statusLabel? `<p class="muted" style="margin-bottom:10px;">${statusLabel}</p>`:''}
+        ${cloudStatus==='error'&&cloudStatusMsg? `<p class="muted" style="color:var(--rose-dark);margin-bottom:10px;">${escapeHtml(cloudStatusMsg)}</p>`:''}
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-block" id="syncNow">مزامنة الآن</button>
+          <button class="btn ghost" id="unlinkCloud">إلغاء الربط</button>
+        </div>
+      `}
+    </div>
+
+    <div class="card">
+      <div class="card-title"><h3>نسخ بياناتي يدوياً (بديل بدون إنترنت دائم)</h3></div>
+      <p class="muted" style="margin-bottom:12px;">إذا ما تبين تربطين السحاب، تقدرين تنسخين كود بياناتك وتلصقينه بجهاز ثاني يدوياً.</p>
+      <button class="btn ghost btn-block" id="genCode" style="margin-bottom:10px;">انسخي كود بياناتي</button>
       ${syncExportCode? `
         <div class="field">
           <textarea id="exportBox" readonly style="min-height:90px;font-size:11px;direction:ltr;text-align:left;">${syncExportCode}</textarea>
@@ -636,6 +729,42 @@ function renderSettings(){
 }
 function attachSettingsEvents(){
   document.getElementById('closeSettings').onclick = ()=>{ settingsOpen=false; syncExportCode=''; syncMsg=null; render(); };
+
+  const cfgGistId = document.getElementById('cfgGistId');
+  const cfgToken = document.getElementById('cfgToken');
+  const syncCfgFields = ()=>{
+    if(cfgGistId) cloud.gistId = cfgGistId.value.trim();
+    if(cfgToken) cloud.token = cfgToken.value.trim();
+  };
+
+  const linkPush = document.getElementById('linkPush');
+  if(linkPush) linkPush.onclick = async ()=>{
+    syncCfgFields();
+    if(!cloud.gistId || !cloud.token){ cloudStatus='error'; cloudStatusMsg='عبي Gist ID وToken أول.'; render(); return; }
+    cloud.linked = true; saveCloudCfg();
+    const ok = await cloudPush();
+    if(!ok) cloud.linked = false;
+    saveCloudCfg(); render();
+  };
+  const linkPull = document.getElementById('linkPull');
+  if(linkPull) linkPull.onclick = async ()=>{
+    syncCfgFields();
+    if(!cloud.gistId || !cloud.token){ cloudStatus='error'; cloudStatusMsg='عبي Gist ID وToken أول.'; render(); return; }
+    cloud.linked = true; saveCloudCfg();
+    const ok = await cloudPull();
+    if(!ok) cloud.linked = false;
+    saveCloudCfg(); render();
+  };
+  const syncNow = document.getElementById('syncNow');
+  if(syncNow) syncNow.onclick = async ()=>{ await cloudPull(); render(); };
+  const unlinkCloud = document.getElementById('unlinkCloud');
+  if(unlinkCloud) unlinkCloud.onclick = ()=>{
+    cloud = {token:'', gistId:'', linked:false};
+    saveCloudCfg();
+    cloudStatus='idle'; cloudStatusMsg='';
+    render();
+  };
+
   document.getElementById('genCode').onclick = async ()=>{
     syncExportCode = encodeState();
     try{ if(navigator.clipboard) await navigator.clipboard.writeText(syncExportCode); }catch(e){}
@@ -649,7 +778,7 @@ function attachSettingsEvents(){
     try{
       const parsed = decodeState(val);
       if(!parsed || typeof parsed !== 'object' || !('tasks' in parsed)){ throw new Error('bad'); }
-      state = Object.assign({name:'', onboarded:false, goals:[], tasks:[], dayTemplates: defaultTemplates(), dailyLogs:{}, tipIndex:{}, inbox:[]}, parsed);
+      hydrateState(parsed);
       saveState();
       syncMsg = {ok:true, text:'تم الاستيراد بنجاح! بياناتك صارت نفس الجهاز الثاني.'};
       syncImportText = '';
