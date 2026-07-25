@@ -330,6 +330,10 @@ let _habitPickDow = new Date().getDay();
 let goalWizard = null;
 let taskDraft = null;
 let templateDraft = null;
+let settingsOpen = false;
+let syncExportCode = '';
+let syncImportText = '';
+let syncMsg = null; /* {ok:bool, text:string} */
 let aiLoading = false;
 let aiSuggestion = null;
 let aiError = null;
@@ -420,6 +424,7 @@ function topTasks(){
 function render(){
   const app = document.getElementById('app');
   if(!storageReady){ app.innerHTML = '<div class="empty">جارٍ فتح دفترك…</div>'; return; }
+  if(settingsOpen){ app.innerHTML = renderSettings(); attachSettingsEvents(); return; }
   if(!state.onboarded){ app.innerHTML = renderOnboarding(); attachOnboardingEvents(); return; }
   if(goalWizard){ app.innerHTML = renderGoalWizard(); attachGoalWizardEvents(); return; }
   if(taskDraft){ app.innerHTML = renderTaskDraft(); attachTaskDraftEvents(); return; }
@@ -464,6 +469,7 @@ function renderOnboarding(){
         <input type="text" id="onName" placeholder="مثال: سارة" value="${escapeHtml(state.name)}"/>
       </div>
       <button class="btn btn-block" id="onNext">يلا نبدأ</button>
+      <button class="btn ghost btn-block" id="onImport" style="margin-top:10px;">عندي بيانات من جهاز ثاني، أستوردها</button>
     </div>
   </div>`;
 }
@@ -477,6 +483,7 @@ function attachOnboardingEvents(){
     goalWizard = {title:'', cat:'health', answers:['','']};
     render();
   };
+  document.getElementById('onImport').onclick = ()=>{ settingsOpen=true; syncExportCode=''; syncMsg=null; render(); };
 }
 
 /* ============ goal wizard ============ */
@@ -592,6 +599,68 @@ function syncTemplateDraftFields(){
   templateDraft.learning = document.getElementById('tdLearning').value;
 }
 
+/* ============ settings / cross-device sync (manual export-import) ============ */
+function encodeState(){
+  return btoa(unescape(encodeURIComponent(JSON.stringify(state))));
+}
+function decodeState(code){
+  return JSON.parse(decodeURIComponent(escape(atob(code.trim()))));
+}
+function renderSettings(){
+  return `
+  <div style="padding-top:10px;">
+    <div class="card">
+      <div class="card-title"><h3>نسخ بياناتي لجهاز ثاني</h3>
+        <button class="icon-btn" id="closeSettings">✕</button>
+      </div>
+      <p class="muted" style="margin-bottom:12px;">هذا الجهاز يحفظ بياناته لحاله. عشان تنسخين كل بياناتك (أهدافك، مهامك، عاداتك) لجهاز ثاني، اضغطي "انسخي الكود"، وبعدين الصقيه بخانة الاستيراد بالجهاز الثاني.</p>
+      <button class="btn btn-block" id="genCode" style="margin-bottom:10px;">انسخي كود بياناتي</button>
+      ${syncExportCode? `
+        <div class="field">
+          <textarea id="exportBox" readonly style="min-height:90px;font-size:11px;direction:ltr;text-align:left;">${syncExportCode}</textarea>
+        </div>
+        <p class="muted">${navigator.clipboard? 'انتسخ تلقائياً للحافظة ✓ الصقيه أي مكان (واتساب، ملاحظات) ووديه للجهاز الثاني.' : 'حددي كل النص أعلاه وانسخيه يدوياً.'}</p>
+      `:''}
+    </div>
+
+    <div class="card">
+      <div class="card-title"><h3>استيراد بيانات من جهاز ثاني</h3></div>
+      <p class="muted" style="margin-bottom:10px;">الصقي هنا الكود اللي نسختيه من الجهاز الثاني. تنبيه: هذا بيستبدل كل بيانات هذا الجهاز الحالية.</p>
+      <div class="field">
+        <textarea id="importBox" placeholder="الصقي الكود هنا…" style="min-height:90px;font-size:11px;direction:ltr;text-align:left;">${escapeHtml(syncImportText)}</textarea>
+      </div>
+      ${syncMsg? `<p class="muted" style="color:${syncMsg.ok?'var(--sage)':'var(--rose-dark)'};margin-bottom:10px;">${escapeHtml(syncMsg.text)}</p>`:''}
+      <button class="btn rose btn-block" id="doImport">استوردي واستبدلي بيانات هذا الجهاز</button>
+    </div>
+  </div>`;
+}
+function attachSettingsEvents(){
+  document.getElementById('closeSettings').onclick = ()=>{ settingsOpen=false; syncExportCode=''; syncMsg=null; render(); };
+  document.getElementById('genCode').onclick = async ()=>{
+    syncExportCode = encodeState();
+    try{ if(navigator.clipboard) await navigator.clipboard.writeText(syncExportCode); }catch(e){}
+    render();
+  };
+  const importBox = document.getElementById('importBox');
+  if(importBox) importBox.oninput = ()=>{ syncImportText = importBox.value; };
+  document.getElementById('doImport').onclick = ()=>{
+    const val = (importBox? importBox.value : syncImportText).trim();
+    if(!val){ syncMsg = {ok:false, text:'الصقي الكود أول.'}; render(); return; }
+    try{
+      const parsed = decodeState(val);
+      if(!parsed || typeof parsed !== 'object' || !('tasks' in parsed)){ throw new Error('bad'); }
+      state = Object.assign({name:'', onboarded:false, goals:[], tasks:[], dayTemplates: defaultTemplates(), dailyLogs:{}, tipIndex:{}, inbox:[]}, parsed);
+      saveState();
+      syncMsg = {ok:true, text:'تم الاستيراد بنجاح! بياناتك صارت نفس الجهاز الثاني.'};
+      syncImportText = '';
+      render();
+    }catch(e){
+      syncMsg = {ok:false, text:'الكود مو صحيح أو تالف، تأكدي إنك نسختيه كامل.'};
+      render();
+    }
+  };
+}
+
 /* ============ topbar ============ */
 function renderTopbar(){
   const d = new Date();
@@ -599,6 +668,7 @@ function renderTopbar(){
   <div class="topbar">
     <div class="brand"><div class="seal">د</div><h1 style="font-size:17px;">دفتري للأمان المالي</h1></div>
     <div style="display:flex;align-items:center;gap:8px;">
+      <button type="button" class="icon-btn" id="openSettings" title="نسخ البيانات بين الأجهزة" style="font-size:18px;">⚙️</button>
       <div class="size-ctrl">
         <button type="button" id="sizeDown" title="تصغير الخط">A-</button>
         <button type="button" id="sizeUp" title="تكبير الخط">A+</button>
@@ -1117,6 +1187,8 @@ function attachGlobalEvents(){
   if(sizeDown) sizeDown.onclick = ()=> changeTextScale(-0.1);
   const sizeUp = document.getElementById('sizeUp');
   if(sizeUp) sizeUp.onclick = ()=> changeTextScale(0.1);
+  const openSettings = document.getElementById('openSettings');
+  if(openSettings) openSettings.onclick = ()=>{ settingsOpen=true; syncExportCode=''; syncMsg=null; render(); };
 
   /* date navigator */
   const prevDay = document.getElementById('prevDay');
