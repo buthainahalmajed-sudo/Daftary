@@ -76,6 +76,15 @@ input,select,textarea{font-family:'Tajawal',sans-serif;font-size:16px;}
   box-shadow:0 1px 0 rgba(31,58,61,0.03);
 }
 .card-title{display:flex;align-items:center;gap:8px;margin-bottom:10px;justify-content:space-between;}
+
+/* ---------- collapsible cards ---------- */
+details.card{padding:0;}
+details.card > summary{list-style:none;cursor:pointer;padding:18px;display:flex;justify-content:space-between;align-items:center;gap:8px;}
+details.card > summary::-webkit-details-marker{display:none;}
+details.card > summary h3{font-size:19px;color:var(--petrol-dark);}
+details.card > summary .chev{font-size:13px;color:var(--petrol);transition:transform .2s ease;flex-shrink:0;}
+details.card[open] > summary .chev{transform:rotate(180deg);}
+details.card > .details-body{padding:0 18px 18px;}
 .card-title h3{font-size:20px;color:var(--petrol-dark);}
 .eyebrow{font-size:11px;letter-spacing:.4px;color:var(--rose-dark);font-weight:700;margin-bottom:4px;display:block;}
 .muted{color:#6b7a78;font-size:14px;}
@@ -323,12 +332,14 @@ let state = {
   tipIndex:{},
   tipGoalIndex:0, tipLastDate:null,
   inbox:[], /* {id, text, category, addedAt} - unsorted brain-dump items */
+  collapsed:{habits:false, questions:false, reflection:false, mood:false},
 };
 let view = 'home';
 let selectedDate = null;
 let weekRef = null;
 let _habitPickDow = new Date().getDay();
 let _habitAddDows = [new Date().getDay()];
+let top3Picker = null; /* array of selected task ids, max 3, while picker UI is open */
 let goalWizard = null;
 let taskDraft = null;
 let templateDraft = null;
@@ -378,10 +389,12 @@ let cloudStatusMsg = '';
 let cloudLastSync = null;
 
 function hydrateState(parsed){
-  state = Object.assign({name:'', onboarded:false, goals:[], tasks:[], dayTemplates: defaultTemplates(), dailyLogs:{}, tipIndex:{}, tipGoalIndex:0, tipLastDate:null, inbox:[]}, parsed);
+  state = Object.assign({name:'', onboarded:false, goals:[], tasks:[], dayTemplates: defaultTemplates(), dailyLogs:{}, tipIndex:{}, tipGoalIndex:0, tipLastDate:null, inbox:[], collapsed:{habits:false, questions:false, reflection:false, mood:false}}, parsed);
   if(!state.dayTemplates) state.dayTemplates = defaultTemplates();
   if(!state.dailyLogs) state.dailyLogs = {};
   if(!state.inbox) state.inbox = [];
+  if(!state.collapsed) state.collapsed = {habits:false, questions:false, reflection:false, mood:false};
+  else state.collapsed = Object.assign({habits:false, questions:false, reflection:false, mood:false}, state.collapsed);
   Object.keys(state.dayTemplates).forEach(k=>{
     const tpl = state.dayTemplates[k];
     if(tpl && Array.isArray(tpl.habits)){
@@ -484,7 +497,17 @@ function scoreTask(t){
   return s;
 }
 function topTasks(){
+  const log = getLog(todayStr());
+  if(log.pinnedTop3 && log.pinnedTop3.length){
+    const pinned = log.pinnedTop3.map(id=> state.tasks.find(t=>t.id===id && !t.done)).filter(Boolean);
+    if(pinned.length) return pinned;
+  }
   return state.tasks.filter(t=>!t.done).sort((a,b)=>scoreTask(b)-scoreTask(a)).slice(0,3);
+}
+function topTasksHasTie(){
+  const undone = state.tasks.filter(t=>!t.done).sort((a,b)=>scoreTask(b)-scoreTask(a));
+  if(undone.length<4) return false;
+  return scoreTask(undone[2]) === scoreTask(undone[3]);
 }
 function moveTaskAmongUndone(taskId, dir){
   const arr = state.tasks;
@@ -497,14 +520,32 @@ function moveTaskAmongUndone(taskId, dir){
     saveState(); render();
   }
 }
-function moveHabitAmongActive(dow, idx, dir){
-  const arr = state.dayTemplates[dow].habits;
+function swapAmongActive(arr, idx, dir){
   let j = idx+dir;
   while(j>=0 && j<arr.length && arr[j].enabled===false) j += dir;
   if(j>=0 && j<arr.length){
     const tmp = arr[idx]; arr[idx]=arr[j]; arr[j]=tmp;
-    saveState(); render();
+    return true;
   }
+  return false;
+}
+function moveHabitAmongActive(dow, idx, dir){
+  const arr = state.dayTemplates[dow].habits;
+  if(swapAmongActive(arr, idx, dir)){ saveState(); render(); }
+}
+function moveHabitAcrossWeek(label, dir){
+  const start = startOfWeek(weekRef);
+  const dates = Array.from({length:7},(_,i)=>addDays(start,i));
+  const dowsSeen = new Set();
+  dates.forEach(d=>{
+    const dow = dowOf(d);
+    if(dowsSeen.has(dow)) return;
+    dowsSeen.add(dow);
+    const arr = state.dayTemplates[dow].habits;
+    const idx = arr.findIndex(h=>h.label===label && h.enabled!==false);
+    if(idx>-1) swapAmongActive(arr, idx, dir);
+  });
+  saveState(); render();
 }
 
 /* ============ render root ============ */
@@ -657,6 +698,11 @@ function renderTemplateDraft(){
         <label>تعلّم اليوم (اختياري)</label>
         <input type="text" id="tdLearning" value="${escapeHtml(d.learning)}" placeholder="مثال: كورس أو كتاب"/>
       </div>
+      <div class="field">
+        <label>🔗 رابط مساعد لتعلّم اليوم (اختياري)</label>
+        <input type="text" id="tdLearningLink" value="${escapeHtml(d.learningLink||'')}" placeholder="مثال: رابط فيديو أو كورس" style="direction:ltr;text-align:left;"/>
+        <p class="muted" style="margin-top:6px;">اطلبي مني بالمحادثة رابط يناسب موضوع تعلّمك، وألصقيه هنا.</p>
+      </div>
       <p class="muted" style="margin-bottom:16px;">📌 إدارة عادات هذا اليوم (إضافة، تفعيل، تعطيل) صارت من صفحة "العادات".</p>
       <div style="display:flex;gap:10px;margin-top:8px;">
         <button class="btn btn-block" id="tdSaveTemplate">حفظ الروتين</button>
@@ -671,7 +717,7 @@ function attachTemplateDraftEvents(){
     const existingHabits = state.dayTemplates[templateDraft.dow].habits;
     state.dayTemplates[templateDraft.dow] = {
       name: templateDraft.name, motto: templateDraft.motto, note: templateDraft.note,
-      timeLabel: templateDraft.timeLabel, learning: templateDraft.learning, habits: existingHabits
+      timeLabel: templateDraft.timeLabel, learning: templateDraft.learning, learningLink: templateDraft.learningLink, habits: existingHabits
     };
     saveState();
     templateDraft = null;
@@ -684,6 +730,7 @@ function syncTemplateDraftFields(){
   templateDraft.note = document.getElementById('tdNote').value;
   templateDraft.timeLabel = document.getElementById('tdTime').value;
   templateDraft.learning = document.getElementById('tdLearning').value;
+  templateDraft.learningLink = document.getElementById('tdLearningLink').value;
 }
 
 /* ============ settings / cross-device sync (manual export-import) ============ */
@@ -815,6 +862,7 @@ function attachSettingsEvents(){
 /* ============ topbar ============ */
 function renderTopbar(){
   const d = new Date();
+  const todayMoodEmojis = getLog(todayStr()).mood.map(mid=> MOODS.find(m=>m.id===mid)?.e || '').join('');
   return `
   <div class="topbar">
     <div class="brand"><div class="seal">د</div><h1 style="font-size:17px;">دفتري للأمان المالي</h1></div>
@@ -824,7 +872,7 @@ function renderTopbar(){
         <button type="button" id="sizeDown" title="تصغير الخط">A-</button>
         <button type="button" id="sizeUp" title="تكبير الخط">A+</button>
       </div>
-      <div class="date-chip">${DOW_NAMES[d.getDay()]}، ${d.getDate()} ${MONTHS[d.getMonth()]}</div>
+      <div class="date-chip">${todayMoodEmojis? todayMoodEmojis+' ':''}${DOW_NAMES[d.getDay()]}، ${d.getDate()} ${MONTHS[d.getMonth()]}</div>
     </div>
   </div>`;
 }
@@ -833,11 +881,12 @@ function renderTopbar(){
 function renderDateNav(){
   const dow = dowOf(selectedDate);
   const isToday = selectedDate === todayStr();
+  const moodEmojis = getLog(selectedDate).mood.map(mid=> MOODS.find(m=>m.id===mid)?.e || '').join(' ');
   return `
   <div class="date-nav">
     <button type="button" class="arrow" id="prevDay">‹</button>
     <div class="mid picker" id="dateMidClick">
-      <div class="dname">${DOW_NAMES[dow]}</div>
+      <div class="dname">${DOW_NAMES[dow]} ${moodEmojis}</div>
       <div class="ddate">${formatDateAr(selectedDate)}</div>
       <input type="date" id="datePick" value="${selectedDate}"/>
     </div>
@@ -866,10 +915,12 @@ function renderHome(){
   ${renderQuestionsCard(log)}
 
   <div class="card">
-    <div class="card-title"><h3>شلون تبين تحسين هالليوم؟</h3></div>
+    <div class="card-title"><h3 style="cursor:pointer;flex:1;" data-toggle-collapse="mood">${state.collapsed.mood?'▸':'▾'} شلون تبين تحسين هالليوم؟</h3></div>
+    ${state.collapsed.mood? '' : `
     <div class="mood-scale">
       ${MOODS.map(m=>`<button type="button" class="mood-dot ${log.mood.includes(m.id)?'selected':''}" data-mood="${m.id}">${m.e}<span class="ml">${m.id}</span></button>`).join('')}
     </div>
+    `}
   </div>
 
   <div class="card">
@@ -877,12 +928,16 @@ function renderHome(){
       ${isToday? `<button class="icon-btn sm" id="refreshTop" title="إعادة الاختيار">↻</button>`:''}
     </div>
     ${renderTasksForDate(isToday)}
-    <button class="btn ghost btn-block" style="margin-top:12px;" id="goAddTask">+ إضافة مهمة</button>
+    ${isToday && topTasksHasTie() && !getLog(todayStr()).pinnedTop3? `<p class="muted" style="margin-top:10px;color:var(--rose-dark);">🤔 عندي أكثر من مهمة بنفس مستوى الأهمية، وما أقدر أحدد وحدها بثقة. تبين تختارين الأهم ٣ بنفسك؟</p>`:''}
+    ${isToday? `<button class="btn ghost btn-block" style="margin-top:8px;" id="openTop3Picker">🗣️ ساعديني أحدد الأهم بنفسي</button>`:''}
+    ${isToday && getLog(todayStr()).pinnedTop3? `<button class="btn ghost btn-block" style="margin-top:8px;" id="resetTop3">↻ رجّعيها للاختيار التلقائي</button>`:''}
+    <button class="btn ghost btn-block" style="margin-top:8px;" id="goAddTask">+ إضافة مهمة</button>
   </div>
 
   ${isToday? renderScheduleCard():''}
   ${isToday? renderSuggestionsCard():''}
   ${renderReflectionCard(log)}
+  ${top3Picker? renderTop3Picker():''}
   `;
 }
 
@@ -897,6 +952,7 @@ function renderTemplateCard(tpl, dow){
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       ${tpl.timeLabel? `<span class="tag">⏰ ${escapeHtml(tpl.timeLabel)}</span>`:''}
       ${tpl.learning? `<span class="tag">📖 تعلّم: ${escapeHtml(tpl.learning)}</span>`:''}
+      ${tpl.learningLink? `<a href="${escapeHtml(tpl.learningLink)}" target="_blank" rel="noopener" class="tag" style="text-decoration:none;">🔗 رابط التعلّم</a>`:''}
     </div>
     ${(!tpl.motto && !tpl.timeLabel && !tpl.habits.length)? `<p class="muted" style="margin-top:10px;">ما فيه روتين محدد لهذا اليوم بعد، اضغطي "تعديل الروتين" عشان تبنينه.</p>`:''}
   </div>`;
@@ -904,11 +960,14 @@ function renderTemplateCard(tpl, dow){
 
 function renderHabitsCard(tpl, log, dow){
   const activePairs = tpl.habits.map((h,idx)=>({h,idx})).filter(x=>x.h.enabled!==false);
+  const collapsed = state.collapsed.habits;
   return `
   <div class="card">
-    <div class="card-title"><h3>عادات ${tpl.name}</h3>
+    <div class="card-title">
+      <h3 style="cursor:pointer;flex:1;" data-toggle-collapse="habits">${collapsed?'▸':'▾'} عادات ${tpl.name}</h3>
       <button class="icon-btn sm" data-goto-habits="1">إدارة العادات</button>
     </div>
+    ${collapsed? '' : `
     ${activePairs.length===0? `<p class="muted" style="margin-bottom:10px;">ما فيه عادات مفعّلة لهذا اليوم. أضيفي أو فعّلي من صفحة "العادات".</p>`:''}
     ${activePairs.map(({h,idx},i)=>{
       const done = !!log.habits[h.label];
@@ -922,18 +981,22 @@ function renderHabitsCard(tpl, log, dow){
         ${h.link? `<a href="${escapeHtml(h.link)}" target="_blank" rel="noopener" title="رابط مساعد" style="font-size:16px;text-decoration:none;">🔗</a>`:''}
       </div>`;
     }).join('')}
+    `}
   </div>`;
 }
 
 function renderQuestionsCard(log){
+  const collapsed = state.collapsed.questions;
   return `
   <div class="card">
-    <div class="card-title"><h3>تساؤلات اليوم</h3></div>
+    <div class="card-title"><h3 style="cursor:pointer;flex:1;" data-toggle-collapse="questions">${collapsed?'▸':'▾'} تساؤلات اليوم</h3></div>
+    ${collapsed? '' : `
     ${DEFAULT_QUESTIONS.map((q,i)=>`
       <div class="field" style="margin-bottom:12px;">
         <label>${q}</label>
         <textarea data-qidx="${i}" placeholder="اكتبي إجابتك…">${escapeHtml(log.answers[i]||'')}</textarea>
       </div>`).join('')}
+    `}
   </div>`;
 }
 
@@ -943,6 +1006,31 @@ function renderTasksForDate(isToday){
     return `<div class="empty">${isToday? 'ما فيه مهام بعد.':'ما فيه مهام مجدولة لهذا التاريخ.'}</div>`;
   }
   return list.map(t=>taskRowHtml(t)).join('');
+}
+
+function renderTop3Picker(){
+  const undone = state.tasks.filter(t=>!t.done);
+  return `
+  <div class="card" style="border-color:var(--rose);">
+    <div class="card-title"><h3>اختاري أهم ٣ مهام بنفسك</h3></div>
+    <p class="muted" style="margin-bottom:12px;">حددي حتى ٣ مهام هي الأهم لك اليوم فعلاً (${top3Picker.length}/3 محددة).</p>
+    ${undone.length===0? `<div class="empty">ما فيه مهام غير منجزة حالياً.</div>` :
+      undone.map(t=>{
+        const sel = top3Picker.includes(t.id);
+        const disabled = !sel && top3Picker.length>=3;
+        return `<div class="task-row" style="${disabled?'opacity:.4;':''}">
+          <button type="button" class="check ${sel?'done':''}" data-pick3="${t.id}" ${disabled?'disabled':''}>${sel?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
+          <div style="flex:1;">
+            <div class="task-title">${escapeHtml(t.title)}</div>
+            <span class="tag p-${t.priority}">${t.priority}</span>
+          </div>
+        </div>`;
+      }).join('')}
+    <div style="display:flex;gap:10px;margin-top:12px;">
+      <button class="btn btn-block" id="saveTop3Pick" ${top3Picker.length===0?'disabled':''}>احفظي اختياري</button>
+      <button class="btn ghost" id="cancelTop3Pick">إلغاء</button>
+    </div>
+  </div>`;
 }
 
 function taskRowHtml(t, opts){
@@ -1032,15 +1120,6 @@ function renderSuggestionsCard(){
 
   return `
   ${tipCard}
-  <div class="card" style="border-color:var(--sage);">
-    <div class="card-title"><h3>📥 مقترح من المحادثة</h3></div>
-    <p class="muted" style="margin-bottom:8px;">قوليلي بالمحادثة "اقترح لي مهمة اليوم"، وألصقي ردّي هنا — طريقة أكيدة تشتغل دايم.</p>
-    ${importSugError? `<p class="muted" style="color:var(--rose-dark);margin-bottom:8px;">${escapeHtml(importSugError)}</p>`:''}
-    <div style="display:flex;gap:8px;">
-      <input type="text" id="importSugInput" placeholder="الصقي المهمة هنا…" style="flex:1;"/>
-      <button class="btn sm" id="importSugBtn">أضيفيها</button>
-    </div>
-  </div>
 
   <details>
     <summary class="muted" style="cursor:pointer;font-size:12.5px;">تجربة الاتصال المباشر بالذكاء الاصطناعي (يشتغل فقط داخل Claude.ai، مو بالنسخة المستضافة)</summary>
@@ -1061,13 +1140,16 @@ function renderSuggestionsCard(){
 }
 
 function renderReflectionCard(log){
+  const collapsed = state.collapsed.reflection;
   return `
   <div class="card">
-    <div class="card-title"><h3>وش نتيجة هالليوم؟</h3></div>
+    <div class="card-title"><h3 style="cursor:pointer;flex:1;" data-toggle-collapse="reflection">${collapsed?'▸':'▾'} وش نتيجة هالليوم؟</h3></div>
+    ${collapsed? '' : `
     <p class="muted" style="margin-bottom:10px;">قيّمي رضاك عن إنجاز هذا اليوم</p>
     <div class="chip-row">
       ${[1,2,3,4,5].map(n=>`<button type="button" class="chip ${log.reflection===n?'selected':''}" data-refl="${n}">${'⭐'.repeat(n)}</button>`).join('')}
     </div>
+    `}
   </div>`;
 }
 
@@ -1128,7 +1210,7 @@ function renderHabitsPage(){
   if(habitSet.length===0){
     rows = `<tr><td colspan="8" style="padding:20px;color:#8b9694;">ما فيه عادات مفعّلة لأيام هالأسبوع. أضيفي وفعّلي عادات من الإدارة تحت.</td></tr>`;
   }else{
-    rows = habitSet.map(label=>{
+    rows = habitSet.map((label,rowIdx)=>{
       let cells = dates.map(d=>{
         const tpl = state.dayTemplates[dowOf(d)];
         const active = tpl.habits.filter(h=>h.enabled!==false).map(h=>h.label);
@@ -1137,7 +1219,15 @@ function renderHabitsPage(){
         const done = !!log.habits[label];
         return `<td><button type="button" class="gcheck ${done?'done':''}" data-gdate="${d}" data-glabel="${escapeHtml(label)}">${done?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button></td>`;
       }).join('');
-      return `<tr><td class="habit-label-cell">${escapeHtml(label)}</td>${cells}</tr>`;
+      return `<tr><td class="habit-label-cell">
+        <div style="display:flex;align-items:center;gap:4px;justify-content:flex-end;">
+          <span>${escapeHtml(label)}</span>
+          <div style="display:flex;flex-direction:column;gap:0;">
+            <button type="button" class="icon-btn" style="padding:0 4px;font-size:10px;line-height:1;" data-weekhabit-up="${escapeHtml(label)}" ${rowIdx===0?'disabled':''}>▲</button>
+            <button type="button" class="icon-btn" style="padding:0 4px;font-size:10px;line-height:1;" data-weekhabit-down="${escapeHtml(label)}" ${rowIdx===habitSet.length-1?'disabled':''}>▼</button>
+          </div>
+        </div>
+      </td>${cells}</tr>`;
     }).join('');
   }
 
@@ -1459,7 +1549,7 @@ function attachGlobalEvents(){
   document.querySelectorAll('[data-edit-template]').forEach(b=> b.onclick=()=>{
     const dow = parseInt(b.dataset.editTemplate,10);
     const tpl = state.dayTemplates[dow];
-    templateDraft = {dow, name:tpl.name, motto:tpl.motto, note:tpl.note, timeLabel:tpl.timeLabel, learning:tpl.learning, habits:tpl.habits.map(h=>({label:h.label, enabled:h.enabled}))};
+    templateDraft = {dow, name:tpl.name, motto:tpl.motto, note:tpl.note, timeLabel:tpl.timeLabel, learning:tpl.learning, learningLink:tpl.learningLink||'', habits:tpl.habits.map(h=>({label:h.label, enabled:h.enabled}))};
     render();
   });
 
@@ -1478,6 +1568,12 @@ function attachGlobalEvents(){
   });
 
   document.querySelectorAll('[data-goto-habits]').forEach(b=> b.onclick=()=>{ view='habits'; render(); });
+
+  document.querySelectorAll('[data-toggle-collapse]').forEach(el=> el.onclick=()=>{
+    const key = el.dataset.toggleCollapse;
+    state.collapsed[key] = !state.collapsed[key];
+    saveState(); render();
+  });
 
   document.querySelectorAll('[data-homehabit-up]').forEach(b=> b.onclick=()=>{
     moveHabitAmongActive(parseInt(b.dataset.homehabitDow,10), parseInt(b.dataset.homehabitUp,10), -1);
@@ -1500,6 +1596,9 @@ function attachGlobalEvents(){
     log.habits[label] = !log.habits[label];
     saveState(); render();
   });
+
+  document.querySelectorAll('[data-weekhabit-up]').forEach(b=> b.onclick=()=> moveHabitAcrossWeek(b.dataset.weekhabitUp, -1));
+  document.querySelectorAll('[data-weekhabit-down]').forEach(b=> b.onclick=()=> moveHabitAcrossWeek(b.dataset.weekhabitDown, 1));
 
   document.querySelectorAll('[data-qidx]').forEach(ta=>{
     ta.onchange = ()=>{
@@ -1561,6 +1660,33 @@ function attachGlobalEvents(){
   const refresh = document.getElementById('refreshTop');
   if(refresh) refresh.onclick = ()=> render();
 
+  const openTop3Picker = document.getElementById('openTop3Picker');
+  if(openTop3Picker) openTop3Picker.onclick = ()=>{
+    const log = getLog(todayStr());
+    top3Picker = (log.pinnedTop3 && log.pinnedTop3.length)? log.pinnedTop3.slice() : topTasks().map(t=>t.id);
+    render();
+  };
+  const resetTop3 = document.getElementById('resetTop3');
+  if(resetTop3) resetTop3.onclick = ()=>{
+    getLog(todayStr()).pinnedTop3 = null;
+    saveState(); render();
+  };
+  document.querySelectorAll('[data-pick3]').forEach(b=> b.onclick=()=>{
+    const id = b.dataset.pick3;
+    const i = top3Picker.indexOf(id);
+    if(i>-1) top3Picker.splice(i,1);
+    else if(top3Picker.length<3) top3Picker.push(id);
+    render();
+  });
+  const saveTop3Pick = document.getElementById('saveTop3Pick');
+  if(saveTop3Pick) saveTop3Pick.onclick = ()=>{
+    getLog(todayStr()).pinnedTop3 = top3Picker.slice();
+    top3Picker = null;
+    saveState(); render();
+  };
+  const cancelTop3Pick = document.getElementById('cancelTop3Pick');
+  if(cancelTop3Pick) cancelTop3Pick.onclick = ()=>{ top3Picker = null; render(); };
+
   const addTask = document.getElementById('goAddTask') || document.getElementById('goAddTask2');
   if(addTask) addTask.onclick = ()=>{ taskDraft={title:'',goalId:'',priority:'متوسطة',period:null,due: selectedDate!==todayStr()? selectedDate : ''}; render(); };
 
@@ -1610,16 +1736,6 @@ function attachGlobalEvents(){
     });
     if(aiSuggestion.sourceId) state.inbox = state.inbox.filter(it=>it.id!==aiSuggestion.sourceId);
     aiSuggestion=null;
-    saveState(); render();
-  };
-
-  const importSugBtn = document.getElementById('importSugBtn');
-  if(importSugBtn) importSugBtn.onclick = ()=>{
-    const inp = document.getElementById('importSugInput');
-    const val = (inp? inp.value : '').trim().replace(/^[-•\d.\)]+\s*/,'');
-    if(!val){ importSugError = 'الصقي نص المهمة أول.'; render(); return; }
-    importSugError = null;
-    state.tasks.push({id:uid(), title:val, goalId:null, category:null, priority:'متوسطة', period:null, due:todayStr(), done:false, createdAt:todayStr()});
     saveState(); render();
   };
 
