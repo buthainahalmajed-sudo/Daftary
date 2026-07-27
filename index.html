@@ -1498,7 +1498,8 @@ function renderFinancePathsCard(fg){
         const setup = (fg.pathSetup && fg.pathSetup[pid]) || {};
         const seq = getEffectiveSequence(fg, pid);
         const idx = fg.pathProgress[pid]||0;
-        const tip = seq[idx];
+        const override = fg.pathOverrides && fg.pathOverrides[pid] && fg.pathOverrides[pid][idx];
+        const tip = override!=null ? override : seq[idx];
         const pending = pendingTipAdd && pendingTipAdd.methodId===pid;
         const defaultSpacing = defaultSpacingDays(setup.timeline);
         return `
@@ -1509,7 +1510,11 @@ function renderFinancePathsCard(fg){
           ${setup.successCriteria? `<p class="muted" style="margin-bottom:8px;">🎯 نجاحك يعني: <b style="color:var(--petrol-dark);">${escapeHtml(setup.successCriteria)}</b></p>`:''}
           ${tip? `
             <p class="muted" style="font-size:11px;margin-bottom:4px;">مقترح ${idx+1} من ${seq.length}</p>
-            <p style="font-size:15px;margin-bottom:10px;">${escapeHtml(tip)}</p>
+            ${pending? `
+              <p style="font-size:15px;margin-bottom:10px;">${escapeHtml(tip)}</p>
+            `:`
+              <textarea data-tip-edit="${pid}|${idx}" style="width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;background:var(--paper);font-size:15px;margin-bottom:10px;min-height:44px;resize:vertical;">${escapeHtml(tip)}</textarea>
+            `}
             ${pending? `
               <p class="muted" style="margin-bottom:6px;">تحطّينها بجدولك بعد كم؟</p>
               <div class="chip-row" style="margin-bottom:8px;">
@@ -1678,6 +1683,7 @@ function attachFinanceEvents(){
     const fg = state.financialGoal;
     fg.paths = fg.paths.filter(id=>id!==b.dataset.pathRemove);
     if(fg.pathProgress) delete fg.pathProgress[b.dataset.pathRemove];
+    if(fg.pathOverrides) delete fg.pathOverrides[b.dataset.pathRemove];
     if(pendingTipAdd && pendingTipAdd.methodId===b.dataset.pathRemove) pendingTipAdd=null;
     saveState(); render();
   });
@@ -1703,11 +1709,24 @@ function attachFinanceEvents(){
     fg.pathProgress[b.dataset.tipSkip] = (fg.pathProgress[b.dataset.tipSkip]||0)+1;
     saveState(); render();
   });
+  document.querySelectorAll('[data-tip-edit]').forEach(ta=>{
+    ta.onchange = ()=>{
+      const [pid, idxStr] = ta.dataset.tipEdit.split('|');
+      const idx = parseInt(idxStr,10);
+      const fg = state.financialGoal;
+      if(!fg.pathOverrides) fg.pathOverrides = {};
+      if(!fg.pathOverrides[pid]) fg.pathOverrides[pid] = {};
+      const val = ta.value.trim();
+      if(val) fg.pathOverrides[pid][idx] = val; else delete fg.pathOverrides[pid][idx];
+      saveState();
+    };
+  });
   document.querySelectorAll('[data-tip-accept]').forEach(b=> b.onclick=()=>{
     const fg = state.financialGoal;
     const seq = getEffectiveSequence(fg, b.dataset.tipAccept);
     const idx = (fg.pathProgress&&fg.pathProgress[b.dataset.tipAccept])||0;
-    pendingTipAdd = { methodId: b.dataset.tipAccept, tipText: seq[idx] };
+    const override = fg.pathOverrides && fg.pathOverrides[b.dataset.tipAccept] && fg.pathOverrides[b.dataset.tipAccept][idx];
+    pendingTipAdd = { methodId: b.dataset.tipAccept, tipText: override!=null? override : seq[idx] };
     render();
   });
   const cancelTipAdd = document.getElementById('cancelTipAdd');
