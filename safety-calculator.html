@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>حساب نقطة الأمان المالي</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=Cairo:wght@700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f4ee; --card:#ffffff; --line:#e7e1d2; --text:#2b2620; --sub:#8a8071;
+    --necessary:#2f9e6e; --necessary-bg:#e7f7ef;
+    --nonessential:#d9564a; --nonessential-bg:#fbe6e3;
+    --wealth:#3f6fd1; --wealth-bg:#e8effb;
+    --gold:#c9a227; --gold-bg:#fdf6e3;
+    --accent:#1b2a26;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--text); font-family:'Tajawal',system-ui,sans-serif; padding:24px 14px 60px;}
+  .wrap{max-width:680px; margin:0 auto;}
+  h1,h2,h3{font-family:'Cairo',sans-serif; margin:0;}
+  header{text-align:center; margin-bottom:20px;}
+  header img{max-width:260px; width:100%; height:auto; margin:0 auto 14px; display:block;}
+  header h1{font-size:20px; font-weight:900;}
+  header p{font-size:12.5px; color:var(--sub); margin-top:6px;}
+
+  .card{background:var(--card); border:1px solid var(--line); border-radius:18px; padding:16px; margin-bottom:14px;}
+  .card h3{font-size:13.5px; margin-bottom:4px; display:flex; align-items:center; gap:7px;}
+  .card h3::before{content:""; width:6px; height:6px; border-radius:50%; background:var(--accent); display:inline-block;}
+  .card .hint{font-size:11px; color:var(--sub); margin-bottom:12px;}
+
+  .row2{display:flex; gap:10px; flex-wrap:wrap;}
+  .field{flex:1; min-width:130px;}
+  .field label{display:block; font-size:11px; color:var(--sub); margin-bottom:5px;}
+  .field input, .field select{
+    width:100%; background:#faf8f2; border:1px solid var(--line); border-radius:10px;
+    color:var(--text); padding:9px 10px; font-size:13px; font-family:inherit;
+  }
+  .field input:focus, .field select:focus{outline:none; border-color:#c9a227;}
+
+  .item-row{display:flex; gap:8px; flex-wrap:wrap; align-items:flex-start; padding:9px 0; border-bottom:1px solid var(--line);}
+  .item-row:last-of-type{border-bottom:none;}
+  .item-row select, .item-row input{
+    background:#faf8f2; border:1px solid var(--line); border-radius:10px;
+    padding:8px 9px; font-size:12.5px; font-family:inherit; color:var(--text);
+  }
+  .item-row .sel-item{flex:2; min-width:130px;}
+  .item-row .sel-custom{flex:2; min-width:110px;}
+  .item-row .sel-tag{flex:1.3; min-width:110px;}
+  .item-row .inp-amt{flex:1; min-width:75px;}
+  .item-row .del-row{background:none; border:none; color:#b9ad96; cursor:pointer; font-size:15px; padding:6px;}
+  .item-row .del-row:hover{color:var(--nonessential);}
+  .add-row-btn{
+    margin-top:10px; width:100%; background:var(--accent); color:#f4f0e6; border:none;
+    border-radius:10px; padding:10px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit;
+  }
+  .add-row-btn:hover{background:#2a3d37;}
+  .total-line{display:flex; justify-content:space-between; align-items:center; margin-top:12px; padding-top:12px; border-top:1px dashed var(--line);}
+  .total-line .lbl{font-size:12.5px; color:var(--sub);}
+  .total-line .val{font-size:17px; font-weight:900; font-family:'Cairo',sans-serif;}
+
+  .tag-pill{font-size:9.5px; padding:2px 8px; border-radius:99px; font-weight:700; white-space:nowrap; display:inline-block;}
+
+  /* results */
+  .result-hero{border-radius:18px; padding:20px; text-align:center; margin-bottom:14px; background:var(--accent);}
+  .result-hero .lbl{font-size:12px; color:#c9c3af; margin-bottom:6px;}
+  .result-hero .val{font-size:30px; font-weight:900; color:#fff; font-family:'Cairo',sans-serif;}
+  .result-hero .sub{font-size:11.5px; color:#a9c9bb; margin-top:8px; line-height:1.6;}
+
+  .stats-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .stat-box{border-radius:12px; padding:10px 12px;}
+  .stat-box .p{font-size:15px; font-weight:900; font-family:'Cairo',sans-serif;}
+  .stat-box .l{font-size:10.5px; margin-top:3px;}
+
+  .status-banner{border-radius:12px; padding:12px 14px; font-size:13px; font-weight:700; text-align:center; margin-bottom:12px; line-height:1.6;}
+  .status-green{background:var(--necessary-bg); color:#1e6b4a;}
+  .status-yellow{background:var(--gold-bg); color:#8a6d00;}
+  .status-red{background:var(--nonessential-bg); color:#8a3229;}
+
+  .assumption-note{font-size:10.5px; color:var(--sub); background:#faf8f2; border-radius:10px; padding:8px 10px; margin-top:10px; line-height:1.7;}
+
+  /* goals section (separate) */
+  .goals-total{border-radius:14px; padding:14px; background:var(--wealth-bg); text-align:center; margin-top:4px;}
+  .goals-total .v{font-size:20px; font-weight:900; color:var(--wealth); font-family:'Cairo',sans-serif;}
+  .goals-total .l{font-size:11px; color:#3f6fd1; margin-top:4px;}
+
+  /* profile gate */
+  .month-badge{display:inline-block; margin-top:8px; background:var(--wealth-bg); color:#274a8f; font-size:11.5px; font-weight:700; padding:4px 12px; border-radius:99px;}
+  #welcomeCard{display:flex; justify-content:space-between; align-items:center; padding:12px 16px;}
+  #welcomeText{font-size:13px; font-weight:800;}
+  #switchAccountBtn{background:none; border:none; color:var(--sub); font-size:11px; cursor:pointer; text-decoration:underline;}
+
+  /* CTA */
+  .cta-card{text-align:center;}
+  .cta-card h3{justify-content:center;}
+  .cta-card p{font-size:12px; color:var(--sub); margin-bottom:14px;}
+  .cta-btn{
+    display:block; width:100%; box-sizing:border-box; padding:13px; border-radius:12px;
+    font-weight:800; font-size:13.5px; text-decoration:none; margin-bottom:10px; font-family:'Tajawal',sans-serif;
+  }
+  .cta-btn:last-child{margin-bottom:0;}
+  .cta-primary{background:var(--accent); color:#f4f0e6;}
+  .cta-primary:hover{background:#2a3d37;}
+  .cta-secondary{background:#faf8f2; color:var(--accent); border:1.5px solid var(--accent);}
+  .cta-secondary:hover{background:#f0ead9;}
+
+  .empty{text-align:center; color:var(--sub); font-size:12.5px; padding:10px 0;}
+  footer{text-align:center; font-size:10.5px; color:var(--sub); margin-top:18px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABKAAAAEzCAIAAACJ8eyhAAAQAElEQVR4Aez9B5hdRZYmiq4w2xyTJ024FhKS0BbhvXclhIQXQhLee++9EbISTiUklKFUUsn7cs0z7c93dl/PdM/rmZ7X0/fN9J13733nGgAAQAElEQVR4nOxdC5xVVfX/rbXPuXPvXHAcHcQXimikjmn5yPpV2sMy09KspwbmH00wtdIsA0soRVDMEB80MdOKTFPTfKSGjy8IIIioAAAQAElEQVQpaSFqggIzMPzn3rP2Wr+9z7lz78yFecCA2s4+e+/1XL/f2mvvcx933wf80OAAAA==" alt="شعار الماراثون" />
+    <h1>🛡️ حساب نقطة الأمان المالي</h1>
+    <p>المبلغ اللي إذا وصلتيه، تكون احتياجاتك الأساسية مغطاة بدون الحاجة للعمل</p>
+  </header>
+
+  <!-- بيانات المستثمرة -->
+  <div class="card" id="gateCard">
+    <h3>بيانات المستثمرة</h3>
+    <div class="row2">
+      <div class="field">
+        <label>الاسم</label>
+        <input id="nameInput" type="text" placeholder="اسمك" />
+      </div>
+      <div class="field">
+        <label>البريد الإلكتروني</label>
+        <input id="emailInput" type="email" placeholder="you@email.com" />
+      </div>
+    </div>
+    <button class="add-row-btn" id="enterBtn" style="margin-top:12px;">دخول ومتابعة حسابي</button>
+  </div>
+
+  <div id="mainContent" style="display:none;">
+
+  <!-- ترحيب -->
+  <div class="card" id="welcomeCard">
+    <span id="welcomeText"></span>
+    <button id="switchAccountBtn">تبديل الحساب</button>
+  </div>
+
+  <!-- الأملاك -->
+  <div class="card">
+    <h3>الأصول</h3>
+    <div class="hint">عقار، ذهب، فضة، حساب توفير، أسهم، ودائع، برنامج استثماري، منزلك... اكتبي القيمة الإجمالية الحالية لكل بند (مثل رصيد حساب التوفير حتى تاريخه، أو قيمة الأسهم الحالية). حددي لكل بند: ⚡ سيولة سريعة، 🐢 سيولة طويلة المدى (تُحسب الاثنتان)، أو 🏠 أصل ثابت لا يُحسب (كالمسكن الأساسي)</div>
+    <div id="assetRows"></div>
+    <button class="add-row-btn" id="addAssetBtn">+ إضافة أصل</button>
+    <div class="total-line">
+      <span class="lbl">إجمالي الأملاك</span>
+      <span class="val" id="assetsTotal">0 ﷼</span>
+    </div>
+    <div class="hint" id="assetsBreakdown" style="margin-top:8px;"></div>
+  </div>
+
+  <!-- الدخل الشهري -->
+  <div class="card">
+    <h3>مصادر الدخل الشهري</h3>
+    <div class="hint">راتب شهري، إيجار عقار (لو الإيجار سنوي، اقسميه ÷12 واكتبي القيمة الشهرية)، عائد برنامج استثماري، مكافآت مالية (بخلاف راتبك الأساسي)... ملاحظة: قيمة الأسهم والودائع ورأس مال أي برنامج استثماري تُكتب في قسم "الأصول" أعلاه، مو هنا — هنا فقط العائد/الربح الشهري منها إن وُجد. استثناء: "أرباح الودائع السنوية" اكتبيها كمبلغ سنوي مباشرة، وبنقسمها ÷12 تلقائيًا.</div>
+    <div id="incomeRows"></div>
+    <button class="add-row-btn" id="addIncomeBtn">+ إضافة مصدر دخل</button>
+    <div class="total-line">
+      <span class="lbl">إجمالي الدخل الشهري</span>
+      <span class="val" id="incomeTotal">0 ﷼</span>
+    </div>
+  </div>
+
+  <!-- بنود الصرف -->
+  <div class="card">
+    <h3>بنود الصرف الشهرية</h3>
+    <div class="hint">كل بند يُصنَّف تلقائيًا 🟢 أساسي أو 🔴 غير أساسي — رقم الأمان المالي يعتمد على الأساسي فقط</div>
+    <div id="expenseRows"></div>
+    <button class="add-row-btn" id="addExpenseBtn">+ إضافة بند صرف</button>
+    <div class="total-line">
+      <span class="lbl">إجمالي المصاريف الشهرية</span>
+      <span class="val" id="expenseTotal">0 ﷼</span>
+    </div>
+  </div>
+
+  <!-- نتيجة الأمان المالي -->
+  <div class="card">
+    <h3>نقطة الأمان المالي</h3>
+    <div id="statusBanner"></div>
+    <div class="result-hero">
+      <div class="lbl">المبلغ المستهدف (بعد التضخم)</div>
+      <div class="val" id="safetyTargetVal">0 ﷼</div>
+      <div class="sub" id="safetyTargetSub"></div>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-box" style="background:var(--necessary-bg)">
+        <div class="p" style="color:var(--necessary)" id="essentialAnnualVal">0 ﷼</div>
+        <div class="l" style="color:var(--necessary)">مصاريفك الأساسية سنويًا</div>
+      </div>
+      <div class="stat-box" style="background:var(--wealth-bg)">
+        <div class="p" style="color:var(--wealth)" id="netSavingsVal">0 ﷼</div>
+        <div class="l" style="color:var(--wealth)">صافي ادخارك السنوي الحالي</div>
+      </div>
+      <div class="stat-box" style="background:var(--gold-bg)">
+        <div class="p" style="color:#8a6d00" id="remainingVal">0 ﷼</div>
+        <div class="l" style="color:#8a6d00">المتبقي للوصول للأمان</div>
+      </div>
+      <div class="stat-box" style="background:var(--nonessential-bg)">
+        <div class="p" style="color:var(--nonessential)" id="nonEssentialMonthlyVal">0 ﷼</div>
+        <div class="l" style="color:var(--nonessential)" id="nonEssentialMonthlyLabel">من ميزانيتك يذهب لغير الأساسي شهريًا</div>
+      </div>
+      <div class="stat-box" style="background:var(--nonessential-bg); grid-column:1 / -1; text-align:center;">
+        <div class="p" style="color:var(--nonessential); font-size:19px;" id="monthlyGapVal">0 ﷼</div>
+        <div class="l" style="color:var(--nonessential)">الدخل الإضافي المطلوب شهريًا للتعادل</div>
+      </div>
+      <div class="stat-box" style="background:#eee9db; grid-column:1 / -1; text-align:center;">
+        <div class="p" id="yearsVal" style="font-size:19px;">—</div>
+        <div class="l">الوقت المتبقي حتى نقطة الأمان المالي</div>
+      </div>
+    </div>
+    <div class="assumption-note">
+      الافتراضات المستخدمة: كل مبلغ شهري (دخل أو مصروف) يُضرب × 12 ويُفترض تكراره كل سنة بنفس القيمة. تغطية 5 سنوات من مصاريفك الأساسية السنوية + تضخم تقديري 2%. صافي الادخار = دخلك السنوي − كل مصاريفك السنوية (أساسية وغير أساسية). الأصول لا تُحسب كدخل أو مصروف. الأصول ذات السيولة السريعة أو طويلة المدى (⚡🐢) تُحسب بالكامل مقابل المبلغ المستهدف؛ الأصول الثابتة (🏠 كالمسكن الأساسي) تظهر ضمن أملاكك لكن لا تُخصم من المبلغ المطلوب، لأنها لا توفر سيولة تعيشين عليها.
+    </div>
+  </div>
+
+  <!-- الرغبات طويلة المدى -->
+  <div class="card">
+    <h3>الرغبات طويلة المدى (هدف منفصل)</h3>
+    <div class="hint">منزل، سيارة، هدف محدد — لا تؤثر على رقم الأمان الأساسي أعلاه</div>
+    <div id="goalRows"></div>
+    <button class="add-row-btn" id="addGoalBtn">+ إضافة رغبة/هدف</button>
+    <div class="row2" style="margin-top:12px;">
+      <div class="field">
+        <label>خلال كم سنة تبين تحققين هذا الهدف المالي؟</label>
+        <input id="goalsTargetYearsInput" type="number" min="0" step="0.5" placeholder="مثال: 3" />
+      </div>
+    </div>
+    <div class="goals-total">
+      <div class="v" id="goalsTotal">0 ﷼</div>
+      <div class="l" id="goalsExtraYears">أضيفي رغباتك لمعرفة التكلفة الإجمالية</div>
+    </div>
+    <div class="status-banner" id="goalsTargetStatus" style="display:none; margin-top:10px;"></div>
+  </div>
+
+  <!-- CTA -->
+  <div class="card cta-card">
+    <h3>وش الخطوة الجاية؟</h3>
+    <p>خذي وضعك المالي لمرحلة جديدة مع سما النخبة للتدريب</p>
+    <a class="cta-btn cta-primary" href="https://samantc.com/wWazwPj" target="_blank" rel="noopener">🏁 سجّلي في ماراثون أول 100 ألف ريال سعودي</a>
+    <a class="cta-btn cta-secondary" href="https://samantc.com/ZqGeWqb" target="_blank" rel="noopener">📅 طلب استشارة</a>
+  </div>
+
+  </div><!-- /mainContent -->
+
+  <footer>البيانات محفوظة محليًا بمتصفحك على هذا الموقع فقط، وتقدرين تعدّلين أي بند بأي وقت.</footer>
+</div>
+
+<script>
+(function(){
+  const PROFILES_KEY = "financialSafetyProfiles";
+  const CURRENT_KEY = "financialSafetyCurrentEmail";
+  const COVERAGE_YEARS = 5;
+  const INFLATION_RATE = 0.02;
+
+  const ASSET_OPTIONS = ["أرض","منزل","ذهب","ذهب سبائك","فضة","حساب توفير (الرصيد الحالي)","أسهم","ودائع","برنامج استثماري (تكافل)","ممتلكات أخرى"];
+  const INCOME_OPTIONS = ["راتب شهري","عقار للإيجار (المبلغ الشهري)","مشروع ربحي","تجارة منزلية","مشروع إلكتروني","عائد برنامج استثماري (تكافل)","أرباح الودائع السنوية","دعم من الدولة","مكافآت مالية"];
+  // بنود دخل يُدخل مبلغها كرقم سنوي مباشرة (يُقسم على 12 تلقائيًا)، بعكس بقية بنود الدخل التي تُدخل كمبلغ شهري
+  const INCOME_ANNUAL_ITEMS = new Set(["أرباح الودائع السنوية"]);
+  const GOAL_OPTIONS = ["منزل خاص","سيارة جديدة","قطعة أرض"];
+
+  // تصنيف الأصول: سريعة السيولة (تُحسب فورًا) / طويلة المدى (تُحسب لكن تحويلها لنقد أبطأ) / ثابتة (لا تُحسب، كالمسكن الأساسي)
+  const ASSET_TAG_MAP = {
+    "منزل": "fixed",
+    "أرض": "slow",
+    "ذهب": "fast",
+    "ذهب سبائك": "fast",
+    "فضة": "fast",
+    "حساب توفير (الرصيد الحالي)": "fast",
+    "أسهم": "fast",
+    "ودائع": "fast",
+    "برنامج استثماري (تكافل)": "slow",
+  };
+  const ASSET_TAG_META = {
+    fast:  {label:"سيولة سريعة — يُحسب", emoji:"⚡"},
+    slow:  {label:"سيولة طويلة المدى — يُحسب", emoji:"🐢"},
+    fixed: {label:"أصل ثابت — لا يُحسب", emoji:"🏠"},
+  };
+  function buildAssetTagOptions(selected){
+    return Object.keys(ASSET_TAG_META).map(k=>`<option value="${k}" ${selected===k?'selected':''}>${ASSET_TAG_META[k].emoji} ${ASSET_TAG_META[k].label}</option>`).join('');
+  }
+
+  const EXPENSE_GROUPS = [
+    {label:"🟢 أساسي", tag:"essential", items:["فواتير كهرباء","فواتير الماء","فواتير اتصالات","سيارة ومواصلات / تأمين","إيجارات سكن","بقالة / لحوم","المدارس للأطفال","مصروفات الأطفال","أقساط / ديون","إصلاح أعطال","الصحة والرياضة","ملابس"]},
+    {label:"🔴 غير أساسي", tag:"nonessential", items:["الاشتراكات الشهرية","طعام المطاعم","الترفيه و الرغبات","الرحلات","الهدايا","هوايات","حيوانات أليفة","تطوير ذات / دورات / كتب"]},
+  ];
+  const CUSTOM_VALUE = "__custom__";
+  const EXPENSE_TAG_MAP = {};
+  EXPENSE_GROUPS.forEach(g => g.items.forEach(it => EXPENSE_TAG_MAP[it] = g.tag));
+
+  const TAG_META = {
+    essential:    {label:"أساسي", color:"var(--necessary)", bg:"var(--necessary-bg)"},
+    nonessential: {label:"غير أساسي", color:"var(--nonessential)", bg:"var(--nonessential-bg)"},
+  };
+
+  function esc(s){ return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+  function fmt(n){ return Number(n||0).toLocaleString('ar-SA', {maximumFractionDigits:2}); }
+  function formatDuration(years){
+    if(!isFinite(years) || years <= 0) return '0 شهر';
+    const totalMonths = Math.round(years * 12);
+    const y = Math.floor(totalMonths / 12);
+    const m = totalMonths % 12;
+    const parts = [];
+    if(y > 0) parts.push(`${y} ${y === 1 ? 'سنة' : (y === 2 ? 'سنتين' : (y <= 10 ? 'سنوات' : 'سنة'))}`);
+    if(m > 0) parts.push(`${m} ${m === 1 ? 'شهر' : (m === 2 ? 'شهرين' : 'أشهر')}`);
+    return parts.length ? parts.join(' و') : 'أقل من شهر';
+  }
+
+  function loadProfiles(){
+    try{ const raw = localStorage.getItem(PROFILES_KEY); if(raw) return JSON.parse(raw); }catch(e){}
+    return {};
+  }
+  function saveProfiles(){ localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles)); }
+
+  let profiles = loadProfiles();
+  let currentEmail = localStorage.getItem(CURRENT_KEY) || "";
+  let state = null;
+
+  function emptyState(){
+    return {
+      assets:[{id:Date.now(), item:"", custom:"", tag:"fast", amount:""}],
+      income:[{id:Date.now()+1, item:"", custom:"", amount:""}],
+      expenses:[{id:Date.now()+2, item:"", custom:"", tag:"essential", amount:""}],
+      goals:[{id:Date.now()+3, item:"", custom:"", amount:""}],
+      goalsTargetYears: "",
+    };
+  }
+
+  function ensureProfile(email, name){
+    if(!profiles[email]) profiles[email] = { name: name||'', email, data: emptyState() };
+    else if(name) profiles[email].name = name;
+    return profiles[email];
+  }
+
+  function save(){
+    if(!currentEmail || !profiles[currentEmail]) return;
+    profiles[currentEmail].data = state;
+    saveProfiles();
+  }
+
+  // ---------- عناصر DOM ----------
+  const assetRows = document.getElementById('assetRows');
+  const incomeRows = document.getElementById('incomeRows');
+  const expenseRows = document.getElementById('expenseRows');
+  const goalRows = document.getElementById('goalRows');
+
+  // ---------- بناء خيارات القوائم ----------
+  function buildSimpleOptions(options, selected){
+    let html = `<option value="">اختاري بند...</option>`;
+    options.forEach(o=>{ html += `<option value="${esc(o)}" ${selected===o?'selected':''}>${esc(o)}</option>`; });
+    html += `<option value="${CUSTOM_VALUE}" ${selected===CUSTOM_VALUE?'selected':''}>✏️ أخرى (اكتبي يدويًا)</option>`;
+    return html;
+  }
+  function buildExpenseOptions(selected){
+    let html = `<option value="">اختاري بند...</option>`;
+    EXPENSE_GROUPS.forEach(g=>{
+      html += `<optgroup label="${g.label}">`;
+      g.items.forEach(it=>{ html += `<option value="${esc(it)}" ${selected===it?'selected':''}>${esc(it)}</option>`; });
+      html += `</optgroup>`;
+    });
+    html += `<option value="${CUSTOM_VALUE}" ${selected===CUSTOM_VALUE?'selected':''}>✏️ أخرى (اكتبي يدويًا)</option>`;
+    return html;
+  }
+  function buildTagOptions(selected){
+    return Object.keys(TAG_META).map(k=>`<option value="${k}" ${selected===k?'selected':''}>${k==='essential'?'🟢':'🔴'} ${TAG_META[k].label}</option>`).join('');
+  }
+
+  // ---------- صفوف عامة (أملاك / دخل / رغبات) ----------
+  function renderAssetRows(){
+    assetRows.innerHTML = state.assets.map(r=>{
+      const isCustom = r.item === CUSTOM_VALUE;
+      const tag = r.tag || 'fast';
+      return `
+      <div class="item-row" data-id="${r.id}">
+        <select class="sel-item">${buildSimpleOptions(ASSET_OPTIONS, r.item)}</select>
+        ${isCustom ? `<input class="sel-custom" type="text" placeholder="اكتبي اسم الأصل" value="${esc(r.custom||'')}" />` : ''}
+        <select class="sel-tag">${buildAssetTagOptions(tag)}</select>
+        <input class="inp-amt" type="number" min="0" step="0.01" placeholder="المبلغ" value="${r.amount||''}" />
+        <button class="del-row" aria-label="حذف">✕</button>
+      </div>`;
+    }).join('');
+    assetRows.querySelectorAll('.item-row').forEach(rowEl=>{
+      const id = Number(rowEl.getAttribute('data-id'));
+      const row = state.assets.find(r=>r.id===id);
+      const selItem = rowEl.querySelector('.sel-item');
+      selItem.addEventListener('change', ()=>{
+        row.item = selItem.value; if(row.item!==CUSTOM_VALUE) row.custom='';
+        row.tag = ASSET_TAG_MAP[row.item] || 'fast';
+        save(); renderAssetRows(); computeAndRender();
+      });
+      const selCustom = rowEl.querySelector('.sel-custom');
+      if(selCustom) selCustom.addEventListener('input', ()=>{ row.custom = selCustom.value; save(); computeAndRender(); });
+      const selTag = rowEl.querySelector('.sel-tag');
+      if(selTag) selTag.addEventListener('change', ()=>{ row.tag = selTag.value; save(); computeAndRender(); });
+      const inpAmt = rowEl.querySelector('.inp-amt');
+      inpAmt.addEventListener('input', ()=>{ row.amount = inpAmt.value; save(); computeAndRender(); });
+      rowEl.querySelector('.del-row').addEventListener('click', ()=>{
+        const idx = state.assets.indexOf(row);
+        state.assets.splice(idx,1);
+        if(state.assets.length===0) state.assets.push({id:Date.now(), item:"", custom:"", tag:"fast", amount:""});
+        save(); renderAssetRows(); computeAndRender();
+      });
+    });
+  }
+
+  function renderIncomeRows(){
+    incomeRows.innerHTML = state.income.map(r=>{
+      const isCustom = r.item === CUSTOM_VALUE;
+      return `
+      <div class="item-row" data-id="${r.id}">
+        <select class="sel-item">${buildSimpleOptions(INCOME_OPTIONS, r.item)}</select>
+        ${isCustom ? `<input class="sel-custom" type="text" placeholder="اكتبي مصدر الدخل" value="${esc(r.custom||'')}" />` : ''}
+        <input class="inp-amt" type="number" min="0" step="0.01" placeholder="المبلغ" value="${r.amount||''}" />
+        <button class="del-row" aria-label="حذف">✕</button>
+      </div>`;
+    }).join('');
+    incomeRows.querySelectorAll('.item-row').forEach(rowEl=>{
+      const id = Number(rowEl.getAttribute('data-id'));
+      const row = state.income.find(r=>r.id===id);
+      const selItem = rowEl.querySelector('.sel-item');
+      selItem.addEventListener('change', ()=>{
+        row.item = selItem.value; if(row.item!==CUSTOM_VALUE) row.custom='';
+        save(); renderIncomeRows(); computeAndRender();
+      });
+      const selCustom = rowEl.querySelector('.sel-custom');
+      if(selCustom) selCustom.addEventListener('input', ()=>{ row.custom = selCustom.value; save(); computeAndRender(); });
+      const inpAmt = rowEl.querySelector('.inp-amt');
+      inpAmt.addEventListener('input', ()=>{ row.amount = inpAmt.value; save(); computeAndRender(); });
+      rowEl.querySelector('.del-row').addEventListener('click', ()=>{
+        const idx = state.income.indexOf(row);
+        state.income.splice(idx,1);
+        if(state.income.length===0) state.income.push({id:Date.now(), item:"", custom:"", amount:""});
+        save(); renderIncomeRows(); computeAndRender();
+      });
+    });
+  }
+
+  function renderGoalRows(){
+    goalRows.innerHTML = state.goals.map(r=>{
+      const isCustom = r.item === CUSTOM_VALUE;
+      return `
+      <div class="item-row" data-id="${r.id}">
+        <select class="sel-item">${buildSimpleOptions(GOAL_OPTIONS, r.item)}</select>
+        ${isCustom ? `<input class="sel-custom" type="text" placeholder="اكتبي اسم الهدف" value="${esc(r.custom||'')}" />` : ''}
+        <input class="inp-amt" type="number" min="0" step="0.01" placeholder="المبلغ" value="${r.amount||''}" />
+        <button class="del-row" aria-label="حذف">✕</button>
+      </div>`;
+    }).join('');
+    goalRows.querySelectorAll('.item-row').forEach(rowEl=>{
+      const id = Number(rowEl.getAttribute('data-id'));
+      const row = state.goals.find(r=>r.id===id);
+      const selItem = rowEl.querySelector('.sel-item');
+      selItem.addEventListener('change', ()=>{
+        row.item = selItem.value; if(row.item!==CUSTOM_VALUE) row.custom='';
+        save(); renderGoalRows(); computeAndRender();
+      });
+      const selCustom = rowEl.querySelector('.sel-custom');
+      if(selCustom) selCustom.addEventListener('input', ()=>{ row.custom = selCustom.value; save(); computeAndRender(); });
+      const inpAmt = rowEl.querySelector('.inp-amt');
+      inpAmt.addEventListener('input', ()=>{ row.amount = inpAmt.value; save(); computeAndRender(); });
+      rowEl.querySelector('.del-row').addEventListener('click', ()=>{
+        const idx = state.goals.indexOf(row);
+        state.goals.splice(idx,1);
+        if(state.goals.length===0) state.goals.push({id:Date.now(), item:"", custom:"", amount:""});
+        save(); renderGoalRows(); computeAndRender();
+      });
+    });
+  }
+
+  // ---------- صفوف المصاريف (فيها تصنيف) ----------
+  function renderExpenseRows(){
+    expenseRows.innerHTML = state.expenses.map(r=>{
+      const isCustom = r.item === CUSTOM_VALUE;
+      return `
+      <div class="item-row" data-id="${r.id}">
+        <select class="sel-item">${buildExpenseOptions(r.item)}</select>
+        ${isCustom ? `<input class="sel-custom" type="text" placeholder="اكتبي اسم البند" value="${esc(r.custom||'')}" />` : ''}
+        ${isCustom ? `<select class="sel-tag">${buildTagOptions(r.tag)}</select>` : ''}
+        <input class="inp-amt" type="number" min="0" step="0.01" placeholder="المبلغ" value="${r.amount||''}" />
+        <button class="del-row" aria-label="حذف">✕</button>
+      </div>`;
+    }).join('');
+
+    expenseRows.querySelectorAll('.item-row').forEach(rowEl=>{
+      const id = Number(rowEl.getAttribute('data-id'));
+      const row = state.expenses.find(r=>r.id===id);
+      const selItem = rowEl.querySelector('.sel-item');
+      selItem.addEventListener('change', ()=>{
+        row.item = selItem.value;
+        if(row.item !== CUSTOM_VALUE){ row.tag = EXPENSE_TAG_MAP[row.item] || 'essential'; row.custom=''; }
+        save(); renderExpenseRows(); computeAndRender();
+      });
+      const selCustom = rowEl.querySelector('.sel-custom');
+      if(selCustom) selCustom.addEventListener('input', ()=>{ row.custom = selCustom.value; save(); computeAndRender(); });
+      const selTag = rowEl.querySelector('.sel-tag');
+      if(selTag) selTag.addEventListener('change', ()=>{ row.tag = selTag.value; save(); computeAndRender(); });
+      const inpAmt = rowEl.querySelector('.inp-amt');
+      inpAmt.addEventListener('input', ()=>{ row.amount = inpAmt.value; save(); computeAndRender(); });
+      rowEl.querySelector('.del-row').addEventListener('click', ()=>{
+        const idx = state.expenses.indexOf(row);
+        state.expenses.splice(idx,1);
+        if(state.expenses.length===0) state.expenses.push({id:Date.now(), item:"", custom:"", tag:"essential", amount:""});
+        save(); renderExpenseRows(); computeAndRender();
+      });
+    });
+  }
+
+  function activeList(rows){
+    return rows.map(r=>({
+      name: r.item===CUSTOM_VALUE ? (r.custom||'').trim() : r.item,
+      amount: parseFloat(r.amount)||0,
+      tag: r.tag,
+    })).filter(x=>x.name && x.amount>0);
+  }
+
+  function renderAll(){
+    renderAssetRows();
+    renderIncomeRows();
+    renderGoalRows();
+    renderExpenseRows();
+    computeAndRender();
+  }
+
+  function computeAndRender(){
+    const assets = activeList(state.assets);
+    const income = activeList(state.income);
+    const expenses = activeList(state.expenses);
+    const goals = activeList(state.goals);
+
+    const totalAssets = assets.reduce((s,e)=>s+e.amount,0);
+    const fastAssets = assets.filter(e=>e.tag==='fast').reduce((s,e)=>s+e.amount,0);
+    const slowAssets = assets.filter(e=>e.tag==='slow').reduce((s,e)=>s+e.amount,0);
+    const fixedAssets = assets.filter(e=>e.tag==='fixed').reduce((s,e)=>s+e.amount,0);
+    const liquidAssets = fastAssets + slowAssets;
+    const totalIncomeMonthly = income.reduce((s,e)=> s + (INCOME_ANNUAL_ITEMS.has(e.name) ? e.amount/12 : e.amount), 0);
+    const essentialMonthly = expenses.filter(e=>e.tag==='essential').reduce((s,e)=>s+e.amount,0);
+    const nonEssentialMonthly = expenses.filter(e=>e.tag==='nonessential').reduce((s,e)=>s+e.amount,0);
+    const totalExpenseMonthly = essentialMonthly + nonEssentialMonthly;
+    const totalGoals = goals.reduce((s,e)=>s+e.amount,0);
+
+    document.getElementById('assetsTotal').textContent = fmt(totalAssets) + ' ﷼';
+    const assetsBreakdownEl = document.getElementById('assetsBreakdown');
+    const breakdownParts = [];
+    if(fastAssets > 0) breakdownParts.push(`⚡ <b>${fmt(fastAssets)} ﷼</b> سيولة سريعة`);
+    if(slowAssets > 0) breakdownParts.push(`🐢 <b>${fmt(slowAssets)} ﷼</b> سيولة طويلة المدى`);
+    if(fixedAssets > 0) breakdownParts.push(`🏠 <b style="color:var(--nonessential)">${fmt(fixedAssets)} ﷼</b> أصل ثابت (لا يُحسب)`);
+    assetsBreakdownEl.innerHTML = breakdownParts.length ? breakdownParts.join(' — ') : '';
+    document.getElementById('incomeTotal').textContent = fmt(totalIncomeMonthly) + ' ﷼';
+    document.getElementById('expenseTotal').textContent = fmt(totalExpenseMonthly) + ' ﷼';
+    document.getElementById('goalsTotal').textContent = fmt(totalGoals) + ' ﷼';
+
+    const annualIncome = totalIncomeMonthly*12;
+    const annualExpenseAll = totalExpenseMonthly*12;
+    const annualNetSavings = annualIncome - annualExpenseAll;
+    const annualEssential = essentialMonthly*12;
+
+    const coreBeforeInflation = annualEssential * COVERAGE_YEARS;
+    const inflationAdd = coreBeforeInflation * INFLATION_RATE;
+    const safetyTarget = coreBeforeInflation + inflationAdd;
+    const remaining = Math.max(0, safetyTarget - liquidAssets);
+
+    document.getElementById('safetyTargetVal').textContent = fmt(safetyTarget) + ' ﷼';
+    document.getElementById('safetyTargetSub').textContent =
+      `= (${fmt(annualEssential)} ﷼ مصاريف أساسية سنوية × ${COVERAGE_YEARS} سنوات) + تضخم 2%`;
+    document.getElementById('essentialAnnualVal').textContent = fmt(annualEssential) + ' ﷼';
+    document.getElementById('netSavingsVal').textContent = fmt(annualNetSavings) + ' ﷼';
+    document.getElementById('remainingVal').textContent = fmt(remaining) + ' ﷼';
+
+    // مصاريف غير أساسية شهريًا + نسبتها
+    const nonEssentialBase = totalIncomeMonthly > 0 ? totalIncomeMonthly : totalExpenseMonthly;
+    const nonEssentialPct = nonEssentialBase > 0 ? (nonEssentialMonthly / nonEssentialBase * 100) : 0;
+    document.getElementById('nonEssentialMonthlyVal').textContent = fmt(nonEssentialMonthly) + ' ﷼';
+    document.getElementById('nonEssentialMonthlyLabel').textContent =
+      totalIncomeMonthly > 0
+        ? `هذا الرقم يمثل ${nonEssentialPct.toFixed(0)}% من دخلك، ويذهب للمصاريف غير الأساسية شهريًا`
+        : 'من ميزانيتك يذهب للمصاريف غير الأساسية شهريًا';
+
+    // الدخل الإضافي المطلوب شهريًا للتعادل (لو فيه عجز)
+    const monthlyGap = Math.max(0, totalExpenseMonthly - totalIncomeMonthly);
+    document.getElementById('monthlyGapVal').textContent = monthlyGap > 0 ? fmt(monthlyGap) + ' ﷼' : '0 ﷼ (لا يوجد عجز)';
+
+    const statusBanner = document.getElementById('statusBanner');
+    const yearsValEl = document.getElementById('yearsVal');
+
+    if(totalIncomeMonthly===0 && essentialMonthly===0){
+      statusBanner.innerHTML = '';
+      yearsValEl.textContent = '—';
+    } else if(remaining <= 0){
+      yearsValEl.textContent = '0 سنة';
+      statusBanner.innerHTML = `<div class="status-banner status-green">🎉 وصلتِ لنقطة الأمان المالي! أصولك الحالية تغطي احتياجاتك الأساسية لـ ${COVERAGE_YEARS} سنوات وأكثر.</div>`;
+    } else if(annualNetSavings === 0){
+      yearsValEl.textContent = '∞ سنة';
+      statusBanner.innerHTML = `<div class="status-banner status-red">🔴 دخلك يساوي مصاريفك بالضبط — ما فيه فائض سنوي يقربك من الأمان المالي. تحتاجين دخل إضافي شهري بمقدار ${fmt(monthlyGap>0?monthlyGap:1)} ﷼ على الأقل لتبدأ تتحرك نحو الهدف.</div>`;
+    } else {
+      const years = remaining / annualNetSavings;
+      const yearsText = Math.abs(years).toFixed(1) + ' سنة';
+      let cls, msg;
+      if(years < 0){
+        yearsValEl.textContent = '-' + yearsText;
+        msg = `🔴 مصاريفك تتجاوز دخلك، فأنتِ حاليًا تبتعدين عن الأمان المالي بدل الاقتراب منه. تحتاجين دخل إضافي شهري بمقدار ${fmt(monthlyGap)} ﷼ على الأقل للتعادل، وأكثر من ذلك للبدء بالتقدم.`;
+        cls = 'status-red';
+      } else {
+        yearsValEl.textContent = yearsText;
+        if(years <= 5){ cls='status-yellow'; msg = `🟡 أنتِ قريبة من تحقيق أمانك المالي — تحتاجين تقريبًا ${yearsText} بمعدل ادخارك الحالي.`; }
+        else { cls='status-red'; msg = `🔴 بمعدل ادخارك الحالي تحتاجين ${yearsText} تقريبًا — قد تحتاجين مصادر دخل إضافية لتسريع الوصول.`; }
+      }
+      statusBanner.innerHTML = `<div class="status-banner ${cls}">${msg}</div>`;
+    }
+
+    const goalsExtraYearsEl = document.getElementById('goalsExtraYears');
+    if(totalGoals === 0){
+      goalsExtraYearsEl.textContent = 'أضيفي رغباتك لمعرفة التكلفة الإجمالية';
+    } else if(annualNetSavings > 0){
+      const extraYears = totalGoals / annualNetSavings;
+      goalsExtraYearsEl.textContent = `بمعدل ادخارك الحالي، تحتاجين ~${extraYears.toFixed(1)} سنة إضافية لتحقيق هذه الرغبات (بجانب مسار الأمان المالي)`;
+    } else if(annualNetSavings === 0){
+      goalsExtraYearsEl.textContent = `ما فيه فائض ادخار حاليًا — تحتاجين دخل إضافي شهري ${fmt(monthlyGap>0?monthlyGap:1)} ﷼ على الأقل قبل ما تقدرين تبدين بتحقيق هذه الرغبات`;
+    } else {
+      goalsExtraYearsEl.textContent = `مصاريفك تتجاوز دخلك حاليًا، فهذه الرغبات بعيدة أكثر لا أقرب — تحتاجين دخل إضافي شهري ${fmt(monthlyGap)} ﷼ على الأقل للتعادل أولًا`;
+    }
+
+    // مقارنة المدة المستهدفة بالمدة الفعلية المتوقعة
+    const goalsTargetStatusEl = document.getElementById('goalsTargetStatus');
+    const targetYears = parseFloat(state.goalsTargetYears);
+    if(totalGoals > 0 && targetYears > 0){
+      const requiredMonthly = totalGoals / (targetYears * 12);
+      const availableMonthly = annualNetSavings / 12;
+      goalsTargetStatusEl.style.display = 'block';
+      if(availableMonthly >= requiredMonthly){
+        goalsTargetStatusEl.className = 'status-banner status-green';
+        goalsTargetStatusEl.innerHTML = `🎉 بمعدل ادخارك الحالي (${fmt(availableMonthly)} ﷼ شهريًا)، تقدرين تحققين هالهدف خلال ${targetYears} سنة براحة — يتطلب بس ${fmt(requiredMonthly)} ﷼ شهريًا.`;
+      } else {
+        const gap = requiredMonthly - availableMonthly;
+        goalsTargetStatusEl.className = 'status-banner status-red';
+        goalsTargetStatusEl.innerHTML = `🔴 عشان تحققين هالهدف خلال ${targetYears} سنة، تحتاجين تدخرين ${fmt(requiredMonthly)} ﷼ شهريًا — وهذا أكبر من فائضك الحالي (${fmt(availableMonthly)} ﷼) بمقدار <b>${fmt(gap)} ﷼</b> شهريًا إضافية.`;
+      }
+    } else {
+      goalsTargetStatusEl.style.display = 'none';
+      goalsTargetStatusEl.innerHTML = '';
+    }
+  }
+
+  function activateProfile(email, name){
+    currentEmail = email;
+    localStorage.setItem(CURRENT_KEY, email);
+    const profile = ensureProfile(email, name);
+    saveProfiles();
+    state = profile.data;
+    if(!state.assets || state.assets.length===0) state.assets = emptyState().assets;
+    if(!state.income || state.income.length===0) state.income = emptyState().income;
+    if(!state.expenses || state.expenses.length===0) state.expenses = emptyState().expenses;
+    if(!state.goals) state.goals = [];
+    if(state.goals.length===0) state.goals = [{id:Date.now(), item:"", custom:"", amount:""}];
+    if(state.goalsTargetYears === undefined) state.goalsTargetYears = "";
+
+    document.getElementById('gateCard').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'block';
+    document.getElementById('welcomeText').textContent = 'أهلًا ' + (profile.name || '') + ' 👋';
+    document.getElementById('goalsTargetYearsInput').value = state.goalsTargetYears || '';
+    renderAll();
+  }
+
+  document.getElementById('addAssetBtn').addEventListener('click', ()=>{
+    state.assets.push({id:Date.now()+Math.random(), item:"", custom:"", tag:"fast", amount:""});
+    save(); renderAssetRows();
+  });
+  document.getElementById('addIncomeBtn').addEventListener('click', ()=>{
+    state.income.push({id:Date.now()+Math.random(), item:"", custom:"", amount:""});
+    save(); renderIncomeRows();
+  });
+  document.getElementById('addGoalBtn').addEventListener('click', ()=>{
+    state.goals.push({id:Date.now()+Math.random(), item:"", custom:"", amount:""});
+    save(); renderGoalRows();
+  });
+  document.getElementById('goalsTargetYearsInput').addEventListener('input', (e)=>{
+    state.goalsTargetYears = e.target.value;
+    save(); computeAndRender();
+  });
+  document.getElementById('addExpenseBtn').addEventListener('click', ()=>{
+    state.expenses.push({id:Date.now()+Math.random(), item:"", custom:"", tag:"essential", amount:""});
+    save(); renderExpenseRows(); computeAndRender();
+  });
+
+  document.getElementById('enterBtn').addEventListener('click', ()=>{
+    const name = document.getElementById('nameInput').value.trim();
+    const email = document.getElementById('emailInput').value.trim().toLowerCase();
+    if(!email || !email.includes('@')){ alert('رجاءً أدخلي بريد إلكتروني صحيح'); return; }
+    activateProfile(email, name);
+  });
+
+  document.getElementById('switchAccountBtn').addEventListener('click', ()=>{
+    localStorage.removeItem(CURRENT_KEY);
+    currentEmail=''; state=null;
+    document.getElementById('nameInput').value='';
+    document.getElementById('emailInput').value='';
+    document.getElementById('mainContent').style.display='none';
+    document.getElementById('gateCard').style.display='block';
+  });
+
+  if(currentEmail && profiles[currentEmail]){
+    document.getElementById('nameInput').value = profiles[currentEmail].name || '';
+    document.getElementById('emailInput').value = currentEmail;
+    activateProfile(currentEmail, profiles[currentEmail].name);
+  }
+})();
+</script>
+</body>
+</html>
