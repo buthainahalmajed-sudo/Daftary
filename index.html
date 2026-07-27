@@ -163,6 +163,36 @@ details.card > .details-body{padding:0 18px 18px;}
 /* ---------- goal pill ---------- */
 .goal-card{border-right:4px solid var(--sage);}
 
+/* ---------- financial safety calculator ---------- */
+.safety-calc .item-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;padding:9px 0;border-bottom:1px dashed var(--line);}
+.safety-calc .item-row:last-of-type{border-bottom:none;}
+.safety-calc .item-row select, .safety-calc .item-row input{background:var(--parchment);border:1.5px solid var(--line);border-radius:10px;padding:8px 9px;font-size:12.5px;font-family:inherit;color:var(--ink);}
+.safety-calc .item-row .sel-item{flex:2;min-width:130px;}
+.safety-calc .item-row .sel-custom{flex:2;min-width:110px;}
+.safety-calc .item-row .sel-tag{flex:1.3;min-width:110px;}
+.safety-calc .item-row .inp-amt{flex:1;min-width:75px;}
+.safety-calc .item-row .del-row{background:none;border:none;color:#b9ad96;cursor:pointer;font-size:15px;padding:6px;}
+.safety-calc .item-row .del-row:hover{color:var(--rose);}
+.safety-calc .total-line{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);}
+.safety-calc .total-line .lbl{font-size:12.5px;color:#6b7a78;}
+.safety-calc .total-line .val{font-size:17px;font-weight:800;color:var(--petrol-dark);}
+.safety-calc .result-hero{border-radius:16px;padding:20px;text-align:center;margin-bottom:14px;background:var(--petrol-dark);}
+.safety-calc .result-hero .lbl{font-size:12px;color:#c9c3af;margin-bottom:6px;}
+.safety-calc .result-hero .val{font-size:28px;font-weight:900;color:#fff;font-family:'IBM Plex Sans Arabic',sans-serif;}
+.safety-calc .result-hero .sub{font-size:11.5px;color:#a9c9bb;margin-top:8px;line-height:1.6;}
+.safety-calc .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.safety-calc .stat-box{border-radius:12px;padding:10px 12px;}
+.safety-calc .stat-box .p{font-size:15px;font-weight:900;}
+.safety-calc .stat-box .l{font-size:10.5px;margin-top:3px;}
+.safety-calc .status-banner{border-radius:12px;padding:12px 14px;font-size:13px;font-weight:700;text-align:center;margin-bottom:12px;line-height:1.6;}
+.safety-calc .status-green{background:#e7f7ef;color:#1e6b4a;}
+.safety-calc .status-yellow{background:#fdf6e3;color:#8a6d00;}
+.safety-calc .status-red{background:rgba(178,76,99,.13);color:var(--rose-dark);}
+.safety-calc .assumption-note{font-size:10.5px;color:#6b7a78;background:var(--parchment);border-radius:10px;padding:8px 10px;margin-top:10px;line-height:1.7;}
+.safety-calc .goals-total{border-radius:14px;padding:14px;background:#e8effb;text-align:center;margin-top:4px;}
+.safety-calc .goals-total .v{font-size:20px;font-weight:900;color:#3f6fd1;}
+.safety-calc .goals-total .l{font-size:11px;color:#3f6fd1;margin-top:4px;}
+
 /* mood */
 .mood-scale{display:flex;justify-content:space-between;gap:6px;}
 .mood-dot{flex:1;text-align:center;padding:10px 4px;border-radius:12px;border:1.5px solid var(--line);font-size:22px;background:var(--parchment);}
@@ -334,6 +364,7 @@ let state = {
   inbox:[], /* {id, text, category, addedAt} - unsorted brain-dump items */
   collapsed:{habits:false, questions:false, reflection:false, mood:false},
   financialGoal:null, /* {title, targetAmount, currentAmount, deadline, configured, stages:[...]} */
+  safety:null, /* {assets, income, expenses, goals, goalsTargetYears} for the financial safety point calculator */
 };
 let view = 'home';
 let selectedDate = null;
@@ -570,6 +601,7 @@ function render(){
   else if(view==='habits') body = renderHabitsPage();
   else if(view==='inbox') body = renderInboxPage();
   else if(view==='finance') body = renderFinancePage();
+  else if(view==='safety') body = renderSafetyPage();
 
   app.innerHTML = `
     ${renderTopbar()}
@@ -579,6 +611,7 @@ function render(){
   `;
   attachGlobalEvents();
   if(view==='finance') attachFinanceEvents();
+  if(view==='safety') attachSafetyEvents();
 }
 
 function stampSVG(line1, line2){
@@ -1796,6 +1829,429 @@ function attachFinanceEvents(){
   };
 }
 
+/* ============ standalone Financial Safety Point calculator ============ */
+const SC_COVERAGE_YEARS = 5;
+const SC_INFLATION_RATE = 0.02;
+const SC_CUSTOM_VALUE = "__custom__";
+const SC_ASSET_OPTIONS = ["أرض","منزل","ذهب","ذهب سبائك","فضة","حساب توفير (الرصيد الحالي)","أسهم","ودائع","برنامج استثماري (تكافل)","ممتلكات أخرى"];
+const SC_INCOME_OPTIONS = ["راتب شهري","عقار للإيجار (المبلغ الشهري)","مشروع ربحي","تجارة منزلية","مشروع إلكتروني","عائد برنامج استثماري (تكافل)","أرباح الودائع السنوية","دعم من الدولة","مكافآت مالية"];
+const SC_INCOME_ANNUAL_ITEMS = new Set(["أرباح الودائع السنوية"]);
+const SC_GOAL_OPTIONS = ["منزل خاص","سيارة جديدة","قطعة أرض"];
+const SC_ASSET_TAG_MAP = {
+  "منزل": "fixed", "أرض": "slow", "ذهب": "fast", "ذهب سبائك": "fast", "فضة": "fast",
+  "حساب توفير (الرصيد الحالي)": "fast", "أسهم": "fast", "ودائع": "fast", "برنامج استثماري (تكافل)": "slow",
+};
+const SC_ASSET_TAG_META = {
+  fast:  {label:"سيولة سريعة — يُحسب", emoji:"⚡"},
+  slow:  {label:"سيولة طويلة المدى — يُحسب", emoji:"🐢"},
+  fixed: {label:"أصل ثابت — لا يُحسب", emoji:"🏠"},
+};
+const SC_EXPENSE_GROUPS = [
+  {label:"🟢 أساسي", tag:"essential", items:["فواتير كهرباء","فواتير الماء","فواتير اتصالات","سيارة ومواصلات / تأمين","إيجارات سكن","بقالة / لحوم","المدارس للأطفال","مصروفات الأطفال","أقساط / ديون","إصلاح أعطال","الصحة والرياضة","ملابس"]},
+  {label:"🔴 غير أساسي", tag:"nonessential", items:["الاشتراكات الشهرية","طعام المطاعم","الترفيه و الرغبات","الرحلات","الهدايا","هوايات","حيوانات أليفة","تطوير ذات / دورات / كتب"]},
+];
+const SC_EXPENSE_TAG_MAP = {};
+SC_EXPENSE_GROUPS.forEach(g => g.items.forEach(it => SC_EXPENSE_TAG_MAP[it] = g.tag));
+const SC_TAG_META = {
+  essential:    {label:"أساسي"},
+  nonessential: {label:"غير أساسي"},
+};
+
+function scDefaultState(){
+  return {
+    assets:[{id:uid(), item:"", custom:"", tag:"fast", amount:""}],
+    income:[{id:uid(), item:"", custom:"", amount:""}],
+    expenses:[{id:uid(), item:"", custom:"", tag:"essential", amount:""}],
+    goals:[{id:uid(), item:"", custom:"", amount:""}],
+    goalsTargetYears: "",
+  };
+}
+function scFmt(n){ return Number(n||0).toLocaleString('ar-SA', {maximumFractionDigits:2}); }
+function scBuildSimpleOptions(options, selected){
+  let html = `<option value="">اختاري بند...</option>`;
+  options.forEach(o=>{ html += `<option value="${escapeHtml(o)}" ${selected===o?'selected':''}>${escapeHtml(o)}</option>`; });
+  html += `<option value="${SC_CUSTOM_VALUE}" ${selected===SC_CUSTOM_VALUE?'selected':''}>✏️ أخرى (اكتبي يدويًا)</option>`;
+  return html;
+}
+function scBuildExpenseOptions(selected){
+  let html = `<option value="">اختاري بند...</option>`;
+  SC_EXPENSE_GROUPS.forEach(g=>{
+    html += `<optgroup label="${g.label}">`;
+    g.items.forEach(it=>{ html += `<option value="${escapeHtml(it)}" ${selected===it?'selected':''}>${escapeHtml(it)}</option>`; });
+    html += `</optgroup>`;
+  });
+  html += `<option value="${SC_CUSTOM_VALUE}" ${selected===SC_CUSTOM_VALUE?'selected':''}>✏️ أخرى (اكتبي يدويًا)</option>`;
+  return html;
+}
+function scBuildTagOptions(selected){
+  return Object.keys(SC_TAG_META).map(k=>`<option value="${k}" ${selected===k?'selected':''}>${k==='essential'?'🟢':'🔴'} ${SC_TAG_META[k].label}</option>`).join('');
+}
+function scBuildAssetTagOptions(selected){
+  return Object.keys(SC_ASSET_TAG_META).map(k=>`<option value="${k}" ${selected===k?'selected':''}>${SC_ASSET_TAG_META[k].emoji} ${SC_ASSET_TAG_META[k].label}</option>`).join('');
+}
+function scActiveList(rows){
+  return rows.map(r=>({
+    name: r.item===SC_CUSTOM_VALUE ? (r.custom||'').trim() : r.item,
+    amount: parseFloat(r.amount)||0,
+    tag: r.tag,
+  })).filter(x=>x.name && x.amount>0);
+}
+
+function renderSafetyPage(){
+  if(!state.safety) state.safety = scDefaultState();
+  const sc = state.safety;
+  return `
+  <div class="safety-calc">
+    <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:4px;">🛡️ نقطة الأمان المالي</h2>
+    <p class="muted" style="margin-bottom:16px;">المبلغ اللي إذا وصلتيه، تكون احتياجاتك الأساسية مغطاة بدون الحاجة للعمل</p>
+
+    <div class="card">
+      <div class="card-title"><h3>الأصول</h3></div>
+      <p class="muted" style="margin-bottom:10px;">عقار، ذهب، فضة، حساب توفير، أسهم، ودائع، برنامج استثماري، منزلك... اكتبي القيمة الإجمالية الحالية لكل بند. حددي لكل بند: ⚡ سيولة سريعة، 🐢 سيولة طويلة المدى (تُحسب الاثنتان)، أو 🏠 أصل ثابت لا يُحسب (كالمسكن الأساسي)</p>
+      <div id="scAssetRows"></div>
+      <button class="btn ghost btn-block" id="scAddAssetBtn" style="margin-top:10px;">+ إضافة أصل</button>
+      <div class="total-line"><span class="lbl">إجمالي الأملاك</span><span class="val" id="scAssetsTotal">0 ﷼</span></div>
+      <p class="muted" id="scAssetsBreakdown" style="margin-top:8px;"></p>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><h3>مصادر الدخل الشهري</h3></div>
+      <p class="muted" style="margin-bottom:10px;">راتب شهري، إيجار عقار (لو سنوي، اقسميه ÷12)، عائد برنامج استثماري، مكافآت مالية... قيمة الأسهم والودائع ورأس مال أي برنامج استثماري تُكتب في "الأصول" أعلاه، مو هنا. استثناء: "أرباح الودائع السنوية" اكتبيها كمبلغ سنوي مباشرة، وبنقسمها ÷12 تلقائيًا.</p>
+      <div id="scIncomeRows"></div>
+      <button class="btn ghost btn-block" id="scAddIncomeBtn" style="margin-top:10px;">+ إضافة مصدر دخل</button>
+      <div class="total-line"><span class="lbl">إجمالي الدخل الشهري</span><span class="val" id="scIncomeTotal">0 ﷼</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><h3>بنود الصرف الشهرية</h3></div>
+      <p class="muted" style="margin-bottom:10px;">كل بند يُصنَّف تلقائيًا 🟢 أساسي أو 🔴 غير أساسي — رقم الأمان المالي يعتمد على الأساسي فقط</p>
+      <div id="scExpenseRows"></div>
+      <button class="btn ghost btn-block" id="scAddExpenseBtn" style="margin-top:10px;">+ إضافة بند صرف</button>
+      <div class="total-line"><span class="lbl">إجمالي المصاريف الشهرية</span><span class="val" id="scExpenseTotal">0 ﷼</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><h3>نقطة الأمان المالي</h3></div>
+      <div id="scStatusBanner"></div>
+      <div class="result-hero">
+        <div class="lbl">المبلغ المستهدف (بعد التضخم)</div>
+        <div class="val" id="scSafetyTargetVal">0 ﷼</div>
+        <div class="sub" id="scSafetyTargetSub"></div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-box" style="background:#e7f7ef;"><div class="p" style="color:#2f9e6e;" id="scEssentialAnnualVal">0 ﷼</div><div class="l" style="color:#2f9e6e;">مصاريفك الأساسية سنويًا</div></div>
+        <div class="stat-box" style="background:#e8effb;"><div class="p" style="color:#3f6fd1;" id="scNetSavingsVal">0 ﷼</div><div class="l" style="color:#3f6fd1;">صافي ادخارك السنوي الحالي</div></div>
+        <div class="stat-box" style="background:#fdf6e3;"><div class="p" style="color:#8a6d00;" id="scRemainingVal">0 ﷼</div><div class="l" style="color:#8a6d00;">المتبقي للوصول للأمان</div></div>
+        <div class="stat-box" style="background:rgba(178,76,99,.13);"><div class="p" style="color:var(--rose-dark);" id="scNonEssentialMonthlyVal">0 ﷼</div><div class="l" style="color:var(--rose-dark);" id="scNonEssentialMonthlyLabel">من ميزانيتك يذهب لغير الأساسي شهريًا</div></div>
+        <div class="stat-box" style="background:rgba(178,76,99,.13); grid-column:1 / -1; text-align:center;"><div class="p" style="color:var(--rose-dark); font-size:19px;" id="scMonthlyGapVal">0 ﷼</div><div class="l" style="color:var(--rose-dark);">الدخل الإضافي المطلوب شهريًا للتعادل</div></div>
+        <div class="stat-box" style="background:var(--parchment); grid-column:1 / -1; text-align:center;"><div class="p" id="scYearsVal" style="font-size:19px;">—</div><div class="l">الوقت المتبقي حتى نقطة الأمان المالي</div></div>
+      </div>
+      <div class="assumption-note">
+        الافتراضات المستخدمة: كل مبلغ شهري (دخل أو مصروف) يُضرب × 12 ويُفترض تكراره كل سنة بنفس القيمة. تغطية 5 سنوات من مصاريفك الأساسية السنوية + تضخم تقديري 2%. صافي الادخار = دخلك السنوي − كل مصاريفك السنوية (أساسية وغير أساسية). الأصول لا تُحسب كدخل أو مصروف. الأصول ذات السيولة السريعة أو طويلة المدى (⚡🐢) تُحسب بالكامل مقابل المبلغ المستهدف؛ الأصول الثابتة (🏠 كالمسكن الأساسي) تظهر ضمن أملاكك لكن لا تُخصم من المبلغ المطلوب.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><h3>الرغبات طويلة المدى (هدف منفصل)</h3></div>
+      <p class="muted" style="margin-bottom:10px;">منزل، سيارة، هدف محدد — لا تؤثر على رقم الأمان الأساسي أعلاه</p>
+      <div id="scGoalRows"></div>
+      <button class="btn ghost btn-block" id="scAddGoalBtn" style="margin-top:10px;">+ إضافة رغبة/هدف</button>
+      <div class="field" style="margin-top:12px;">
+        <label>خلال كم سنة تبين تحققين هذا الهدف المالي؟</label>
+        <input id="scGoalsTargetYearsInput" type="number" min="0" step="0.5" placeholder="مثال: 3" value="${escapeHtml(sc.goalsTargetYears||'')}" />
+      </div>
+      <div class="goals-total">
+        <div class="v" id="scGoalsTotal">0 ﷼</div>
+        <div class="l" id="scGoalsExtraYears">أضيفي رغباتك لمعرفة التكلفة الإجمالية</div>
+      </div>
+      <div class="status-banner" id="scGoalsTargetStatus" style="display:none; margin-top:10px;"></div>
+    </div>
+
+    <div class="card" style="text-align:center;">
+      <div class="card-title" style="justify-content:center;"><h3>وش الخطوة الجاية؟</h3></div>
+      <p class="muted" style="margin-bottom:14px;">خذي وضعك المالي لمرحلة جديدة مع سما النخبة للتدريب</p>
+      <a class="btn rose btn-block" style="margin-bottom:10px;box-sizing:border-box;text-decoration:none;" href="https://samantc.com/wWazwPj" target="_blank" rel="noopener">🏁 سجّلي في ماراثون أول 100 ألف ريال سعودي</a>
+      <a class="btn ghost btn-block" style="box-sizing:border-box;text-decoration:none;" href="https://samantc.com/ZqGeWqb" target="_blank" rel="noopener">📅 طلب استشارة</a>
+    </div>
+  </div>`;
+}
+
+function scRenderAssetRows(){
+  const sc = state.safety;
+  const container = document.getElementById('scAssetRows');
+  if(!container) return;
+  container.innerHTML = sc.assets.map(r=>{
+    const isCustom = r.item === SC_CUSTOM_VALUE;
+    const tag = r.tag || 'fast';
+    return `
+    <div class="item-row" data-id="${r.id}">
+      <select class="sel-item">${scBuildSimpleOptions(SC_ASSET_OPTIONS, r.item)}</select>
+      ${isCustom ? `<input class="sel-custom" type="text" placeholder="اكتبي اسم الأصل" value="${escapeHtml(r.custom||'')}" />` : ''}
+      <select class="sel-tag">${scBuildAssetTagOptions(tag)}</select>
+      <input class="inp-amt" type="number" min="0" step="0.01" placeholder="المبلغ" value="${r.amount||''}" />
+      <button type="button" class="del-row" aria-label="حذف">✕</button>
+    </div>`;
+  }).join('');
+  container.querySelectorAll('.item-row').forEach(rowEl=>{
+    const id = rowEl.getAttribute('data-id');
+    const row = sc.assets.find(r=>String(r.id)===id);
+    const selItem = rowEl.querySelector('.sel-item');
+    selItem.onchange = ()=>{
+      row.item = selItem.value; if(row.item!==SC_CUSTOM_VALUE) row.custom='';
+      row.tag = SC_ASSET_TAG_MAP[row.item] || 'fast';
+      saveState(); scRenderAssetRows(); scUpdateSummary();
+    };
+    const selCustom = rowEl.querySelector('.sel-custom');
+    if(selCustom) selCustom.oninput = ()=>{ row.custom = selCustom.value; saveState(); scUpdateSummary(); };
+    const selTag = rowEl.querySelector('.sel-tag');
+    if(selTag) selTag.onchange = ()=>{ row.tag = selTag.value; saveState(); scUpdateSummary(); };
+    rowEl.querySelector('.inp-amt').oninput = (e)=>{ row.amount = e.target.value; saveState(); scUpdateSummary(); };
+    rowEl.querySelector('.del-row').onclick = ()=>{
+      sc.assets = sc.assets.filter(x=>x!==row);
+      if(sc.assets.length===0) sc.assets.push({id:uid(), item:"", custom:"", tag:"fast", amount:""});
+      saveState(); scRenderAssetRows(); scUpdateSummary();
+    };
+  });
+}
+function scRenderIncomeRows(){
+  const sc = state.safety;
+  const container = document.getElementById('scIncomeRows');
+  if(!container) return;
+  container.innerHTML = sc.income.map(r=>{
+    const isCustom = r.item === SC_CUSTOM_VALUE;
+    return `
+    <div class="item-row" data-id="${r.id}">
+      <select class="sel-item">${scBuildSimpleOptions(SC_INCOME_OPTIONS, r.item)}</select>
+      ${isCustom ? `<input class="sel-custom" type="text" placeholder="اكتبي مصدر الدخل" value="${escapeHtml(r.custom||'')}" />` : ''}
+      <input class="inp-amt" type="number" min="0" step="0.01" placeholder="المبلغ" value="${r.amount||''}" />
+      <button type="button" class="del-row" aria-label="حذف">✕</button>
+    </div>`;
+  }).join('');
+  container.querySelectorAll('.item-row').forEach(rowEl=>{
+    const id = rowEl.getAttribute('data-id');
+    const row = sc.income.find(r=>String(r.id)===id);
+    const selItem = rowEl.querySelector('.sel-item');
+    selItem.onchange = ()=>{
+      row.item = selItem.value; if(row.item!==SC_CUSTOM_VALUE) row.custom='';
+      saveState(); scRenderIncomeRows(); scUpdateSummary();
+    };
+    const selCustom = rowEl.querySelector('.sel-custom');
+    if(selCustom) selCustom.oninput = ()=>{ row.custom = selCustom.value; saveState(); scUpdateSummary(); };
+    rowEl.querySelector('.inp-amt').oninput = (e)=>{ row.amount = e.target.value; saveState(); scUpdateSummary(); };
+    rowEl.querySelector('.del-row').onclick = ()=>{
+      sc.income = sc.income.filter(x=>x!==row);
+      if(sc.income.length===0) sc.income.push({id:uid(), item:"", custom:"", amount:""});
+      saveState(); scRenderIncomeRows(); scUpdateSummary();
+    };
+  });
+}
+function scRenderGoalRows(){
+  const sc = state.safety;
+  const container = document.getElementById('scGoalRows');
+  if(!container) return;
+  container.innerHTML = sc.goals.map(r=>{
+    const isCustom = r.item === SC_CUSTOM_VALUE;
+    return `
+    <div class="item-row" data-id="${r.id}">
+      <select class="sel-item">${scBuildSimpleOptions(SC_GOAL_OPTIONS, r.item)}</select>
+      ${isCustom ? `<input class="sel-custom" type="text" placeholder="اكتبي اسم الهدف" value="${escapeHtml(r.custom||'')}" />` : ''}
+      <input class="inp-amt" type="number" min="0" step="0.01" placeholder="المبلغ" value="${r.amount||''}" />
+      <button type="button" class="del-row" aria-label="حذف">✕</button>
+    </div>`;
+  }).join('');
+  container.querySelectorAll('.item-row').forEach(rowEl=>{
+    const id = rowEl.getAttribute('data-id');
+    const row = sc.goals.find(r=>String(r.id)===id);
+    const selItem = rowEl.querySelector('.sel-item');
+    selItem.onchange = ()=>{
+      row.item = selItem.value; if(row.item!==SC_CUSTOM_VALUE) row.custom='';
+      saveState(); scRenderGoalRows(); scUpdateSummary();
+    };
+    const selCustom = rowEl.querySelector('.sel-custom');
+    if(selCustom) selCustom.oninput = ()=>{ row.custom = selCustom.value; saveState(); scUpdateSummary(); };
+    rowEl.querySelector('.inp-amt').oninput = (e)=>{ row.amount = e.target.value; saveState(); scUpdateSummary(); };
+    rowEl.querySelector('.del-row').onclick = ()=>{
+      sc.goals = sc.goals.filter(x=>x!==row);
+      if(sc.goals.length===0) sc.goals.push({id:uid(), item:"", custom:"", amount:""});
+      saveState(); scRenderGoalRows(); scUpdateSummary();
+    };
+  });
+}
+function scRenderExpenseRows(){
+  const sc = state.safety;
+  const container = document.getElementById('scExpenseRows');
+  if(!container) return;
+  container.innerHTML = sc.expenses.map(r=>{
+    const isCustom = r.item === SC_CUSTOM_VALUE;
+    return `
+    <div class="item-row" data-id="${r.id}">
+      <select class="sel-item">${scBuildExpenseOptions(r.item)}</select>
+      ${isCustom ? `<input class="sel-custom" type="text" placeholder="اكتبي اسم البند" value="${escapeHtml(r.custom||'')}" />` : ''}
+      ${isCustom ? `<select class="sel-tag">${scBuildTagOptions(r.tag)}</select>` : ''}
+      <input class="inp-amt" type="number" min="0" step="0.01" placeholder="المبلغ" value="${r.amount||''}" />
+      <button type="button" class="del-row" aria-label="حذف">✕</button>
+    </div>`;
+  }).join('');
+  container.querySelectorAll('.item-row').forEach(rowEl=>{
+    const id = rowEl.getAttribute('data-id');
+    const row = sc.expenses.find(r=>String(r.id)===id);
+    const selItem = rowEl.querySelector('.sel-item');
+    selItem.onchange = ()=>{
+      row.item = selItem.value;
+      if(row.item !== SC_CUSTOM_VALUE){ row.tag = SC_EXPENSE_TAG_MAP[row.item] || 'essential'; row.custom=''; }
+      saveState(); scRenderExpenseRows(); scUpdateSummary();
+    };
+    const selCustom = rowEl.querySelector('.sel-custom');
+    if(selCustom) selCustom.oninput = ()=>{ row.custom = selCustom.value; saveState(); scUpdateSummary(); };
+    const selTag = rowEl.querySelector('.sel-tag');
+    if(selTag) selTag.onchange = ()=>{ row.tag = selTag.value; saveState(); scUpdateSummary(); };
+    rowEl.querySelector('.inp-amt').oninput = (e)=>{ row.amount = e.target.value; saveState(); scUpdateSummary(); };
+    rowEl.querySelector('.del-row').onclick = ()=>{
+      sc.expenses = sc.expenses.filter(x=>x!==row);
+      if(sc.expenses.length===0) sc.expenses.push({id:uid(), item:"", custom:"", tag:"essential", amount:""});
+      saveState(); scRenderExpenseRows(); scUpdateSummary();
+    };
+  });
+}
+
+function scUpdateSummary(){
+  const sc = state.safety;
+  const assets = scActiveList(sc.assets);
+  const income = scActiveList(sc.income);
+  const expenses = scActiveList(sc.expenses);
+  const goals = scActiveList(sc.goals);
+
+  const totalAssets = assets.reduce((s,e)=>s+e.amount,0);
+  const fastAssets = assets.filter(e=>e.tag==='fast').reduce((s,e)=>s+e.amount,0);
+  const slowAssets = assets.filter(e=>e.tag==='slow').reduce((s,e)=>s+e.amount,0);
+  const fixedAssets = assets.filter(e=>e.tag==='fixed').reduce((s,e)=>s+e.amount,0);
+  const liquidAssets = fastAssets + slowAssets;
+  const totalIncomeMonthly = income.reduce((s,e)=> s + (SC_INCOME_ANNUAL_ITEMS.has(e.name) ? e.amount/12 : e.amount), 0);
+  const essentialMonthly = expenses.filter(e=>e.tag==='essential').reduce((s,e)=>s+e.amount,0);
+  const nonEssentialMonthly = expenses.filter(e=>e.tag==='nonessential').reduce((s,e)=>s+e.amount,0);
+  const totalExpenseMonthly = essentialMonthly + nonEssentialMonthly;
+  const totalGoals = goals.reduce((s,e)=>s+e.amount,0);
+
+  const el = id => document.getElementById(id);
+  if(!el('scAssetsTotal')) return;
+
+  el('scAssetsTotal').textContent = scFmt(totalAssets) + ' ﷼';
+  const breakdownParts = [];
+  if(fastAssets > 0) breakdownParts.push(`⚡ <b>${scFmt(fastAssets)} ﷼</b> سيولة سريعة`);
+  if(slowAssets > 0) breakdownParts.push(`🐢 <b>${scFmt(slowAssets)} ﷼</b> سيولة طويلة المدى`);
+  if(fixedAssets > 0) breakdownParts.push(`🏠 <b style="color:var(--rose-dark)">${scFmt(fixedAssets)} ﷼</b> أصل ثابت (لا يُحسب)`);
+  el('scAssetsBreakdown').innerHTML = breakdownParts.join(' — ');
+  el('scIncomeTotal').textContent = scFmt(totalIncomeMonthly) + ' ﷼';
+  el('scExpenseTotal').textContent = scFmt(totalExpenseMonthly) + ' ﷼';
+  el('scGoalsTotal').textContent = scFmt(totalGoals) + ' ﷼';
+
+  const annualIncome = totalIncomeMonthly*12;
+  const annualExpenseAll = totalExpenseMonthly*12;
+  const annualNetSavings = annualIncome - annualExpenseAll;
+  const annualEssential = essentialMonthly*12;
+
+  const coreBeforeInflation = annualEssential * SC_COVERAGE_YEARS;
+  const safetyTarget = coreBeforeInflation + coreBeforeInflation * SC_INFLATION_RATE;
+  const remaining = Math.max(0, safetyTarget - liquidAssets);
+
+  el('scSafetyTargetVal').textContent = scFmt(safetyTarget) + ' ﷼';
+  el('scSafetyTargetSub').textContent = `= (${scFmt(annualEssential)} ﷼ مصاريف أساسية سنوية × ${SC_COVERAGE_YEARS} سنوات) + تضخم 2%`;
+  el('scEssentialAnnualVal').textContent = scFmt(annualEssential) + ' ﷼';
+  el('scNetSavingsVal').textContent = scFmt(annualNetSavings) + ' ﷼';
+  el('scRemainingVal').textContent = scFmt(remaining) + ' ﷼';
+
+  const nonEssentialBase = totalIncomeMonthly > 0 ? totalIncomeMonthly : totalExpenseMonthly;
+  const nonEssentialPct = nonEssentialBase > 0 ? (nonEssentialMonthly / nonEssentialBase * 100) : 0;
+  el('scNonEssentialMonthlyVal').textContent = scFmt(nonEssentialMonthly) + ' ﷼';
+  el('scNonEssentialMonthlyLabel').textContent = totalIncomeMonthly > 0
+    ? `هذا الرقم يمثل ${nonEssentialPct.toFixed(0)}% من دخلك، ويذهب للمصاريف غير الأساسية شهريًا`
+    : 'من ميزانيتك يذهب للمصاريف غير الأساسية شهريًا';
+
+  const monthlyGap = Math.max(0, totalExpenseMonthly - totalIncomeMonthly);
+  el('scMonthlyGapVal').textContent = monthlyGap > 0 ? scFmt(monthlyGap) + ' ﷼' : '0 ﷼ (لا يوجد عجز)';
+
+  const statusBanner = el('scStatusBanner');
+  const yearsValEl = el('scYearsVal');
+  if(totalIncomeMonthly===0 && essentialMonthly===0){
+    statusBanner.innerHTML = ''; yearsValEl.textContent = '—';
+  } else if(remaining <= 0){
+    yearsValEl.textContent = '0 سنة';
+    statusBanner.innerHTML = `<div class="status-banner status-green">🎉 وصلتِ لنقطة الأمان المالي! أصولك الحالية تغطي احتياجاتك الأساسية لـ ${SC_COVERAGE_YEARS} سنوات وأكثر.</div>`;
+  } else if(annualNetSavings === 0){
+    yearsValEl.textContent = '∞ سنة';
+    statusBanner.innerHTML = `<div class="status-banner status-red">🔴 دخلك يساوي مصاريفك بالضبط — ما فيه فائض سنوي يقربك من الأمان المالي. تحتاجين دخل إضافي شهري بمقدار ${scFmt(monthlyGap>0?monthlyGap:1)} ﷼ على الأقل لتبدأ تتحرك نحو الهدف.</div>`;
+  } else {
+    const years = remaining / annualNetSavings;
+    const yearsText = Math.abs(years).toFixed(1) + ' سنة';
+    let cls, msg;
+    if(years < 0){
+      yearsValEl.textContent = '-' + yearsText;
+      msg = `🔴 مصاريفك تتجاوز دخلك، فأنتِ حاليًا تبتعدين عن الأمان المالي بدل الاقتراب منه. تحتاجين دخل إضافي شهري بمقدار ${scFmt(monthlyGap)} ﷼ على الأقل للتعادل، وأكثر من ذلك للبدء بالتقدم.`;
+      cls = 'status-red';
+    } else {
+      yearsValEl.textContent = yearsText;
+      if(years <= 5){ cls='status-yellow'; msg = `🟡 أنتِ قريبة من تحقيق أمانك المالي — تحتاجين تقريبًا ${yearsText} بمعدل ادخارك الحالي.`; }
+      else { cls='status-red'; msg = `🔴 بمعدل ادخارك الحالي تحتاجين ${yearsText} تقريبًا — قد تحتاجين مصادر دخل إضافية لتسريع الوصول.`; }
+    }
+    statusBanner.innerHTML = `<div class="status-banner ${cls}">${msg}</div>`;
+  }
+
+  const goalsExtraYearsEl = el('scGoalsExtraYears');
+  if(totalGoals === 0){
+    goalsExtraYearsEl.textContent = 'أضيفي رغباتك لمعرفة التكلفة الإجمالية';
+  } else if(annualNetSavings > 0){
+    goalsExtraYearsEl.textContent = `بمعدل ادخارك الحالي، تحتاجين ~${(totalGoals/annualNetSavings).toFixed(1)} سنة إضافية لتحقيق هذه الرغبات (بجانب مسار الأمان المالي)`;
+  } else if(annualNetSavings === 0){
+    goalsExtraYearsEl.textContent = `ما فيه فائض ادخار حاليًا — تحتاجين دخل إضافي شهري ${scFmt(monthlyGap>0?monthlyGap:1)} ﷼ على الأقل قبل ما تقدرين تبدين بتحقيق هذه الرغبات`;
+  } else {
+    goalsExtraYearsEl.textContent = `مصاريفك تتجاوز دخلك حاليًا، فهذه الرغبات بعيدة أكثر لا أقرب — تحتاجين دخل إضافي شهري ${scFmt(monthlyGap)} ﷼ على الأقل للتعادل أولًا`;
+  }
+
+  const goalsTargetStatusEl = el('scGoalsTargetStatus');
+  const targetYears = parseFloat(sc.goalsTargetYears);
+  if(totalGoals > 0 && targetYears > 0){
+    const requiredMonthly = totalGoals / (targetYears * 12);
+    const availableMonthly = annualNetSavings / 12;
+    goalsTargetStatusEl.style.display = 'block';
+    if(availableMonthly >= requiredMonthly){
+      goalsTargetStatusEl.className = 'status-banner status-green';
+      goalsTargetStatusEl.innerHTML = `🎉 بمعدل ادخارك الحالي (${scFmt(availableMonthly)} ﷼ شهريًا)، تقدرين تحققين هالهدف خلال ${targetYears} سنة براحة — يتطلب بس ${scFmt(requiredMonthly)} ﷼ شهريًا.`;
+    } else {
+      const gap = requiredMonthly - availableMonthly;
+      goalsTargetStatusEl.className = 'status-banner status-red';
+      goalsTargetStatusEl.innerHTML = `🔴 عشان تحققين هالهدف خلال ${targetYears} سنة، تحتاجين تدخرين ${scFmt(requiredMonthly)} ﷼ شهريًا — وهذا أكبر من فائضك الحالي (${scFmt(availableMonthly)} ﷼) بمقدار <b>${scFmt(gap)} ﷼</b> شهريًا إضافية.`;
+    }
+  } else {
+    goalsTargetStatusEl.style.display = 'none';
+    goalsTargetStatusEl.innerHTML = '';
+  }
+}
+
+function attachSafetyEvents(){
+  scRenderAssetRows(); scRenderIncomeRows(); scRenderExpenseRows(); scRenderGoalRows(); scUpdateSummary();
+  const sc = state.safety;
+  document.getElementById('scAddAssetBtn').onclick = ()=>{
+    sc.assets.push({id:uid(), item:"", custom:"", tag:"fast", amount:""});
+    saveState(); scRenderAssetRows();
+  };
+  document.getElementById('scAddIncomeBtn').onclick = ()=>{
+    sc.income.push({id:uid(), item:"", custom:"", amount:""});
+    saveState(); scRenderIncomeRows();
+  };
+  document.getElementById('scAddExpenseBtn').onclick = ()=>{
+    sc.expenses.push({id:uid(), item:"", custom:"", tag:"essential", amount:""});
+    saveState(); scRenderExpenseRows();
+  };
+  document.getElementById('scAddGoalBtn').onclick = ()=>{
+    sc.goals.push({id:uid(), item:"", custom:"", amount:""});
+    saveState(); scRenderGoalRows();
+  };
+  document.getElementById('scGoalsTargetYearsInput').oninput = (e)=>{
+    sc.goalsTargetYears = e.target.value;
+    saveState(); scUpdateSummary();
+  };
+}
+
 
 /* ============ HABITS (weekly tracker) page ============ */
 function renderHabitsPage(){
@@ -2120,6 +2576,7 @@ function renderNav(){
     {id:'habits', label:'العادات', icon:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/>'},
     {id:'inbox', label:'الصندوق', icon:'<path d="M3 8l2-4h14l2 4M3 8v10a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V8M3 8h18M8 12h8"/>'},
     {id:'finance', label:'المالي', icon:'<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5c0-1.4 1.1-2.5 2.5-2.5s2.5.8 2.5 2c0 1.5-2 2-2.5 2.2C11 11.4 9.5 12 9.5 13.5c0 1.2 1.1 2 2.5 2s2.5-1.1 2.5-2.5"/>'},
+    {id:'safety', label:'الأمان', icon:'<path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6z"/>'},
   ];
   return `<div class="nav"><div class="nav-inner">
     ${items.map(i=>`<button type="button" class="nav-btn ${view===i.id?'active':''}" data-nav="${i.id}"><svg viewBox="0 0 24 24">${i.icon}</svg>${i.label}</button>`).join('')}
