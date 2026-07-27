@@ -28,6 +28,7 @@
   --line:#DDD2BA;
 }
 *{box-sizing:border-box;}
+input,select,textarea,button{min-width:0;}
 html,body{margin:0;padding:0;}
 body{
   background:var(--parchment);
@@ -37,7 +38,7 @@ body{
   font-family:'IBM Plex Sans Arabic',sans-serif;
   min-height:100vh;
 }
-#app{max-width:640px;margin:0 auto;padding:18px 16px 100px;min-height:100vh;position:relative;}
+#app{max-width:640px;margin:0 auto;padding:calc(18px + env(safe-area-inset-top)) 16px 100px;min-height:100vh;position:relative;}
 h1,h2,h3{font-family:'IBM Plex Sans Arabic',sans-serif;margin:0;font-weight:700;}
 .hidden{display:none!important;}
 button{font-family:'IBM Plex Sans Arabic',sans-serif;cursor:pointer;border:none;}
@@ -246,7 +247,8 @@ details.card > .details-body{padding:0 18px 18px;}
 .ai-box{background:linear-gradient(135deg, rgba(46,92,90,.06), rgba(178,76,99,.06));border:1.5px dashed var(--petrol);}
 
 /* habit rows in day view */
-.habit-item{display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px dashed var(--line);}
+.habit-item{display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px dashed var(--line);flex-wrap:wrap;}
+.stagetask-edit{min-width:0;}
 .habit-item:last-child{border-bottom:none;}
 .hbox{width:22px;height:22px;border-radius:6px;border:2px solid var(--sage);background:var(--paper);flex-shrink:0;display:flex;align-items:center;justify-content:center;}
 .hbox.done{background:var(--sage);}
@@ -2395,7 +2397,7 @@ function renderSafetyPage(){
       <p class="muted" style="margin-bottom:10px;">عقار، ذهب، فضة، حساب توفير، أسهم، ودائع، برنامج استثماري، منزلك... اكتبي القيمة الإجمالية الحالية لكل بند. حددي لكل بند: ⚡ سيولة سريعة، 🐢 سيولة طويلة المدى (تُحسب الاثنتان)، أو 🏠 أصل ثابت لا يُحسب (كالمسكن الأساسي)</p>
       <div id="scAssetRows"></div>
       <button class="btn ghost btn-block" id="scAddAssetBtn" style="margin-top:10px;">+ إضافة أصل</button>
-      <div class="total-line"><span class="lbl">إجمالي الأملاك</span><span class="val" id="scAssetsTotal">0 ﷼</span></div>
+      <div class="total-line"><span class="lbl">إجمالي الأملاك</span><span class="val" id="scAssetsTotal">0 ريال</span></div>
       <p class="muted" id="scAssetsBreakdown" style="margin-top:8px;"></p>
     </div>
 
@@ -2404,7 +2406,7 @@ function renderSafetyPage(){
       <p class="muted" style="margin-bottom:10px;">راتب شهري، إيجار عقار (لو سنوي، اقسميه ÷12)، عائد برنامج استثماري، مكافآت مالية... قيمة الأسهم والودائع ورأس مال أي برنامج استثماري تُكتب في "الأصول" أعلاه، مو هنا. استثناء: "أرباح الودائع السنوية" اكتبيها كمبلغ سنوي مباشرة، وبنقسمها ÷12 تلقائيًا.</p>
       <div id="scIncomeRows"></div>
       <button class="btn ghost btn-block" id="scAddIncomeBtn" style="margin-top:10px;">+ إضافة مصدر دخل</button>
-      <div class="total-line"><span class="lbl">إجمالي الدخل الشهري</span><span class="val" id="scIncomeTotal">0 ﷼</span></div>
+      <div class="total-line"><span class="lbl">إجمالي الدخل الشهري</span><span class="val" id="scIncomeTotal">0 ريال</span></div>
     </div>
 
     <div class="card">
@@ -2412,7 +2414,7 @@ function renderSafetyPage(){
       <p class="muted" style="margin-bottom:10px;">كل بند يُصنَّف تلقائيًا 🟢 أساسي أو 🔴 غير أساسي — رقم الأمان المالي يعتمد على الأساسي فقط</p>
       <div id="scExpenseRows"></div>
       <button class="btn ghost btn-block" id="scAddExpenseBtn" style="margin-top:10px;">+ إضافة بند صرف</button>
-      <div class="total-line"><span class="lbl">إجمالي المصاريف الشهرية</span><span class="val" id="scExpenseTotal">0 ﷼</span></div>
+      <div class="total-line"><span class="lbl">إجمالي المصاريف الشهرية</span><span class="val" id="scExpenseTotal">0 ريال</span></div>
     </div>
 
     <div class="card">
@@ -2420,15 +2422,15 @@ function renderSafetyPage(){
       <div id="scStatusBanner"></div>
       <div class="result-hero">
         <div class="lbl">المبلغ المستهدف (بعد التضخم)</div>
-        <div class="val" id="scSafetyTargetVal">0 ﷼</div>
+        <div class="val" id="scSafetyTargetVal">0 ريال</div>
         <div class="sub" id="scSafetyTargetSub"></div>
       </div>
       <div class="stats-grid">
-        <div class="stat-box" style="background:#e7f7ef;"><div class="p" style="color:#2f9e6e;" id="scEssentialAnnualVal">0 ﷼</div><div class="l" style="color:#2f9e6e;">مصاريفك الأساسية سنويًا</div></div>
-        <div class="stat-box" style="background:#e8effb;"><div class="p" style="color:#3f6fd1;" id="scNetSavingsVal">0 ﷼</div><div class="l" style="color:#3f6fd1;">صافي ادخارك السنوي الحالي</div></div>
-        <div class="stat-box" style="background:#fdf6e3;"><div class="p" style="color:#8a6d00;" id="scRemainingVal">0 ﷼</div><div class="l" style="color:#8a6d00;">المتبقي للوصول للأمان</div></div>
-        <div class="stat-box" style="background:rgba(178,76,99,.13);"><div class="p" style="color:var(--rose-dark);" id="scNonEssentialMonthlyVal">0 ﷼</div><div class="l" style="color:var(--rose-dark);" id="scNonEssentialMonthlyLabel">من ميزانيتك يذهب لغير الأساسي شهريًا</div></div>
-        <div class="stat-box" style="background:rgba(178,76,99,.13); grid-column:1 / -1; text-align:center;"><div class="p" style="color:var(--rose-dark); font-size:19px;" id="scMonthlyGapVal">0 ﷼</div><div class="l" style="color:var(--rose-dark);">الدخل الإضافي المطلوب شهريًا للتعادل</div></div>
+        <div class="stat-box" style="background:#e7f7ef;"><div class="p" style="color:#2f9e6e;" id="scEssentialAnnualVal">0 ريال</div><div class="l" style="color:#2f9e6e;">مصاريفك الأساسية سنويًا</div></div>
+        <div class="stat-box" style="background:#e8effb;"><div class="p" style="color:#3f6fd1;" id="scNetSavingsVal">0 ريال</div><div class="l" style="color:#3f6fd1;">صافي ادخارك السنوي الحالي</div></div>
+        <div class="stat-box" style="background:#fdf6e3;"><div class="p" style="color:#8a6d00;" id="scRemainingVal">0 ريال</div><div class="l" style="color:#8a6d00;">المتبقي للوصول للأمان</div></div>
+        <div class="stat-box" style="background:rgba(178,76,99,.13);"><div class="p" style="color:var(--rose-dark);" id="scNonEssentialMonthlyVal">0 ريال</div><div class="l" style="color:var(--rose-dark);" id="scNonEssentialMonthlyLabel">من ميزانيتك يذهب لغير الأساسي شهريًا</div></div>
+        <div class="stat-box" style="background:rgba(178,76,99,.13); grid-column:1 / -1; text-align:center;"><div class="p" style="color:var(--rose-dark); font-size:19px;" id="scMonthlyGapVal">0 ريال</div><div class="l" style="color:var(--rose-dark);">الدخل الإضافي المطلوب شهريًا للتعادل</div></div>
         <div class="stat-box" style="background:var(--parchment); grid-column:1 / -1; text-align:center;"><div class="p" id="scYearsVal" style="font-size:19px;">—</div><div class="l">الوقت المتبقي حتى نقطة الأمان المالي</div></div>
       </div>
       <div class="assumption-note">
@@ -2446,7 +2448,7 @@ function renderSafetyPage(){
         <input id="scGoalsTargetYearsInput" type="number" min="0" step="0.5" placeholder="مثال: 3" value="${escapeHtml(sc.goalsTargetYears||'')}" />
       </div>
       <div class="goals-total">
-        <div class="v" id="scGoalsTotal">0 ﷼</div>
+        <div class="v" id="scGoalsTotal">0 ريال</div>
         <div class="l" id="scGoalsExtraYears">أضيفي رغباتك لمعرفة التكلفة الإجمالية</div>
       </div>
       <div class="status-banner" id="scGoalsTargetStatus" style="display:none; margin-top:10px;"></div>
@@ -2620,15 +2622,15 @@ function scUpdateSummary(){
   const el = id => document.getElementById(id);
   if(!el('scAssetsTotal')) return;
 
-  el('scAssetsTotal').textContent = scFmt(totalAssets) + ' ﷼';
+  el('scAssetsTotal').textContent = scFmt(totalAssets) + ' ريال';
   const breakdownParts = [];
-  if(fastAssets > 0) breakdownParts.push(`⚡ <b>${scFmt(fastAssets)} ﷼</b> سيولة سريعة`);
-  if(slowAssets > 0) breakdownParts.push(`🐢 <b>${scFmt(slowAssets)} ﷼</b> سيولة طويلة المدى`);
-  if(fixedAssets > 0) breakdownParts.push(`🏠 <b style="color:var(--rose-dark)">${scFmt(fixedAssets)} ﷼</b> أصل ثابت (لا يُحسب)`);
+  if(fastAssets > 0) breakdownParts.push(`⚡ <b>${scFmt(fastAssets)} ريال</b> سيولة سريعة`);
+  if(slowAssets > 0) breakdownParts.push(`🐢 <b>${scFmt(slowAssets)} ريال</b> سيولة طويلة المدى`);
+  if(fixedAssets > 0) breakdownParts.push(`🏠 <b style="color:var(--rose-dark)">${scFmt(fixedAssets)} ريال</b> أصل ثابت (لا يُحسب)`);
   el('scAssetsBreakdown').innerHTML = breakdownParts.join(' — ');
-  el('scIncomeTotal').textContent = scFmt(totalIncomeMonthly) + ' ﷼';
-  el('scExpenseTotal').textContent = scFmt(totalExpenseMonthly) + ' ﷼';
-  el('scGoalsTotal').textContent = scFmt(totalGoals) + ' ﷼';
+  el('scIncomeTotal').textContent = scFmt(totalIncomeMonthly) + ' ريال';
+  el('scExpenseTotal').textContent = scFmt(totalExpenseMonthly) + ' ريال';
+  el('scGoalsTotal').textContent = scFmt(totalGoals) + ' ريال';
 
   const annualIncome = totalIncomeMonthly*12;
   const annualExpenseAll = totalExpenseMonthly*12;
@@ -2639,21 +2641,21 @@ function scUpdateSummary(){
   const safetyTarget = coreBeforeInflation + coreBeforeInflation * SC_INFLATION_RATE;
   const remaining = Math.max(0, safetyTarget - liquidAssets);
 
-  el('scSafetyTargetVal').textContent = scFmt(safetyTarget) + ' ﷼';
-  el('scSafetyTargetSub').textContent = `= (${scFmt(annualEssential)} ﷼ مصاريف أساسية سنوية × ${SC_COVERAGE_YEARS} سنوات) + تضخم 2%`;
-  el('scEssentialAnnualVal').textContent = scFmt(annualEssential) + ' ﷼';
-  el('scNetSavingsVal').textContent = scFmt(annualNetSavings) + ' ﷼';
-  el('scRemainingVal').textContent = scFmt(remaining) + ' ﷼';
+  el('scSafetyTargetVal').textContent = scFmt(safetyTarget) + ' ريال';
+  el('scSafetyTargetSub').textContent = `= (${scFmt(annualEssential)} ريال مصاريف أساسية سنوية × ${SC_COVERAGE_YEARS} سنوات) + تضخم 2%`;
+  el('scEssentialAnnualVal').textContent = scFmt(annualEssential) + ' ريال';
+  el('scNetSavingsVal').textContent = scFmt(annualNetSavings) + ' ريال';
+  el('scRemainingVal').textContent = scFmt(remaining) + ' ريال';
 
   const nonEssentialBase = totalIncomeMonthly > 0 ? totalIncomeMonthly : totalExpenseMonthly;
   const nonEssentialPct = nonEssentialBase > 0 ? (nonEssentialMonthly / nonEssentialBase * 100) : 0;
-  el('scNonEssentialMonthlyVal').textContent = scFmt(nonEssentialMonthly) + ' ﷼';
+  el('scNonEssentialMonthlyVal').textContent = scFmt(nonEssentialMonthly) + ' ريال';
   el('scNonEssentialMonthlyLabel').textContent = totalIncomeMonthly > 0
     ? `هذا الرقم يمثل ${nonEssentialPct.toFixed(0)}% من دخلك، ويذهب للمصاريف غير الأساسية شهريًا`
     : 'من ميزانيتك يذهب للمصاريف غير الأساسية شهريًا';
 
   const monthlyGap = Math.max(0, totalExpenseMonthly - totalIncomeMonthly);
-  el('scMonthlyGapVal').textContent = monthlyGap > 0 ? scFmt(monthlyGap) + ' ﷼' : '0 ﷼ (لا يوجد عجز)';
+  el('scMonthlyGapVal').textContent = monthlyGap > 0 ? scFmt(monthlyGap) + ' ريال' : '0 ريال (لا يوجد عجز)';
 
   const statusBanner = el('scStatusBanner');
   const yearsValEl = el('scYearsVal');
@@ -2664,14 +2666,14 @@ function scUpdateSummary(){
     statusBanner.innerHTML = `<div class="status-banner status-green">🎉 وصلتِ لنقطة الأمان المالي! أصولك الحالية تغطي احتياجاتك الأساسية لـ ${SC_COVERAGE_YEARS} سنوات وأكثر.</div>`;
   } else if(annualNetSavings === 0){
     yearsValEl.textContent = '∞ سنة';
-    statusBanner.innerHTML = `<div class="status-banner status-red">🔴 دخلك يساوي مصاريفك بالضبط — ما فيه فائض سنوي يقربك من الأمان المالي. تحتاجين دخل إضافي شهري بمقدار ${scFmt(monthlyGap>0?monthlyGap:1)} ﷼ على الأقل لتبدأ تتحرك نحو الهدف.</div>`;
+    statusBanner.innerHTML = `<div class="status-banner status-red">🔴 دخلك يساوي مصاريفك بالضبط — ما فيه فائض سنوي يقربك من الأمان المالي. تحتاجين دخل إضافي شهري بمقدار ${scFmt(monthlyGap>0?monthlyGap:1)} ريال على الأقل لتبدأ تتحرك نحو الهدف.</div>`;
   } else {
     const years = remaining / annualNetSavings;
     const yearsText = Math.abs(years).toFixed(1) + ' سنة';
     let cls, msg;
     if(years < 0){
       yearsValEl.textContent = '-' + yearsText;
-      msg = `🔴 مصاريفك تتجاوز دخلك، فأنتِ حاليًا تبتعدين عن الأمان المالي بدل الاقتراب منه. تحتاجين دخل إضافي شهري بمقدار ${scFmt(monthlyGap)} ﷼ على الأقل للتعادل، وأكثر من ذلك للبدء بالتقدم.`;
+      msg = `🔴 مصاريفك تتجاوز دخلك، فأنتِ حاليًا تبتعدين عن الأمان المالي بدل الاقتراب منه. تحتاجين دخل إضافي شهري بمقدار ${scFmt(monthlyGap)} ريال على الأقل للتعادل، وأكثر من ذلك للبدء بالتقدم.`;
       cls = 'status-red';
     } else {
       yearsValEl.textContent = yearsText;
@@ -2687,9 +2689,9 @@ function scUpdateSummary(){
   } else if(annualNetSavings > 0){
     goalsExtraYearsEl.textContent = `بمعدل ادخارك الحالي، تحتاجين ~${(totalGoals/annualNetSavings).toFixed(1)} سنة إضافية لتحقيق هذه الرغبات (بجانب مسار الأمان المالي)`;
   } else if(annualNetSavings === 0){
-    goalsExtraYearsEl.textContent = `ما فيه فائض ادخار حاليًا — تحتاجين دخل إضافي شهري ${scFmt(monthlyGap>0?monthlyGap:1)} ﷼ على الأقل قبل ما تقدرين تبدين بتحقيق هذه الرغبات`;
+    goalsExtraYearsEl.textContent = `ما فيه فائض ادخار حاليًا — تحتاجين دخل إضافي شهري ${scFmt(monthlyGap>0?monthlyGap:1)} ريال على الأقل قبل ما تقدرين تبدين بتحقيق هذه الرغبات`;
   } else {
-    goalsExtraYearsEl.textContent = `مصاريفك تتجاوز دخلك حاليًا، فهذه الرغبات بعيدة أكثر لا أقرب — تحتاجين دخل إضافي شهري ${scFmt(monthlyGap)} ﷼ على الأقل للتعادل أولًا`;
+    goalsExtraYearsEl.textContent = `مصاريفك تتجاوز دخلك حاليًا، فهذه الرغبات بعيدة أكثر لا أقرب — تحتاجين دخل إضافي شهري ${scFmt(monthlyGap)} ريال على الأقل للتعادل أولًا`;
   }
 
   const goalsTargetStatusEl = el('scGoalsTargetStatus');
@@ -2700,11 +2702,11 @@ function scUpdateSummary(){
     goalsTargetStatusEl.style.display = 'block';
     if(availableMonthly >= requiredMonthly){
       goalsTargetStatusEl.className = 'status-banner status-green';
-      goalsTargetStatusEl.innerHTML = `🎉 بمعدل ادخارك الحالي (${scFmt(availableMonthly)} ﷼ شهريًا)، تقدرين تحققين هالهدف خلال ${targetYears} سنة براحة — يتطلب بس ${scFmt(requiredMonthly)} ﷼ شهريًا.`;
+      goalsTargetStatusEl.innerHTML = `🎉 بمعدل ادخارك الحالي (${scFmt(availableMonthly)} ريال شهريًا)، تقدرين تحققين هالهدف خلال ${targetYears} سنة براحة — يتطلب بس ${scFmt(requiredMonthly)} ريال شهريًا.`;
     } else {
       const gap = requiredMonthly - availableMonthly;
       goalsTargetStatusEl.className = 'status-banner status-red';
-      goalsTargetStatusEl.innerHTML = `🔴 عشان تحققين هالهدف خلال ${targetYears} سنة، تحتاجين تدخرين ${scFmt(requiredMonthly)} ﷼ شهريًا — وهذا أكبر من فائضك الحالي (${scFmt(availableMonthly)} ﷼) بمقدار <b>${scFmt(gap)} ﷼</b> شهريًا إضافية.`;
+      goalsTargetStatusEl.innerHTML = `🔴 عشان تحققين هالهدف خلال ${targetYears} سنة، تحتاجين تدخرين ${scFmt(requiredMonthly)} ريال شهريًا — وهذا أكبر من فائضك الحالي (${scFmt(availableMonthly)} ريال) بمقدار <b>${scFmt(gap)} ريال</b> شهريًا إضافية.`;
     }
   } else {
     goalsTargetStatusEl.style.display = 'none';
@@ -2832,14 +2834,14 @@ function renderExpensesPage(){
         <div class="field"><label>الراتب الأساسي</label><input id="edSalaryInput" type="number" min="0" step="1" placeholder="0" value="${escapeHtml(m.salary||'')}"/></div>
         <div class="field"><label>دخل إضافي</label><input id="edExtraInput" type="number" min="0" step="1" placeholder="0" value="${escapeHtml(m.extra||'')}"/></div>
       </div>
-      <div class="total-line"><span class="lbl">إجمالي الدخل</span><span class="val" id="edIncomeTotal">0 ﷼</span></div>
+      <div class="total-line"><span class="lbl">إجمالي الدخل</span><span class="val" id="edIncomeTotal">0 ريال</span></div>
     </div>
 
     <div class="card">
       <div class="card-title"><h3>بنود المصروفات</h3></div>
       <div id="edExpenseRows"></div>
       <button class="btn ghost btn-block" id="edAddRowBtn" style="margin-top:10px;">+ إضافة بند مصروف</button>
-      <div class="total-line"><span class="lbl">إجمالي المصروفات</span><span class="val" id="edExpenseTotal">0 ﷼</span></div>
+      <div class="total-line"><span class="lbl">إجمالي المصروفات</span><span class="val" id="edExpenseTotal">0 ريال</span></div>
     </div>
 
     <div class="card">
@@ -2925,11 +2927,11 @@ function edUpdateSummary(){
   const salary = parseFloat(m.salary)||0;
   const extra = parseFloat(m.extra)||0;
   const income = salary + extra;
-  el('edIncomeTotal').textContent = edFmt(income) + ' ﷼';
+  el('edIncomeTotal').textContent = edFmt(income) + ' ريال';
 
   const exp = edActiveExpenses(m);
   const totalExp = exp.reduce((s,e)=>s+e.amount,0);
-  el('edExpenseTotal').textContent = edFmt(totalExp) + ' ﷼';
+  el('edExpenseTotal').textContent = edFmt(totalExp) + ' ريال';
 
   const byTag = {necessary:0, reducible:0, luxury:0, wealth:0};
   exp.forEach(e=> byTag[e.tag] += e.amount);
@@ -2940,7 +2942,7 @@ function edUpdateSummary(){
   const alertsBox = el('edAlertsBox');
   alertsBox.innerHTML = '';
   if(income>0 && totalExp > income){
-    alertsBox.innerHTML += `<div class="alert bad">⚠️ مصاريفك تتجاوز دخلك بمقدار ${edFmt(totalExp-income)} ﷼ هذا الشهر.</div>`;
+    alertsBox.innerHTML += `<div class="alert bad">⚠️ مصاريفك تتجاوز دخلك بمقدار ${edFmt(totalExp-income)} ريال هذا الشهر.</div>`;
   } else if(income>0 && byTag.wealth === 0){
     alertsBox.innerHTML += `<div class="alert bad">💡 ما فيه أي مبلغ مخصص للادخار أو الاستثمار هذا الشهر.</div>`;
   } else if(income>0){
@@ -2957,7 +2959,7 @@ function edUpdateSummary(){
 
   el('edBreakdownGrid').innerHTML = Object.keys(ED_TAGS).map(k=>
     `<div class="bd-item" style="background:${ED_TAGS[k].bg}">
-      <div class="p" style="color:${ED_TAGS[k].color}">${edFmt(byTag[k])} ﷼</div>
+      <div class="p" style="color:${ED_TAGS[k].color}">${edFmt(byTag[k])} ريال</div>
       <div class="l" style="color:${ED_TAGS[k].color}">${ED_TAGS[k].emoji} ${ED_TAGS[k].label} — ${totalExp>0?(byTag[k]/totalExp*100).toFixed(0):0}% من مصاريفك</div>
     </div>`
   ).join('');
@@ -2967,7 +2969,7 @@ function edUpdateSummary(){
   const sortedItems = Object.entries(grouped).sort((a,b)=>b[1]-a[1]).slice(0,5);
   el('edTopItemsBox').innerHTML = sortedItems.length===0
     ? `<div class="empty">أضيفي بنود المصاريف بالأعلى عشان تظهر هنا</div>`
-    : sortedItems.map(([name,amt],i)=> `<div class="top-item"><span><span class="rank">${i+1}.</span>${escapeHtml(name)}</span><span class="amt">${edFmt(amt)} ﷼</span></div>`).join('');
+    : sortedItems.map(([name,amt],i)=> `<div class="top-item"><span><span class="rank">${i+1}.</span>${escapeHtml(name)}</span><span class="amt">${edFmt(amt)} ريال</span></div>`).join('');
 
   const reducibleCandidates = exp.filter(e => e.tag==='reducible' || e.tag==='luxury')
     .reduce((acc,e)=>{ acc[e.name]=(acc[e.name]||0)+e.amount; return acc; }, {});
@@ -2976,7 +2978,7 @@ function edUpdateSummary(){
     ? `<div class="empty">ما فيه بنود "قابلة للتقليل" أو "كمالية" حاليًا لنقترح عليها توفير</div>`
     : topReducible.map(([name,amt])=>{
         const monthly = amt*0.3, yearly = monthly*12;
-        return `<div class="tip">💡 لو خفضتِ <b>${escapeHtml(name)}</b> بنسبة 30%، راح توفّرين <b>${edFmt(monthly)} ﷼</b> شهريًا (${edFmt(yearly)} ﷼ سنويًا).</div>`;
+        return `<div class="tip">💡 لو خفضتِ <b>${escapeHtml(name)}</b> بنسبة 30%، راح توفّرين <b>${edFmt(monthly)} ريال</b> شهريًا (${edFmt(yearly)} ريال سنويًا).</div>`;
       }).join('');
 
   edRenderScore(income, totalExp, byTag, pctOfIncome);
