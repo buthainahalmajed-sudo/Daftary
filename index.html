@@ -193,6 +193,41 @@ details.card > .details-body{padding:0 18px 18px;}
 .safety-calc .goals-total .v{font-size:20px;font-weight:900;color:#3f6fd1;}
 .safety-calc .goals-total .l{font-size:11px;color:#3f6fd1;margin-top:4px;}
 
+/* ---------- monthly expense diagnosis ---------- */
+.expense-diag .month-badge{display:inline-block;margin-top:4px;background:#e8effb;color:#274a8f;font-size:11.5px;font-weight:700;padding:4px 12px;border-radius:99px;}
+.expense-diag .exp-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;padding:9px 0;border-bottom:1px dashed var(--line);}
+.expense-diag .exp-row:last-of-type{border-bottom:none;}
+.expense-diag .exp-row select, .expense-diag .exp-row input{background:var(--parchment);border:1.5px solid var(--line);border-radius:10px;padding:8px 9px;font-size:12.5px;font-family:inherit;color:var(--ink);}
+.expense-diag .exp-row .sel-item{flex:2;min-width:130px;}
+.expense-diag .exp-row .sel-custom{flex:2;min-width:110px;}
+.expense-diag .exp-row .sel-tag{flex:1.3;min-width:100px;}
+.expense-diag .exp-row .inp-amt{flex:1;min-width:75px;}
+.expense-diag .exp-row .del-row{background:none;border:none;color:#b9ad96;cursor:pointer;font-size:15px;padding:6px;}
+.expense-diag .exp-row .del-row:hover{color:var(--rose);}
+.expense-diag .alert{border-radius:12px;padding:10px 12px;font-size:12.5px;margin-bottom:12px;font-weight:600;}
+.expense-diag .alert.bad{background:rgba(178,76,99,.13);color:var(--rose-dark);}
+.expense-diag .alert.ok{background:#e7f7ef;color:#1e6b4a;}
+.expense-diag .bar{width:100%;height:16px;border-radius:99px;overflow:hidden;display:flex;background:var(--line);border:1px solid var(--line);margin-bottom:10px;}
+.expense-diag .bar span{height:100%;}
+.expense-diag .legend{display:flex;flex-wrap:wrap;gap:10px;font-size:11.5px;margin-bottom:14px;}
+.expense-diag .legend .li{display:flex;align-items:center;gap:6px;}
+.expense-diag .legend .dot{width:9px;height:9px;border-radius:50%;display:inline-block;}
+.expense-diag .breakdown-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;}
+.expense-diag .bd-item{border-radius:12px;padding:9px 10px;}
+.expense-diag .bd-item .p{font-size:16px;font-weight:900;}
+.expense-diag .bd-item .l{font-size:10.5px;margin-top:2px;}
+.expense-diag .score-wrap{display:flex;align-items:center;gap:16px;}
+.expense-diag .score-num{font-size:36px;font-weight:900;color:var(--petrol-dark);min-width:74px;text-align:center;font-family:'IBM Plex Sans Arabic',sans-serif;}
+.expense-diag .score-bar-outer{flex:1;}
+.expense-diag .score-bar{height:10px;border-radius:99px;background:var(--line);overflow:hidden;margin-bottom:6px;}
+.expense-diag .score-bar>div{height:100%;background:linear-gradient(90deg,#d9564a,#d99a1f,#2f9e6e);transition:width .5s;}
+.expense-diag .score-label{font-size:12.5px;font-weight:800;}
+.expense-diag .top-item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px dashed var(--line);font-size:12.5px;}
+.expense-diag .top-item:last-child{border-bottom:none;}
+.expense-diag .top-item .rank{color:#6b7a78;margin-left:6px;}
+.expense-diag .top-item .amt{font-weight:800;}
+.expense-diag .tip{background:#e8effb;border-radius:12px;padding:10px 12px;font-size:12.5px;margin-bottom:8px;color:#274a8f;line-height:1.7;}
+
 /* mood */
 .mood-scale{display:flex;justify-content:space-between;gap:6px;}
 .mood-dot{flex:1;text-align:center;padding:10px 4px;border-radius:12px;border:1.5px solid var(--line);font-size:22px;background:var(--parchment);}
@@ -365,6 +400,7 @@ let state = {
   collapsed:{habits:false, questions:false, reflection:false, mood:false},
   financialGoal:null, /* {title, targetAmount, currentAmount, deadline, configured, stages:[...]} */
   safety:null, /* {assets, income, expenses, goals, goalsTargetYears} for the financial safety point calculator */
+  expenseDiag:null, /* {monthKey: {salary, extra, rows:[...]}} for the monthly expense diagnosis */
 };
 let view = 'home';
 let selectedDate = null;
@@ -603,6 +639,7 @@ function render(){
   else if(view==='inbox') body = renderInboxPage();
   else if(view==='finance') body = renderFinancePage();
   else if(view==='safety') body = renderSafetyPage();
+  else if(view==='expenses') body = renderExpensesPage();
 
   app.innerHTML = `
     ${renderTopbar()}
@@ -613,6 +650,7 @@ function render(){
   attachGlobalEvents();
   if(view==='finance') attachFinanceEvents();
   if(view==='safety') attachSafetyEvents();
+  if(view==='expenses') attachExpensesEvents();
 }
 
 function stampSVG(line1, line2){
@@ -2699,6 +2737,292 @@ function attachSafetyEvents(){
   };
 }
 
+/* ============ monthly expense diagnosis ============ */
+const ED_CUSTOM_VALUE = "__custom__";
+const ED_TAGS = {
+  necessary: {label:"ضروري", emoji:"🟢", color:"#2f9e6e", bg:"#e7f7ef"},
+  reducible: {label:"قابل للتقليل", emoji:"🟡", color:"#d99a1f", bg:"#fdf2dc"},
+  luxury:    {label:"كمالي", emoji:"🔴", color:"var(--rose)", bg:"rgba(178,76,99,.13)"},
+  wealth:    {label:"بناء الثروة", emoji:"🔵", color:"#3f6fd1", bg:"#e8effb"},
+};
+const ED_CATEGORY_GROUPS = [
+  {group:"🏠 السكن", items:[
+    {name:"إيجار", tag:"necessary"},{name:"قرض عقاري", tag:"necessary"},{name:"صيانة المنزل", tag:"necessary"},
+    {name:"أثاث", tag:"reducible"},{name:"كهرباء", tag:"necessary"},{name:"ماء", tag:"necessary"},
+    {name:"إنترنت", tag:"necessary"},{name:"جوال", tag:"necessary"},
+  ]},
+  {group:"🍽 الطعام والمواد الاستهلاكية", items:[
+    {name:"سوبرماركت", tag:"necessary"},{name:"مطاعم", tag:"reducible"},{name:"قهوة", tag:"reducible"},
+    {name:"طلبات توصيل", tag:"reducible"},{name:"مستلزمات منزلية", tag:"necessary"},{name:"منظفات", tag:"necessary"},
+  ]},
+  {group:"🚗 النقل", items:[
+    {name:"بنزين", tag:"necessary"},{name:"صيانة سيارة", tag:"necessary"},{name:"تأمين", tag:"necessary"},
+    {name:"أقساط سيارة", tag:"necessary"},{name:"أوبر / كريم", tag:"reducible"},{name:"مواقف", tag:"necessary"},
+  ]},
+  {group:"👨‍👩‍👧 الأسرة", items:[
+    {name:"مدارس", tag:"necessary"},{name:"حضانة", tag:"necessary"},{name:"مصروف الأبناء", tag:"necessary"},
+    {name:"ملابس الأطفال", tag:"necessary"},{name:"هدايا الأسرة", tag:"luxury"},
+  ]},
+  {group:"🩺 الصحة", items:[
+    {name:"علاج", tag:"necessary"},{name:"أدوية", tag:"necessary"},{name:"تأمين طبي", tag:"necessary"},{name:"نادي رياضي", tag:"reducible"},
+  ]},
+  {group:"👕 الملابس والعناية", items:[
+    {name:"ملابس", tag:"reducible"},{name:"أحذية", tag:"reducible"},{name:"عطور", tag:"luxury"},
+    {name:"مكياج", tag:"luxury"},{name:"صالون", tag:"luxury"},
+  ]},
+  {group:"🎉 الترفيه", items:[
+    {name:"سفر", tag:"luxury"},{name:"فنادق", tag:"luxury"},{name:"كافيهات", tag:"reducible"},
+    {name:"اشتراكات ترفيه", tag:"reducible"},{name:"ألعاب", tag:"luxury"},{name:"فعاليات", tag:"luxury"},
+  ]},
+  {group:"💳 الالتزامات المالية", items:[
+    {name:"قروض", tag:"wealth"},{name:"بطاقات ائتمانية", tag:"wealth"},{name:"ديون", tag:"wealth"},{name:"أقساط", tag:"wealth"},
+  ]},
+  {group:"📈 الاستثمار والادخار", items:[
+    {name:"استثمار", tag:"wealth"},{name:"ادخار", tag:"wealth"},{name:"صندوق طوارئ", tag:"wealth"},
+  ]},
+  {group:"🎁 أخرى", items:[
+    {name:"هدايا", tag:"luxury"},{name:"صدقات", tag:"luxury"},{name:"رسوم حكومية", tag:"necessary"},
+  ]},
+];
+const ED_ITEM_TAG_MAP = {};
+ED_CATEGORY_GROUPS.forEach(g => g.items.forEach(it => ED_ITEM_TAG_MAP[it.name] = it.tag));
+
+function edMonthKey(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'); }
+function edCurrentMonthLabel(){ const d = new Date(); return 'مصاريف شهر ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear(); }
+function edEmptyMonthData(){ return {salary:'', extra:'', rows:[{id:uid(), item:"", custom:"", tag:"reducible", amount:""}]}; }
+function edGetMonth(){
+  if(!state.expenseDiag) state.expenseDiag = {};
+  const k = edMonthKey();
+  if(!state.expenseDiag[k]) state.expenseDiag[k] = edEmptyMonthData();
+  return state.expenseDiag[k];
+}
+function edFmt(n){ return Number(n||0).toLocaleString('ar-SA', {maximumFractionDigits:2}); }
+function edBuildItemOptions(selected){
+  let html = `<option value="">اختاري بند...</option>`;
+  ED_CATEGORY_GROUPS.forEach(g=>{
+    html += `<optgroup label="${g.group}">`;
+    g.items.forEach(it=>{ html += `<option value="${escapeHtml(it.name)}" ${selected===it.name?'selected':''}>${escapeHtml(it.name)}</option>`; });
+    html += `</optgroup>`;
+  });
+  html += `<option value="${ED_CUSTOM_VALUE}" ${selected===ED_CUSTOM_VALUE?'selected':''}>✏️ أخرى (اكتبي يدويًا)</option>`;
+  return html;
+}
+function edBuildTagOptions(selected){
+  return Object.keys(ED_TAGS).map(k=>`<option value="${k}" ${selected===k?'selected':''}>${ED_TAGS[k].emoji} ${ED_TAGS[k].label}</option>`).join('');
+}
+function edActiveExpenses(m){
+  return m.rows.map(r=>({
+    name: r.item===ED_CUSTOM_VALUE ? ((r.custom||'').trim() || "بند بدون اسم") : r.item,
+    tag: r.tag || ED_ITEM_TAG_MAP[r.item] || 'reducible',
+    amount: parseFloat(r.amount) || 0,
+  })).filter(e => e.name && e.amount > 0);
+}
+
+function renderExpensesPage(){
+  const m = edGetMonth();
+  return `
+  <div class="expense-diag">
+    <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:4px;">🩺 تشخيص المصاريف الشهرية</h2>
+    <p class="muted" style="margin-bottom:6px;">مو بس تسجيل أرقام — تعرفين وين يروح راتبك ووين تقدرين توفرين</p>
+    <span class="month-badge">${edCurrentMonthLabel()}</span>
+
+    <div class="card" style="margin-top:14px;">
+      <div class="card-title"><h3>الدخل الشهري</h3></div>
+      <div class="row2">
+        <div class="field"><label>الراتب الأساسي</label><input id="edSalaryInput" type="number" min="0" step="1" placeholder="0" value="${escapeHtml(m.salary||'')}"/></div>
+        <div class="field"><label>دخل إضافي</label><input id="edExtraInput" type="number" min="0" step="1" placeholder="0" value="${escapeHtml(m.extra||'')}"/></div>
+      </div>
+      <div class="total-line"><span class="lbl">إجمالي الدخل</span><span class="val" id="edIncomeTotal">0 ﷼</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><h3>بنود المصروفات</h3></div>
+      <div id="edExpenseRows"></div>
+      <button class="btn ghost btn-block" id="edAddRowBtn" style="margin-top:10px;">+ إضافة بند مصروف</button>
+      <div class="total-line"><span class="lbl">إجمالي المصروفات</span><span class="val" id="edExpenseTotal">0 ﷼</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><h3>أين يذهب راتبك؟</h3></div>
+      <div id="edAlertsBox"></div>
+      <div class="bar" id="edDiagBar"></div>
+      <div class="legend" id="edDiagLegend"></div>
+      <div class="breakdown-grid" id="edBreakdownGrid"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><h3>مؤشر اليسر المالي</h3></div>
+      <div class="score-wrap">
+        <div class="score-num" id="edScoreNum">50</div>
+        <div class="score-bar-outer">
+          <div class="score-bar"><div id="edScoreBarFill" style="width:50%"></div></div>
+          <div class="score-label" id="edScoreLabel">جيد</div>
+        </div>
+      </div>
+      <p class="muted" id="edScoreExplain" style="margin-top:8px;line-height:1.7;"></p>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><h3>أعلى 5 بنود تستنزف أموالك</h3></div>
+      <div id="edTopItemsBox"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><h3>فرص التوفير</h3></div>
+      <div id="edTipsBox"></div>
+    </div>
+
+    <div class="card" style="text-align:center;">
+      <div class="card-title" style="justify-content:center;"><h3>وش الخطوة الجاية؟</h3></div>
+      <p class="muted" style="margin-bottom:14px;">خذي وضعك المالي لمرحلة جديدة مع سما النخبة للتدريب</p>
+      <a class="btn rose btn-block" style="margin-bottom:10px;box-sizing:border-box;text-decoration:none;" href="https://samantc.com/wAdxWKw" target="_blank" rel="noopener">🔥 ابدئي كورس نهاية الفوضى المالية</a>
+      <a class="btn ghost btn-block" style="box-sizing:border-box;text-decoration:none;" href="https://samantc.com/ZqGeWqb" target="_blank" rel="noopener">📅 اطلبي استشارة مالية مبدئية</a>
+    </div>
+  </div>`;
+}
+
+function edRenderRows(){
+  const m = edGetMonth();
+  const container = document.getElementById('edExpenseRows');
+  if(!container) return;
+  container.innerHTML = m.rows.map(r=>{
+    const isCustom = r.item === ED_CUSTOM_VALUE;
+    return `
+    <div class="exp-row" data-id="${r.id}">
+      <select class="sel-item">${edBuildItemOptions(r.item)}</select>
+      ${isCustom ? `<input class="sel-custom" type="text" placeholder="اكتبي اسم البند" value="${escapeHtml(r.custom||'')}" />` : ''}
+      ${isCustom ? `<select class="sel-tag">${edBuildTagOptions(r.tag)}</select>` : ''}
+      <input class="inp-amt" type="number" min="0" step="0.01" placeholder="المبلغ" value="${r.amount||''}" />
+      <button type="button" class="del-row" aria-label="حذف">✕</button>
+    </div>`;
+  }).join('');
+  container.querySelectorAll('.exp-row').forEach(rowEl=>{
+    const id = rowEl.getAttribute('data-id');
+    const row = m.rows.find(r=>String(r.id)===id);
+    const selItem = rowEl.querySelector('.sel-item');
+    selItem.onchange = ()=>{
+      row.item = selItem.value;
+      if(row.item !== ED_CUSTOM_VALUE){ row.tag = ED_ITEM_TAG_MAP[row.item] || 'reducible'; row.custom=''; }
+      saveState(); edRenderRows(); edUpdateSummary();
+    };
+    const selCustom = rowEl.querySelector('.sel-custom');
+    if(selCustom) selCustom.oninput = ()=>{ row.custom = selCustom.value; saveState(); edUpdateSummary(); };
+    const selTag = rowEl.querySelector('.sel-tag');
+    if(selTag) selTag.onchange = ()=>{ row.tag = selTag.value; saveState(); edUpdateSummary(); };
+    rowEl.querySelector('.inp-amt').oninput = (e)=>{ row.amount = e.target.value; saveState(); edUpdateSummary(); };
+    rowEl.querySelector('.del-row').onclick = ()=>{
+      m.rows = m.rows.filter(x=>x!==row);
+      if(m.rows.length===0) m.rows.push({id:uid(), item:"", custom:"", tag:"reducible", amount:""});
+      saveState(); edRenderRows(); edUpdateSummary();
+    };
+  });
+}
+
+function edUpdateSummary(){
+  const m = edGetMonth();
+  const el = id => document.getElementById(id);
+  if(!el('edIncomeTotal')) return;
+  const salary = parseFloat(m.salary)||0;
+  const extra = parseFloat(m.extra)||0;
+  const income = salary + extra;
+  el('edIncomeTotal').textContent = edFmt(income) + ' ﷼';
+
+  const exp = edActiveExpenses(m);
+  const totalExp = exp.reduce((s,e)=>s+e.amount,0);
+  el('edExpenseTotal').textContent = edFmt(totalExp) + ' ﷼';
+
+  const byTag = {necessary:0, reducible:0, luxury:0, wealth:0};
+  exp.forEach(e=> byTag[e.tag] += e.amount);
+  const pctOfIncome = {};
+  Object.keys(ED_TAGS).forEach(k=> pctOfIncome[k] = income>0 ? (byTag[k]/income*100) : 0);
+  const remainingPct = income>0 ? Math.max(0, 100 - Object.values(pctOfIncome).reduce((a,b)=>a+b,0)) : 0;
+
+  const alertsBox = el('edAlertsBox');
+  alertsBox.innerHTML = '';
+  if(income>0 && totalExp > income){
+    alertsBox.innerHTML += `<div class="alert bad">⚠️ مصاريفك تتجاوز دخلك بمقدار ${edFmt(totalExp-income)} ﷼ هذا الشهر.</div>`;
+  } else if(income>0 && byTag.wealth === 0){
+    alertsBox.innerHTML += `<div class="alert bad">💡 ما فيه أي مبلغ مخصص للادخار أو الاستثمار هذا الشهر.</div>`;
+  } else if(income>0){
+    alertsBox.innerHTML += `<div class="alert ok">✅ مصاريفك ضمن حدود دخلك.</div>`;
+  }
+
+  el('edDiagBar').innerHTML = Object.keys(ED_TAGS).map(k=>
+    `<span style="width:${pctOfIncome[k]}%; background:${ED_TAGS[k].color}"></span>`
+  ).join('') + `<span style="width:${remainingPct}%; background:var(--line)"></span>`;
+
+  el('edDiagLegend').innerHTML = Object.keys(ED_TAGS).map(k=>
+    `<span class="li"><span class="dot" style="background:${ED_TAGS[k].color}"></span>${ED_TAGS[k].emoji} ${ED_TAGS[k].label} <b>${pctOfIncome[k].toFixed(0)}%</b></span>`
+  ).join('') + `<span class="li"><span class="dot" style="background:var(--line)"></span>متبقي <b>${remainingPct.toFixed(0)}%</b></span>`;
+
+  el('edBreakdownGrid').innerHTML = Object.keys(ED_TAGS).map(k=>
+    `<div class="bd-item" style="background:${ED_TAGS[k].bg}">
+      <div class="p" style="color:${ED_TAGS[k].color}">${edFmt(byTag[k])} ﷼</div>
+      <div class="l" style="color:${ED_TAGS[k].color}">${ED_TAGS[k].emoji} ${ED_TAGS[k].label} — ${totalExp>0?(byTag[k]/totalExp*100).toFixed(0):0}% من مصاريفك</div>
+    </div>`
+  ).join('');
+
+  const grouped = {};
+  exp.forEach(e=>{ grouped[e.name] = (grouped[e.name]||0) + e.amount; });
+  const sortedItems = Object.entries(grouped).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  el('edTopItemsBox').innerHTML = sortedItems.length===0
+    ? `<div class="empty">أضيفي بنود المصاريف بالأعلى عشان تظهر هنا</div>`
+    : sortedItems.map(([name,amt],i)=> `<div class="top-item"><span><span class="rank">${i+1}.</span>${escapeHtml(name)}</span><span class="amt">${edFmt(amt)} ﷼</span></div>`).join('');
+
+  const reducibleCandidates = exp.filter(e => e.tag==='reducible' || e.tag==='luxury')
+    .reduce((acc,e)=>{ acc[e.name]=(acc[e.name]||0)+e.amount; return acc; }, {});
+  const topReducible = Object.entries(reducibleCandidates).sort((a,b)=>b[1]-a[1]).slice(0,2);
+  el('edTipsBox').innerHTML = topReducible.length===0
+    ? `<div class="empty">ما فيه بنود "قابلة للتقليل" أو "كمالية" حاليًا لنقترح عليها توفير</div>`
+    : topReducible.map(([name,amt])=>{
+        const monthly = amt*0.3, yearly = monthly*12;
+        return `<div class="tip">💡 لو خفضتِ <b>${escapeHtml(name)}</b> بنسبة 30%، راح توفّرين <b>${edFmt(monthly)} ﷼</b> شهريًا (${edFmt(yearly)} ﷼ سنويًا).</div>`;
+      }).join('');
+
+  edRenderScore(income, totalExp, byTag, pctOfIncome);
+}
+
+function edRenderScore(income, totalExp, byTag, pctOfIncome){
+  let score = 50;
+  const wealthPct = pctOfIncome.wealth, luxuryPct = pctOfIncome.luxury;
+  const notes = [];
+  if(income>0){
+    score += Math.min(30, wealthPct*1.5);
+    score -= Math.min(30, luxuryPct*1.0);
+    if(totalExp > income){ score -= 25; notes.push('مصاريفك تتجاوز دخلك — هذا أكبر مؤثر سلبي على المؤشر.'); }
+    if(byTag.wealth === 0){ score -= 15; notes.push('لا يوجد مبلغ مخصص للادخار/الاستثمار هذا الشهر.'); }
+    if(wealthPct >= 15) notes.push('نسبة جيدة من دخلك تذهب لبناء الثروة 👏');
+    if(luxuryPct >= 20) notes.push('نسبة الإنفاق الكمالي مرتفعة نسبيًا مقارنة بدخلك.');
+  } else {
+    score = 0;
+    notes.push('أدخلي الدخل الشهري عشان يُحتسب المؤشر.');
+  }
+  score = Math.max(0, Math.min(100, Math.round(score)));
+  document.getElementById('edScoreNum').textContent = score;
+  document.getElementById('edScoreBarFill').style.width = score + '%';
+  let label, ratingColor;
+  if(income===0){ label='—'; ratingColor='#6b7a78'; }
+  else if(score>=80){ label='🟢 ممتاز'; ratingColor='#2f9e6e'; }
+  else if(score>=60){ label='🟡 جيد'; ratingColor='#d99a1f'; }
+  else if(score>=40){ label='🟠 يحتاج تحسين'; ratingColor='#d9772f'; }
+  else { label='🔴 مقلق'; ratingColor='var(--rose)'; }
+  const scoreLabelEl = document.getElementById('edScoreLabel');
+  scoreLabelEl.textContent = label;
+  scoreLabelEl.style.color = ratingColor;
+  document.getElementById('edScoreExplain').innerHTML = notes.length ? notes.map(n=>'• '+escapeHtml(n)).join('<br/>') : '';
+}
+
+function attachExpensesEvents(){
+  const m = edGetMonth();
+  edRenderRows(); edUpdateSummary();
+  document.getElementById('edSalaryInput').oninput = (e)=>{ m.salary = e.target.value; saveState(); edUpdateSummary(); };
+  document.getElementById('edExtraInput').oninput = (e)=>{ m.extra = e.target.value; saveState(); edUpdateSummary(); };
+  document.getElementById('edAddRowBtn').onclick = ()=>{
+    m.rows.push({id:uid(), item:"", custom:"", tag:"reducible", amount:""});
+    saveState(); edRenderRows();
+  };
+}
+
 
 /* ============ HABITS (weekly tracker) page ============ */
 function renderHabitsPage(){
@@ -3024,6 +3348,7 @@ function renderNav(){
     {id:'inbox', label:'الصندوق', icon:'<path d="M3 8l2-4h14l2 4M3 8v10a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V8M3 8h18M8 12h8"/>'},
     {id:'finance', label:'المالي', icon:'<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5c0-1.4 1.1-2.5 2.5-2.5s2.5.8 2.5 2c0 1.5-2 2-2.5 2.2C11 11.4 9.5 12 9.5 13.5c0 1.2 1.1 2 2.5 2s2.5-1.1 2.5-2.5"/>'},
     {id:'safety', label:'الأمان', icon:'<path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6z"/>'},
+    {id:'expenses', label:'المصاريف', icon:'<path d="M3 12h4l3 8 4-16 3 8h4"/>'},
   ];
   return `<div class="nav"><div class="nav-inner">
     ${items.map(i=>`<button type="button" class="nav-btn ${view===i.id?'active':''}" data-nav="${i.id}"><svg viewBox="0 0 24 24">${i.icon}</svg>${i.label}</button>`).join('')}
