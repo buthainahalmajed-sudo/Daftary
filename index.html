@@ -2540,15 +2540,19 @@ function scRenderIncomeRows(){
   scSyncSharedIncome();
   const container = document.getElementById('scIncomeRows');
   if(!container) return;
+  const fgForContribute = state.financialGoal;
   container.innerHTML = sc.income.map(r=>{
     const isCustom = r.item === SC_CUSTOM_VALUE;
+    const amt = parseFloat(r.amount)||0;
+    const showContribute = fgForContribute && fgForContribute.configured && amt>0;
     return `
     <div class="item-row" data-id="${r.id}">
       <select class="sel-item">${scBuildSimpleOptions(SC_INCOME_OPTIONS, r.item)}</select>
       ${isCustom ? `<input class="sel-custom" type="text" placeholder="اكتبي مصدر الدخل" value="${escapeHtml(r.custom||'')}" />` : ''}
       <input class="inp-amt" type="number" min="0" step="0.01" placeholder="المبلغ" value="${r.amount||''}" />
       <button type="button" class="del-row" aria-label="حذف">✕</button>
-    </div>`;
+    </div>
+    ${showContribute? `<div style="text-align:left;margin:-6px 0 10px;"><button type="button" class="btn ghost sm" data-sc-contribute="${r.id}">💰 أضيفي ${scFmt(amt)} ريال لهدفك المالي</button></div>`:''}`;
   }).join('');
   container.querySelectorAll('.item-row').forEach(rowEl=>{
     const id = rowEl.getAttribute('data-id');
@@ -2560,16 +2564,28 @@ function scRenderIncomeRows(){
     };
     const selCustom = rowEl.querySelector('.sel-custom');
     if(selCustom) selCustom.oninput = ()=>{ row.custom = selCustom.value; saveState(); scUpdateSummary(); };
-    rowEl.querySelector('.inp-amt').oninput = (e)=>{
+    const amtInput = rowEl.querySelector('.inp-amt');
+    amtInput.oninput = (e)=>{
       row.amount = e.target.value;
       if(row.item==='راتب شهري') state.sharedIncome = row.amount;
       saveState(); scUpdateSummary();
     };
+    amtInput.onchange = ()=> scRenderIncomeRows();
     rowEl.querySelector('.del-row').onclick = ()=>{
       sc.income = sc.income.filter(x=>x!==row);
       if(sc.income.length===0) sc.income.push({id:uid(), item:"", custom:"", amount:""});
       saveState(); scRenderIncomeRows(); scUpdateSummary();
     };
+  });
+  container.querySelectorAll('[data-sc-contribute]').forEach(b=> b.onclick=()=>{
+    const id = b.dataset.scContribute;
+    const row = sc.income.find(r=>String(r.id)===id);
+    const amt = row? (parseFloat(row.amount)||0) : 0;
+    const fg = state.financialGoal;
+    if(!row || amt<=0 || !fg || !fg.configured) return;
+    fg.currentAmount = (fg.currentAmount||0) + amt;
+    fg.stages.forEach(s=>{ if(!s.done && fg.currentAmount >= s.targetAmount) s.done = true; });
+    saveState(); popStamp('زادت مدّخراتك!','ماشاءالله عليك'); render();
   });
 }
 function scRenderGoalRows(){
