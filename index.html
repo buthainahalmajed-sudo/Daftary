@@ -438,6 +438,7 @@ let importSugError = null;
 let aiPlan = null; /* array of {id, text, priority, period, due, note, include} once organized */
 let aiPlanLoading = false;
 let aiPlanError = null;
+let voiceCardOpen = false;
 let voiceDraftText = '';
 let voicePlan = null; /* array of {id, text, category, priority, period, due, include} once analyzed */
 let voiceListening = false;
@@ -3550,6 +3551,10 @@ function attachGlobalEvents(){
   document.querySelectorAll('[data-task-up]').forEach(b=> b.onclick=()=> moveTaskAmongUndone(b.dataset.taskUp, -1));
   document.querySelectorAll('[data-task-down]').forEach(b=> b.onclick=()=> moveTaskAmongUndone(b.dataset.taskDown, 1));
 
+  const voiceToggleOpen = document.getElementById('voiceToggleOpen');
+  if(voiceToggleOpen) voiceToggleOpen.onclick = ()=>{ voiceCardOpen = true; render(); };
+  const voiceToggleClose = document.getElementById('voiceToggleClose');
+  if(voiceToggleClose) voiceToggleClose.onclick = ()=>{ voiceCardOpen = false; voiceError = null; render(); };
   const voiceDraftInputEl = document.getElementById('voiceDraftInput');
   if(voiceDraftInputEl) voiceDraftInputEl.oninput = ()=>{ voiceDraftText = voiceDraftInputEl.value; };
   const voiceMicBtn = document.getElementById('voiceMicBtn');
@@ -3581,7 +3586,7 @@ function attachGlobalEvents(){
     voicePlan.filter(p=>p.include).forEach(p=>{
       state.tasks.push({id:uid(), title:p.text, goalId:null, category:p.category||null, priority:p.priority, period:p.period||null, due:p.due||null, link:null, done:false, createdAt:todayStr()});
     });
-    voicePlan = null; voiceDraftText = '';
+    voicePlan = null; voiceDraftText = ''; voiceCardOpen = false;
     saveState(); popStamp('انضافت!','ماشاءالله'); render();
   };
   const voiceDiscardBtn = document.getElementById('voiceDiscardBtn');
@@ -3829,9 +3834,6 @@ function guessDue(raw){
   return null;
 }
 /* ============ voice / smart quick-add ============ */
-function vqSpeechSupported(){
-  return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
-}
 function vqParseDateTime(text){
   const s = text;
   let due = null, period = null;
@@ -3896,7 +3898,13 @@ function vqAnalyze(raw){
 }
 function startVoiceRecognition(){
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if(!SR) return;
+  if(!SR){
+    voiceError = 'التسجيل المباشر ما يدعمه متصفحك — اضغطي أيقونة المايك 🎙️ اللي بلوحة مفاتيح جوالك جوا خانة الكتابة وأملي فيها، وبعدين اضغطي "حلّليها لمهام".';
+    render();
+    const ta = document.getElementById('voiceDraftInput');
+    if(ta) ta.focus();
+    return;
+  }
   voiceRecognizer = new SR();
   voiceRecognizer.lang = 'ar-SA';
   voiceRecognizer.interimResults = false;
@@ -3911,16 +3919,24 @@ function startVoiceRecognition(){
   try{ voiceRecognizer.start(); }catch(e){ voiceError = 'صار خطأ بالتسجيل.'; render(); }
 }
 function renderVoiceQuickAddCard(){
+  if(!voiceCardOpen){
+    return `
+    <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
+      <button type="button" class="icon-btn" id="voiceToggleOpen" title="أضيفي مهمة بصوتك" style="width:38px;height:38px;border-radius:50%;background:var(--petrol);color:#fff;font-size:16px;flex-shrink:0;">🎤</button>
+    </div>`;
+  }
   return `
   <div class="card ai-box">
-    <div class="card-title"><h3>🎤 أضيفي مهمة بصوتك أو اكتبيها</h3></div>
+    <div class="card-title"><h3 style="flex:1;">🎤 أضيفي مهمة بصوتك أو اكتبيها</h3>
+      <button type="button" class="icon-btn" id="voiceToggleClose" title="طي">➖</button>
+    </div>
     <p class="muted" style="margin-bottom:10px;">اضغطي زر المايك بلوحة مفاتيح جوالك للإملاء الصوتي (أو اكتبي عادي)، وأنا أحوّلها لمهام منظمة تلقائيًا — حتى لو أكثر من مهمة بمرة وحدة.</p>
     <div class="field" style="margin-bottom:10px;">
       <textarea id="voiceDraftInput" placeholder="مثال: اتصلي بالبنك بكرة الساعة 5، وجهزي فاتورة الكهرباء">${escapeHtml(voiceDraftText)}</textarea>
     </div>
     ${voiceError? `<p class="muted" style="color:var(--rose-dark);margin-bottom:8px;">${escapeHtml(voiceError)}</p>`:''}
     <div style="display:flex;gap:8px;">
-      ${vqSpeechSupported()? `<button type="button" class="btn ${voiceListening?'rose':'ghost'} sm" id="voiceMicBtn">${voiceListening? '⏹️ إيقاف':'🎙️ سجّلي'}</button>`:''}
+      <button type="button" class="btn ${voiceListening?'rose':'ghost'} sm" id="voiceMicBtn">${voiceListening? '⏹️ إيقاف':'🎙️ سجّلي'}</button>
       <button type="button" class="btn btn-block" id="voiceAnalyzeBtn">✨ حلّليها لمهام</button>
     </div>
   </div>
