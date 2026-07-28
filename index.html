@@ -181,10 +181,10 @@ details.card > .details-body{padding:0 18px 18px;}
 .safety-calc .result-hero .lbl{font-size:12px;color:#c9c3af;margin-bottom:6px;}
 .safety-calc .result-hero .val{font-size:28px;font-weight:900;color:#fff;font-family:'IBM Plex Sans Arabic',sans-serif;}
 .safety-calc .result-hero .sub{font-size:11.5px;color:#a9c9bb;margin-top:8px;line-height:1.6;}
-.safety-calc .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-.safety-calc .stat-box{border-radius:12px;padding:10px 12px;}
-.safety-calc .stat-box .p{font-size:15px;font-weight:900;}
-.safety-calc .stat-box .l{font-size:10.5px;margin-top:3px;}
+.safety-calc .stats-grid, .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.safety-calc .stat-box, .stat-box{border-radius:12px;padding:10px 12px;}
+.safety-calc .stat-box .p, .stat-box .p{font-size:15px;font-weight:900;}
+.safety-calc .stat-box .l, .stat-box .l{font-size:10.5px;margin-top:3px;}
 .safety-calc .status-banner{border-radius:12px;padding:12px 14px;font-size:13px;font-weight:700;text-align:center;margin-bottom:12px;line-height:1.6;}
 .safety-calc .status-green{background:#e7f7ef;color:#1e6b4a;}
 .safety-calc .status-yellow{background:#fdf6e3;color:#8a6d00;}
@@ -659,6 +659,36 @@ function render(){
   if(view==='money') attachMoneyEvents();
 }
 
+function renderMoneyDashboard(){
+  const fg = state.financialGoal;
+  const sc = state.safety;
+  const pendingFinTasks = state.tasks.filter(t=>!t.done && t.category==='business').length;
+  const liquid = sc ? scActiveList(sc.assets).filter(a=>a.tag!=='fixed').reduce((s,a)=>s+a.amount,0) : 0;
+  const m = state.expenseDiag ? state.expenseDiag[edMonthKey()] : null;
+  const lastExp = m ? edActiveExpenses(m).reduce((s,e)=>s+e.amount,0) : 0;
+  return `
+  <div class="card" style="background:linear-gradient(135deg, rgba(46,92,90,.07), rgba(199,154,60,.09));">
+    <div class="card-title"><h3>📊 نظرة عامة</h3></div>
+    <div class="stats-grid">
+      <div class="stat-box" style="background:#e7f7ef;">
+        <div class="p" style="color:#2f9e6e;">${fg&&fg.configured? (fg.targetAmount? Math.min(100,Math.round(fg.currentAmount/fg.targetAmount*100)):0)+'%' : '—'}</div>
+        <div class="l" style="color:#2f9e6e;">تقدّم هدفك المالي</div>
+      </div>
+      <div class="stat-box" style="background:#e8effb;">
+        <div class="p" style="color:#3f6fd1;">${sc? scFmt(liquid)+' ريال' : '—'}</div>
+        <div class="l" style="color:#3f6fd1;">سيولتك المتاحة (الأمان)</div>
+      </div>
+      <div class="stat-box" style="background:#fdf6e3;">
+        <div class="p" style="color:#8a6d00;">${pendingFinTasks}</div>
+        <div class="l" style="color:#8a6d00;">مهمة مالية معلّقة</div>
+      </div>
+      <div class="stat-box" style="background:rgba(178,76,99,.13);">
+        <div class="p" style="color:var(--rose-dark);">${m? edFmt(lastExp)+' ريال' : '—'}</div>
+        <div class="l" style="color:var(--rose-dark);">مصاريفك هالشهر</div>
+      </div>
+    </div>
+  </div>`;
+}
 function renderMoneyPage(){
   const tabs = [
     {id:'finance', label:'🎯 الهدف المالي'},
@@ -670,6 +700,7 @@ function renderMoneyPage(){
   else if(moneySubView==='expenses') body = renderExpensesPage();
   else body = renderFinancePage();
   return `
+    ${renderMoneyDashboard()}
     <div class="period-tabs" style="margin-bottom:16px;">
       ${tabs.map(t=>`<button type="button" class="period-tab ${moneySubView===t.id?'active':''}" data-money-tab="${t.id}">${t.label}</button>`).join('')}
     </div>
@@ -1301,8 +1332,23 @@ function renderGoals(){
           ${QUESTIONS[g.cat].map((q,i)=> g.answers[i]? `<p class="muted" style="margin-bottom:6px;"><b style="color:var(--petrol-dark);">${q}</b><br>${escapeHtml(g.answers[i])}</p>`:'').join('')}
         </div>`:''}
       <button class="btn ghost sm" data-addtaskfor="${g.id}" style="margin-top:8px;">+ إضافة مهمة لهالهدف</button>
+      ${g.cat==='finance'? renderFinanceGoalLink() : ''}
     </div>
   `).join('')}`;
+}
+function renderFinanceGoalLink(){
+  const fg = state.financialGoal;
+  if(fg && fg.configured){
+    const pct = fg.targetAmount? Math.min(100, Math.round((fg.currentAmount/fg.targetAmount)*100)) : 0;
+    return `<div class="quote-box" style="margin-top:10px;">
+      <p class="muted" style="margin-bottom:8px;">🎯 هدفك المالي التفصيلي: <b style="color:var(--petrol-dark);">${escapeHtml(fg.title)}</b> — ${fg.currentAmount.toLocaleString('ar')} من ${fg.targetAmount.toLocaleString('ar')} ريال (${pct}%)</p>
+      <button type="button" class="btn ghost sm" data-goto-money="1">افتحي التفاصيل بصفحة المالية</button>
+    </div>`;
+  }
+  return `<div class="quote-box" style="margin-top:10px;">
+    <p class="muted" style="margin-bottom:8px;">فيه أداة مخصصة لأهدافك المالية بتفاصيل أكثر (مراحل، طرق دخل، متابعة تلقائية) بتبويب "المالية".</p>
+    <button type="button" class="btn ghost sm" data-goto-money="1">افتحي الهدف المالي التفصيلي</button>
+  </div>`;
 }
 
 /* ============ standalone yearly Financial Goal tab ============ */
@@ -3631,6 +3677,10 @@ function attachGlobalEvents(){
 
   const addGoal = document.getElementById('goAddGoal') || document.getElementById('goAddGoal2');
   if(addGoal) addGoal.onclick = ()=>{ goalWizard={title:'',cat:'health',answers:['','']}; render(); };
+
+  document.querySelectorAll('[data-goto-money]').forEach(b=> b.onclick=()=>{
+    view = 'money'; moneySubView = 'finance'; render();
+  });
 
   document.querySelectorAll('[data-period]').forEach(b=> b.onclick=()=>{ window.__activePeriod=b.dataset.period; render(); });
 
