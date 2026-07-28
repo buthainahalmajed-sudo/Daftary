@@ -2530,8 +2530,14 @@ function scRenderAssetRows(){
     };
   });
 }
+function scSyncSharedIncome(){
+  const sc = state.safety;
+  if(!sc) return;
+  sc.income.forEach(r=>{ if(r.item==='راتب شهري') r.amount = state.sharedIncome||''; });
+}
 function scRenderIncomeRows(){
   const sc = state.safety;
+  scSyncSharedIncome();
   const container = document.getElementById('scIncomeRows');
   if(!container) return;
   container.innerHTML = sc.income.map(r=>{
@@ -2637,6 +2643,7 @@ function scRenderExpenseRows(){
 
 function scUpdateSummary(){
   const sc = state.safety;
+  scSyncSharedIncome();
   const assets = scActiveList(sc.assets);
   const income = scActiveList(sc.income);
   const expenses = scActiveList(sc.expenses);
@@ -2830,7 +2837,9 @@ function edGetMonth(){
   if(!state.expenseDiag) state.expenseDiag = {};
   const k = edMonthKey();
   if(!state.expenseDiag[k]) state.expenseDiag[k] = edEmptyMonthData();
-  return state.expenseDiag[k];
+  const m = state.expenseDiag[k];
+  if(!state.sharedIncome && m.salary) state.sharedIncome = m.salary; /* migrate legacy per-month salary into the shared value */
+  return m;
 }
 function edFmt(n){ return Number(n||0).toLocaleString('ar-SA', {maximumFractionDigits:2}); }
 function edBuildItemOptions(selected){
@@ -2865,7 +2874,7 @@ function renderExpensesPage(){
     <div class="card" style="margin-top:14px;">
       <div class="card-title"><h3>الدخل الشهري</h3></div>
       <div class="row2">
-        <div class="field"><label>الراتب الأساسي</label><input id="edSalaryInput" type="number" min="0" step="1" placeholder="0" value="${escapeHtml(m.salary||'')}"/></div>
+        <div class="field"><label>الراتب الأساسي</label><input id="edSalaryInput" type="number" min="0" step="1" placeholder="0" value="${escapeHtml(state.sharedIncome||'')}"/></div>
         <div class="field"><label>دخل إضافي</label><input id="edExtraInput" type="number" min="0" step="1" placeholder="0" value="${escapeHtml(m.extra||'')}"/></div>
       </div>
       <div class="total-line"><span class="lbl">إجمالي الدخل</span><span class="val" id="edIncomeTotal">0 ريال</span></div>
@@ -2958,7 +2967,7 @@ function edUpdateSummary(){
   const m = edGetMonth();
   const el = id => document.getElementById(id);
   if(!el('edIncomeTotal')) return;
-  const salary = parseFloat(m.salary)||0;
+  const salary = parseFloat(state.sharedIncome)||0;
   const extra = parseFloat(m.extra)||0;
   const income = salary + extra;
   el('edIncomeTotal').textContent = edFmt(income) + ' ريال';
@@ -3051,7 +3060,7 @@ function edRenderScore(income, totalExp, byTag, pctOfIncome){
 function attachExpensesEvents(){
   const m = edGetMonth();
   edRenderRows(); edUpdateSummary();
-  document.getElementById('edSalaryInput').oninput = (e)=>{ m.salary = e.target.value; state.sharedIncome = e.target.value; saveState(); edUpdateSummary(); };
+  document.getElementById('edSalaryInput').oninput = (e)=>{ state.sharedIncome = e.target.value; saveState(); edUpdateSummary(); };
   document.getElementById('edExtraInput').oninput = (e)=>{ m.extra = e.target.value; saveState(); edUpdateSummary(); };
   document.getElementById('edAddRowBtn').onclick = ()=>{
     m.rows.push({id:uid(), item:"", custom:"", tag:"reducible", amount:""});
