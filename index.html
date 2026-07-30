@@ -1079,7 +1079,6 @@ function renderHome(){
     ${isToday && topTasksHasTie() && !getLog(todayStr()).pinnedTop3? `<p class="muted" style="margin-top:10px;color:var(--rose-dark);">🤔 عندي أكثر من مهمة بنفس مستوى الأهمية، وما أقدر أحدد وحدها بثقة. تبين تختارين الأهم ٣ بنفسك؟</p>`:''}
     ${isToday? `<button class="btn ghost btn-block" style="margin-top:8px;" id="openTop3Picker">🗣️ ساعديني أحدد الأهم بنفسي</button>`:''}
     ${isToday && getLog(todayStr()).pinnedTop3? `<button class="btn ghost btn-block" style="margin-top:8px;" id="resetTop3">↻ رجّعيها للاختيار التلقائي</button>`:''}
-    <button class="btn ghost btn-block" style="margin-top:8px;" id="goAddTask">+ إضافة مهمة</button>
   </div>
 
   ${isToday? renderScheduleCard():''}
@@ -1221,6 +1220,7 @@ function renderScheduleCard(){
       ${PERIODS.map(p=>`<button type="button" class="period-tab ${period===p.id?'active':''}" data-period="${p.id}">${p.label}</button>`).join('')}
     </div>
     ${items.length===0? `<div class="empty">ما فيه مهام في هالفترة. وزّعي مهامك من صفحة المهام.</div>` : items.map(t=>taskRowHtml(t)).join('')}
+    <button class="btn ghost btn-block" style="margin-top:8px;" id="goAddTaskPeriod" data-add-period="${period}">+ إضافة مهمة لفترة ${period}</button>
     `}
   </div>`;
 }
@@ -3678,8 +3678,11 @@ function attachGlobalEvents(){
   const cancelTop3Pick = document.getElementById('cancelTop3Pick');
   if(cancelTop3Pick) cancelTop3Pick.onclick = ()=>{ top3Picker = null; render(); };
 
-  const addTask = document.getElementById('goAddTask') || document.getElementById('goAddTask2');
+  const addTask = document.getElementById('goAddTask2');
   if(addTask) addTask.onclick = ()=>{ taskDraft={title:'',goalId:'',priority:'متوسطة',period:null,due: selectedDate!==todayStr()? selectedDate : ''}; render(); };
+
+  const addTaskPeriod = document.getElementById('goAddTaskPeriod');
+  if(addTaskPeriod) addTaskPeriod.onclick = ()=>{ taskDraft={title:'',goalId:'',priority:'متوسطة',period:addTaskPeriod.dataset.addPeriod,due: selectedDate!==todayStr()? selectedDate : ''}; render(); };
 
   document.querySelectorAll('[data-addtaskfor]').forEach(b=> b.onclick=()=>{
     taskDraft={title:'',goalId:b.dataset.addtaskfor,priority:'متوسطة',period:null,due:''}; render();
