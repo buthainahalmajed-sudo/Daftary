@@ -311,7 +311,8 @@ const CAT_MAP = Object.fromEntries(CATS.map(c=>[c.id,c]));
 
 /* categories used to classify raw inbox tasks (business/personal/etc.) */
 const TCATS = [
-  {id:'business', label:'عمل / بزنس', icon:'💼'},
+  {id:'work', label:'عمل', icon:'💼'},
+  {id:'business', label:'بزنس', icon:'📈'},
   {id:'project', label:'مشروع مهم', icon:'🚀'},
   {id:'family', label:'عائلية', icon:'👨‍👩‍👧'},
   {id:'personal', label:'شخصية', icon:'🌸'},
@@ -432,6 +433,7 @@ let aiLoading = false;
 let aiSuggestion = null;
 let aiError = null;
 let storageReady = false;
+let inboxDraftText = '';
 let inboxBulkText = '';
 let bulkSplitLoading = false;
 let textScale = 1;
@@ -3382,6 +3384,10 @@ function renderInboxBox(){
   <div class="card" style="border-color:var(--sage);margin-bottom:16px;">
     <div class="card-title"><h3>📥 صندوق المهام</h3></div>
     <p class="muted" style="margin-bottom:10px;">مكان مؤقت لأي فكرة أو مهمة غير منظمة، لين ترتبينها لمهمة كاملة.</p>
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <input type="text" id="inboxNew" placeholder="دزّي فكرة بسرعة…" value="${escapeHtml(inboxDraftText)}" style="flex:1;"/>
+      <button class="btn sm" id="inboxAddBtn">إضافة</button>
+    </div>
     ${state.inbox.length===0? `<div class="empty">الصندوق فاضي.</div>` :
       state.inbox.map(it=>`
         <div class="inbox-row" data-inbox-row="${it.id}">
@@ -3995,6 +4001,14 @@ function attachGlobalEvents(){
   });
 
   /* inbox / brain-dump */
+  const inboxNew = document.getElementById('inboxNew');
+  if(inboxNew){
+    inboxNew.oninput = ()=>{ inboxDraftText = inboxNew.value; };
+    inboxNew.onkeydown = (ev)=>{ if(ev.key==='Enter'){ ev.preventDefault(); addInboxItem(); } };
+  }
+  const inboxAddBtn = document.getElementById('inboxAddBtn');
+  if(inboxAddBtn) inboxAddBtn.onclick = addInboxItem;
+
   const importPaste = document.getElementById('importPaste');
   if(importPaste) importPaste.oninput = ()=>{ importPasteText = importPaste.value; };
   const importBtn = document.getElementById('importBtn');
@@ -4037,11 +4051,21 @@ function attachGlobalEvents(){
   if(discardPlan) discardPlan.onclick = ()=>{ aiPlan=null; aiPlanError=null; render(); };
 }
 
+function addInboxItem(){
+  const inp = document.getElementById('inboxNew');
+  const val = (inp?inp.value:inboxDraftText).trim();
+  if(!val) return;
+  state.inbox.push({id:uid(), text:val, category:null, addedAt:todayStr()});
+  inboxDraftText = '';
+  saveState(); render();
+}
+
 /* parses lines like: "نص المهمة | تصنيف | أولوية | فترة | موعد"
    pasted from a chat reply, with no network call involved. */
 function guessCategory(raw){
   const s = (raw||'').trim();
-  if(/عمل|بزنس|business/i.test(s)) return 'business';
+  if(/بزنس|دخل إضافي|business/i.test(s)) return 'business';
+  if(/عمل|وظيف|شغل|work/i.test(s)) return 'work';
   if(/مشروع|project/i.test(s)) return 'project';
   if(/عائل|family/i.test(s)) return 'family';
   if(/شخص|personal/i.test(s)) return 'personal';
