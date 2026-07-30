@@ -1334,14 +1334,23 @@ function renderTasksByGoalSection(){
   const pool = q? state.tasks.filter(t=> t.title.toLowerCase().includes(q)) : state.tasks;
 
   const grouped = {}; /* catId -> {goalId -> {goal, tasks}} */
-  const noGoalTasks = [];
+  const tcatGroups = {}; /* tcatId -> tasks[], for goal-less tasks that still carry their own category tag */
+  const freeTasks = [];
   pool.forEach(t=>{
     const g = t.goalId? state.goals.find(x=>x.id===t.goalId) : null;
-    if(!g){ noGoalTasks.push(t); return; }
-    const catId = g.cat || 'other';
-    grouped[catId] = grouped[catId] || {};
-    grouped[catId][g.id] = grouped[catId][g.id] || {goal:g, tasks:[]};
-    grouped[catId][g.id].tasks.push(t);
+    if(g){
+      const catId = g.cat || 'other';
+      grouped[catId] = grouped[catId] || {};
+      grouped[catId][g.id] = grouped[catId][g.id] || {goal:g, tasks:[]};
+      grouped[catId][g.id].tasks.push(t);
+      return;
+    }
+    if(t.category){
+      tcatGroups[t.category] = tcatGroups[t.category] || [];
+      tcatGroups[t.category].push(t);
+      return;
+    }
+    freeTasks.push(t);
   });
 
   const renderCatBlock = (catKey, icon, label, goalGroups)=>{
@@ -1368,8 +1377,12 @@ function renderTasksByGoalSection(){
     if(!grouped[c.id]) return;
     body += renderCatBlock('cat:'+c.id, c.icon, c.label, Object.values(grouped[c.id]));
   });
-  if(noGoalTasks.length){
-    body += renderCatBlock('cat:__none__', '🗂️', 'غير مصنّفة (تحتاج تصنيف)', [{goal:null, tasks:noGoalTasks}]);
+  TCATS.forEach(c=>{
+    if(!tcatGroups[c.id] || !tcatGroups[c.id].length) return;
+    body += renderCatBlock('tcat:'+c.id, c.icon, c.label, [{goal:null, tasks:tcatGroups[c.id]}]);
+  });
+  if(freeTasks.length){
+    body += renderCatBlock('cat:__none__', '🗂️', 'غير مصنّفة (تحتاج تصنيف)', [{goal:null, tasks:freeTasks}]);
   }
   if(!body) body = `<div class="empty">${q? 'ما فيه مهام مطابقة لبحثك.' : 'ما عندك مهام بعد.'}</div>`;
   return body;
