@@ -419,6 +419,7 @@ let pendingStageTaskAdd = null; /* {stageId, taskId, due, period} while choosing
 let pathQualifyDraft = null; /* {methodId, skillLevel, timeline, successCriteria, tools:{label:bool}} while qualifying a new method */
 let goalWizard = null;
 let taskDraft = null;
+let taskDraftRecurOpen = false;
 let templateDraft = null;
 let settingsOpen = false;
 let syncExportCode = '';
@@ -489,6 +490,9 @@ function hydrateState(parsed){
     if(tpl && Array.isArray(tpl.habits)){
       tpl.habits = tpl.habits.map(h => (typeof h === 'string') ? {label:h, enabled:true} : h);
     }
+  });
+  (state.tasks||[]).forEach(t=>{
+    if(t.recur && t.recur.length && !t.recurType) t.recurType = 'weekly';
   });
   if((parsed.todayMood && parsed.todayMood.length) || parsed.reflection){
     const d = parsed.lastActiveDate || todayStr();
@@ -585,17 +589,21 @@ function scoreTask(t){
   if(t.due && t.due < todayStr()) s += 3;
   return s;
 }
-/* recurring tasks (weekly, on chosen weekdays) track completion via lastDoneDate
-   instead of the plain done flag, so they automatically reappear on their next scheduled day */
+/* recurring tasks (daily / weekly on chosen weekdays / monthly on a chosen day-of-month)
+   track completion via lastDoneDate instead of the plain done flag, so they automatically
+   reappear on their next scheduled occurrence */
 function taskDoneToday(t){
-  if(t.recur && t.recur.length) return t.lastDoneDate === todayStr();
+  if(t.recurType) return t.lastDoneDate === todayStr();
   return !!t.done;
 }
 function taskActiveToday(t){
-  if(!t.recur || !t.recur.length) return true;
+  if(!t.recurType) return true;
   if(t.recurStart && todayStr() < t.recurStart) return false;
   if(t.recurEnd && todayStr() > t.recurEnd) return false;
-  return t.recur.includes(new Date().getDay());
+  if(t.recurType==='daily') return true;
+  if(t.recurType==='weekly') return !!(t.recur && t.recur.includes(new Date().getDay()));
+  if(t.recurType==='monthly') return t.recurMonthDay === new Date().getDate();
+  return true;
 }
 function topTasks(){
   const log = getLog(todayStr());
@@ -1193,6 +1201,15 @@ function renderTop3Picker(){
   </div>`;
 }
 
+function recurLabel(t){
+  let base = '';
+  if(t.recurType==='daily') base = 'يوميًا';
+  else if(t.recurType==='weekly') base = (t.recur||[]).slice().sort().map(d=>DOW_SHORT[d]).join('، ');
+  else if(t.recurType==='monthly') base = 'شهريًا يوم '+t.recurMonthDay;
+  const range = (t.recurStart||t.recurEnd)? ' ('+(t.recurStart?'من '+t.recurStart:'')+(t.recurStart&&t.recurEnd?' ':'')+(t.recurEnd?'إلى '+t.recurEnd:'')+')' : '';
+  return base + range;
+}
+
 function taskRowHtml(t, opts){
   opts = opts || {};
   const g = t.goalId? state.goals.find(x=>x.id===t.goalId): null;
@@ -1213,7 +1230,7 @@ function taskRowHtml(t, opts){
         ${g? `<span class="tag">${CAT_MAP[g.cat]?.icon||''} ${escapeHtml(g.title)}</span>`:''}
         ${t.period? `<span class="tag">${t.period}</span>`:''}
         ${t.due? `<span class="tag">📅 ${t.due}</span>`:''}
-        ${t.recur && t.recur.length? `<span class="tag">🔁 ${t.recur.slice().sort().map(d=>DOW_SHORT[d]).join('، ')}${(t.recurStart||t.recurEnd)? ' ('+(t.recurStart?'من '+t.recurStart:'')+(t.recurStart&&t.recurEnd?' ':'')+(t.recurEnd?'إلى '+t.recurEnd:'')+')' : ''}</span>`:''}
+        ${t.recurType? `<span class="tag">🔁 ${recurLabel(t)}</span>`:''}
         ${t.link? `<a href="${escapeHtml(t.link)}" target="_blank" rel="noopener" class="tag" style="text-decoration:none;">🔗 رابط مساعد</a>`:''}
       </div>
     </div>
@@ -3419,22 +3436,39 @@ function renderTaskDraft(){
         </div>
       </div>
       <div class="field">
-        <label>🔁 تكرار أسبوعي (اختياري)</label>
-        <div class="chip-row">
-          ${DOW_NAMES.map((name,idx)=>`<button type="button" class="chip ${(d.recur||[]).includes(idx)?'selected':''}" data-recur-day="${idx}">${name}</button>`).join('')}
-        </div>
-        <p class="muted" style="margin-top:6px;">إذا حددتي أيام، المهمة ترجع تظهر تلقائيًا كل أسبوع بنفس الأيام بعد ما تنجزينها.</p>
-        ${(d.recur||[]).length? `
-        <div style="display:flex;gap:10px;margin-top:10px;">
-          <div style="flex:1;">
-            <label style="font-size:12.5px;">تبدأ من (اختياري)</label>
-            <input type="date" id="tdRecurStart" value="${d.recurStart||''}"/>
+        <details id="tdRecurDetails" ${taskDraftRecurOpen? 'open':''}>
+          <summary style="cursor:pointer;font-weight:600;color:var(--petrol-dark);">🔁 تكرار المهمة (اختياري)</summary>
+          <div style="margin-top:10px;">
+            <div class="chip-row" style="margin-bottom:10px;">
+              <button type="button" class="chip ${!d.recurType?'selected':''}" data-recur-type="">بدون تكرار</button>
+              <button type="button" class="chip ${d.recurType==='daily'?'selected':''}" data-recur-type="daily">يومي</button>
+              <button type="button" class="chip ${d.recurType==='weekly'?'selected':''}" data-recur-type="weekly">أسبوعي</button>
+              <button type="button" class="chip ${d.recurType==='monthly'?'selected':''}" data-recur-type="monthly">شهري</button>
+            </div>
+            ${d.recurType==='weekly'? `
+            <div class="chip-row" style="margin-bottom:10px;">
+              ${DOW_NAMES.map((name,idx)=>`<button type="button" class="chip ${(d.recur||[]).includes(idx)?'selected':''}" data-recur-day="${idx}">${name}</button>`).join('')}
+            </div>`:''}
+            ${d.recurType==='monthly'? `
+            <div class="field" style="margin-bottom:10px;">
+              <label style="font-size:12.5px;">يوم الشهر (١-٣١)</label>
+              <input type="number" id="tdRecurMonthDay" min="1" max="31" value="${d.recurMonthDay||''}" placeholder="مثال: 5"/>
+            </div>`:''}
+            ${d.recurType? `
+            <div style="display:flex;gap:10px;">
+              <div style="flex:1;">
+                <label style="font-size:12.5px;">تبدأ من (اختياري)</label>
+                <input type="date" id="tdRecurStart" value="${d.recurStart||''}"/>
+              </div>
+              <div style="flex:1;">
+                <label style="font-size:12.5px;">تنتهي في (اختياري)</label>
+                <input type="date" id="tdRecurEnd" value="${d.recurEnd||''}"/>
+              </div>
+            </div>
+            <p class="muted" style="margin-top:6px;">المهمة ترجع تظهر تلقائيًا حسب التكرار المحدد، بعد ما تنجزينها.</p>
+            `:''}
           </div>
-          <div style="flex:1;">
-            <label style="font-size:12.5px;">تنتهي في (اختياري)</label>
-            <input type="date" id="tdRecurEnd" value="${d.recurEnd||''}"/>
-          </div>
-        </div>`:''}
+        </details>
       </div>
       <div class="field">
         <label>موعدها (اختياري)</label>
@@ -3455,6 +3489,14 @@ function renderTaskDraft(){
 function attachTaskDraftEvents(){
   document.querySelectorAll('[data-pri]').forEach(b=> b.onclick=()=>{ syncDraft(); taskDraft.priority=b.dataset.pri; render(); });
   document.querySelectorAll('[data-per]').forEach(b=> b.onclick=()=>{ syncDraft(); taskDraft.period = (taskDraft.period===b.dataset.per? null : b.dataset.per); render(); });
+  const recurDetails = document.getElementById('tdRecurDetails');
+  if(recurDetails) recurDetails.ontoggle = ()=>{ taskDraftRecurOpen = recurDetails.open; };
+  document.querySelectorAll('[data-recur-type]').forEach(b=> b.onclick=()=>{
+    syncDraft();
+    taskDraft.recurType = b.dataset.recurType || null;
+    taskDraftRecurOpen = true;
+    render();
+  });
   document.querySelectorAll('[data-recur-day]').forEach(b=> b.onclick=()=>{
     syncDraft();
     const day = parseInt(b.dataset.recurDay,10);
@@ -3466,9 +3508,18 @@ function attachTaskDraftEvents(){
   document.getElementById('tdSave').onclick = ()=>{
     syncDraft();
     if(!taskDraft.title.trim()){ document.getElementById('tdTitle').focus(); return; }
-    const recur = (taskDraft.recur && taskDraft.recur.length)? taskDraft.recur.slice() : null;
-    const recurStart = recur? (taskDraft.recurStart||null) : null;
-    const recurEnd = recur? (taskDraft.recurEnd||null) : null;
+    let recurType = taskDraft.recurType || null;
+    let recur = null, recurMonthDay = null;
+    if(recurType==='weekly'){
+      recur = (taskDraft.recur && taskDraft.recur.length)? taskDraft.recur.slice() : null;
+      if(!recur) recurType = null;
+    }else if(recurType==='monthly'){
+      const day = parseInt(taskDraft.recurMonthDay,10);
+      recurMonthDay = (day>=1 && day<=31)? day : null;
+      if(!recurMonthDay) recurType = null;
+    }
+    const recurStart = recurType? (taskDraft.recurStart||null) : null;
+    const recurEnd = recurType? (taskDraft.recurEnd||null) : null;
     if(taskDraft.id){
       const t = state.tasks.find(x=>x.id===taskDraft.id);
       if(t){
@@ -3479,10 +3530,12 @@ function attachTaskDraftEvents(){
         t.period = taskDraft.period||null;
         t.due = taskDraft.due||null;
         t.link = taskDraft.link||null;
+        t.recurType = recurType;
         t.recur = recur;
+        t.recurMonthDay = recurMonthDay;
         t.recurStart = recurStart;
         t.recurEnd = recurEnd;
-        if(!recur && t.lastDoneDate){
+        if(!recurType && t.lastDoneDate){
           t.done = (t.lastDoneDate === todayStr());
           t.doneAt = t.done? todayStr() : null;
           t.lastDoneDate = null;
@@ -3492,7 +3545,7 @@ function attachTaskDraftEvents(){
       state.tasks.push({
         id:uid(), title:taskDraft.title.trim(), goalId:taskDraft.goalId||null, category:taskDraft.category||null,
         priority:taskDraft.priority, period:taskDraft.period||null, due:taskDraft.due||null, link:taskDraft.link||null,
-        recur, recurStart, recurEnd, lastDoneDate:null, done:false, createdAt:todayStr()
+        recurType, recur, recurMonthDay, recurStart, recurEnd, lastDoneDate:null, done:false, createdAt:todayStr()
       });
     }
     saveState();
@@ -3511,6 +3564,8 @@ function syncDraft(){
   const re = document.getElementById('tdRecurEnd');
   if(rs) taskDraft.recurStart = rs.value;
   if(re) taskDraft.recurEnd = re.value;
+  const rmd = document.getElementById('tdRecurMonthDay');
+  if(rmd) taskDraft.recurMonthDay = rmd.value;
 }
 
 /* ============ nav ============ */
@@ -3644,9 +3699,10 @@ function attachGlobalEvents(){
     if(!t) return;
     taskDraft = {
       id:t.id, title:t.title, goalId:t.goalId||'', category:t.category||'',
-      priority:t.priority, period:t.period||null, due:t.due||'', link:t.link||'', recur:(t.recur||[]).slice(),
-      recurStart:t.recurStart||'', recurEnd:t.recurEnd||''
+      priority:t.priority, period:t.period||null, due:t.due||'', link:t.link||'', recurType:t.recurType||null,
+      recur:(t.recur||[]).slice(), recurMonthDay:t.recurMonthDay||'', recurStart:t.recurStart||'', recurEnd:t.recurEnd||''
     };
+    taskDraftRecurOpen = !!t.recurType;
     render();
   });
 
@@ -3743,13 +3799,13 @@ function attachGlobalEvents(){
   if(cancelTop3Pick) cancelTop3Pick.onclick = ()=>{ top3Picker = null; render(); };
 
   const addTask = document.getElementById('goAddTask2');
-  if(addTask) addTask.onclick = ()=>{ taskDraft={title:'',goalId:'',priority:'متوسطة',period:null,due: selectedDate!==todayStr()? selectedDate : '', recur:[]}; render(); };
+  if(addTask) addTask.onclick = ()=>{ taskDraft={title:'',goalId:'',priority:'متوسطة',period:null,due: selectedDate!==todayStr()? selectedDate : '', recur:[]}; taskDraftRecurOpen=false; render(); };
 
   const addTaskPeriod = document.getElementById('goAddTaskPeriod');
-  if(addTaskPeriod) addTaskPeriod.onclick = ()=>{ taskDraft={title:'',goalId:'',priority:'متوسطة',period:addTaskPeriod.dataset.addPeriod,due: selectedDate!==todayStr()? selectedDate : '', recur:[]}; render(); };
+  if(addTaskPeriod) addTaskPeriod.onclick = ()=>{ taskDraft={title:'',goalId:'',priority:'متوسطة',period:addTaskPeriod.dataset.addPeriod,due: selectedDate!==todayStr()? selectedDate : '', recur:[]}; taskDraftRecurOpen=false; render(); };
 
   document.querySelectorAll('[data-addtaskfor]').forEach(b=> b.onclick=()=>{
-    taskDraft={title:'',goalId:b.dataset.addtaskfor,priority:'متوسطة',period:null,due:'', recur:[]}; render();
+    taskDraft={title:'',goalId:b.dataset.addtaskfor,priority:'متوسطة',period:null,due:'', recur:[]}; taskDraftRecurOpen=false; render();
   });
 
   const addGoal = document.getElementById('goAddGoal') || document.getElementById('goAddGoal2');
