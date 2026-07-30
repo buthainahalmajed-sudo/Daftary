@@ -3369,7 +3369,7 @@ function renderHabitsPage(){
 function renderInboxBox(){
   return `
   <div class="card" style="border-color:var(--sage);margin-bottom:16px;">
-    <div class="card-title"><h3>📥 صندوق المهام</h3></div>
+    <div class="card-title"><h3>📝 صندوق المهام</h3></div>
     <p class="muted" style="margin-bottom:10px;">مكان مؤقت لأي فكرة أو مهمة غير منظمة، لين ترتبينها لمهمة كاملة.</p>
     <div style="display:flex;gap:8px;margin-bottom:10px;">
       <input type="text" id="inboxNew" placeholder="دزّي فكرة بسرعة…" value="${escapeHtml(inboxDraftText)}" style="flex:1;"/>
@@ -3388,15 +3388,14 @@ function renderInboxBox(){
   </div>
 
   <details style="margin-bottom:16px;">
-    <summary class="muted" style="cursor:pointer;font-size:12.5px;">📥 استيراد نتيجة من المحادثة</summary>
+    <summary class="muted" style="cursor:pointer;font-size:12.5px;">✨ استخلصي مهام من نص حر</summary>
     <div class="card" style="margin-top:10px;border-color:var(--sage);">
-      <p class="muted" style="margin-bottom:8px;">الصقي هنا مهامك (منفردة أو ملزقة مع بعض) واطلبي مني بالمحادثة أنظمها، وألصقي ردّي هنا واضغطي "استوردي" — هذي الطريقة تشتغل دايم.</p>
+      <p class="muted" style="margin-bottom:8px;">الصقي أو اكتبي أي نص فيه مهمة أو أكثر — جملة عادية أو فقرة كاملة، ما تحتاجين تنسيق معيّن — وراح أفصلها وأستخرج منها الموعد والفترة والتصنيف تلقائيًا، بدون اتصال إنترنت. هذي الطريقة تشتغل دايم.</p>
       <div class="field" style="margin-bottom:8px;">
-        <textarea id="importPaste" placeholder="الصقي هنا رد كلود من المحادثة…" style="min-height:90px;">${escapeHtml(importPasteText)}</textarea>
+        <textarea id="importPaste" placeholder="مثال: اتصلي بالبنك بكرة الساعة 5، وجهزي فاتورة الكهرباء الأسبوع الجاي" style="min-height:90px;">${escapeHtml(importPasteText)}</textarea>
       </div>
       ${importError? `<p class="muted" style="color:var(--rose-dark);margin-bottom:8px;">${escapeHtml(importError)}</p>`:''}
-      <button class="btn btn-block" id="importBtn">استوردي النتيجة</button>
-      <p class="muted" style="margin-top:8px;font-size:11.5px;">الصيغة اللي أرجعها لك: <br>نص المهمة | التصنيف | الأولوية | الفترة | الموعد — كل مهمة بسطر.</p>
+      <button class="btn btn-block" id="importBtn">استخلصي المهام</button>
     </div>
   </details>
 
@@ -4218,23 +4217,37 @@ function importPlanFromText(text){
   const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
   const items = [];
   lines.forEach(line=>{
-    if(!line.includes('|')){
-      /* plain line with no separators: treat as a bare task title */
-      items.push({sourceId:uid(), text:line, category:null, priority:'متوسطة', period:null, due:null, note:'', include:true});
+    if(line.includes('|')){
+      /* strict pipe-delimited format, e.g. copy-pasted from a chat reply */
+      const parts = line.split('|').map(p=>p.trim());
+      const [textPart, catPart, priPart, perPart, duePart] = parts;
+      if(!textPart) return;
+      items.push({
+        sourceId: uid(),
+        text: textPart.replace(/^[-•\d.\)]+\s*/,''),
+        category: catPart? guessCategory(catPart) : null,
+        priority: priPart? guessPriority(priPart) : 'متوسطة',
+        period: perPart? guessPeriod(perPart) : null,
+        due: duePart? guessDue(duePart) : null,
+        note: '',
+        include: true,
+      });
       return;
     }
-    const parts = line.split('|').map(p=>p.trim());
-    const [textPart, catPart, priPart, perPart, duePart] = parts;
-    if(!textPart) return;
-    items.push({
-      sourceId: uid(),
-      text: textPart.replace(/^[-•\d.\)]+\s*/,''),
-      category: catPart? guessCategory(catPart) : null,
-      priority: priPart? guessPriority(priPart) : 'متوسطة',
-      period: perPart? guessPeriod(perPart) : null,
-      due: duePart? guessDue(duePart) : null,
-      note: '',
-      include: true,
+    /* free-form line or paragraph: split into individual tasks and extract
+       date/period/category/priority from natural phrasing, same extraction
+       used by the voice quick-add */
+    vqSplitTasks(line).filter(Boolean).forEach(part=>{
+      const clean = part.replace(/^[-•\d.\)]+\s*/,'');
+      if(!clean) return;
+      const {due, period} = vqParseDateTime(clean);
+      items.push({
+        sourceId: uid(),
+        text: clean,
+        category: vqParseCategory(clean),
+        priority: vqParsePriority(clean),
+        period, due, note:'', include:true,
+      });
     });
   });
   return items;
