@@ -1181,22 +1181,22 @@ function renderTasksForDate(isToday){
 
 function renderTop3Picker(){
   const undone = state.tasks.filter(t=>!taskDoneToday(t) && taskActiveToday(t));
+  const pick3Row = (t)=>{
+    const sel = top3Picker.includes(t.id);
+    const disabled = !sel && top3Picker.length>=3;
+    return `<div class="task-row" style="${disabled?'opacity:.4;':''}">
+      <button type="button" class="check ${sel?'done':''}" data-pick3="${t.id}" ${disabled?'disabled':''}>${sel?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
+      <div style="flex:1;">
+        <div class="task-title">${escapeHtml(t.title)}</div>
+        <span class="tag p-${t.priority}">${t.priority}</span>
+      </div>
+    </div>`;
+  };
   return `
   <div class="card" style="border-color:var(--rose);">
     <div class="card-title"><h3>اختاري أهم ٣ مهام بنفسك</h3></div>
     <p class="muted" style="margin-bottom:12px;">حددي حتى ٣ مهام هي الأهم لك اليوم فعلاً (${top3Picker.length}/3 محددة).</p>
-    ${undone.length===0? `<div class="empty">ما فيه مهام غير منجزة حالياً.</div>` :
-      undone.map(t=>{
-        const sel = top3Picker.includes(t.id);
-        const disabled = !sel && top3Picker.length>=3;
-        return `<div class="task-row" style="${disabled?'opacity:.4;':''}">
-          <button type="button" class="check ${sel?'done':''}" data-pick3="${t.id}" ${disabled?'disabled':''}>${sel?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
-          <div style="flex:1;">
-            <div class="task-title">${escapeHtml(t.title)}</div>
-            <span class="tag p-${t.priority}">${t.priority}</span>
-          </div>
-        </div>`;
-      }).join('')}
+    ${undone.length===0? `<div class="empty">ما فيه مهام غير منجزة حالياً.</div>` : renderGroupedTaskBlocks(undone, pick3Row, 'ما فيه مهام غير منجزة حالياً.')}
     <div style="display:flex;gap:10px;margin-top:12px;">
       <button class="btn btn-block" id="saveTop3Pick" ${top3Picker.length===0?'disabled':''}>احفظي اختياري</button>
       <button class="btn ghost" id="cancelTop3Pick">إلغاء</button>
@@ -1335,14 +1335,13 @@ function renderReflectionCard(log){
 
 /* ============ TASKS page ============ */
 let taskSearchQuery = '';
-function renderTasksByGoalSection(){
-  const q = taskSearchQuery.trim().toLowerCase();
-  const pool = q? state.tasks.filter(t=> t.title.toLowerCase().includes(q)) : state.tasks;
-
+/* shared category -> goal grouping, reused by the tasks page and the manual top-3 picker
+   so both present the exact same organized view */
+function renderGroupedTaskBlocks(taskList, rowRenderer, emptyMsg){
   const grouped = {}; /* catId -> {goalId -> {goal, tasks}} */
   const tcatGroups = {}; /* tcatId -> tasks[], for goal-less tasks that still carry their own category tag */
   const freeTasks = [];
-  pool.forEach(t=>{
+  taskList.forEach(t=>{
     const g = t.goalId? state.goals.find(x=>x.id===t.goalId) : null;
     if(g){
       const catId = g.cat || 'other';
@@ -1366,13 +1365,13 @@ function renderTasksByGoalSection(){
     <div class="card" style="margin-bottom:12px;">
       <div class="card-title"><h3 style="cursor:pointer;flex:1;font-size:15px;" data-toggle-collapse="${catKey}">${catCollapsed?'▸':'▾'} ${icon} ${label} <span class="muted" style="font-size:12px;font-weight:400;">(${taskCount})</span></h3></div>
       ${catCollapsed? '' : goalGroups.map(({goal, tasks})=>{
-        if(!goal) return tasks.map(t=>taskRowHtml(t)).join('');
+        if(!goal) return tasks.map(rowRenderer).join('');
         const goalKey = 'goal:'+goal.id;
         const goalCollapsed = state.collapsed[goalKey];
         return `
         <div style="margin-bottom:10px;border-top:1px dashed var(--line);padding-top:10px;">
           <h4 style="cursor:pointer;font-size:14px;color:var(--petrol-dark);margin-bottom:6px;" data-toggle-collapse="${goalKey}">${goalCollapsed?'▸':'▾'} ${escapeHtml(goal.title)} <span class="muted" style="font-size:11.5px;font-weight:400;">(${tasks.length})</span></h4>
-          ${goalCollapsed? '' : tasks.map(t=>taskRowHtml(t)).join('')}
+          ${goalCollapsed? '' : tasks.map(rowRenderer).join('')}
         </div>`;
       }).join('')}
     </div>`;
@@ -1390,8 +1389,13 @@ function renderTasksByGoalSection(){
   if(freeTasks.length){
     body += renderCatBlock('cat:__none__', '🗂️', 'غير مصنّفة (تحتاج تصنيف)', [{goal:null, tasks:freeTasks}]);
   }
-  if(!body) body = `<div class="empty">${q? 'ما فيه مهام مطابقة لبحثك.' : 'ما عندك مهام بعد.'}</div>`;
+  if(!body) body = `<div class="empty">${emptyMsg}</div>`;
   return body;
+}
+function renderTasksByGoalSection(){
+  const q = taskSearchQuery.trim().toLowerCase();
+  const pool = q? state.tasks.filter(t=> t.title.toLowerCase().includes(q)) : state.tasks;
+  return renderGroupedTaskBlocks(pool, taskRowHtml, q? 'ما فيه مهام مطابقة لبحثك.' : 'ما عندك مهام بعد.');
 }
 function renderTasks(){
   return `
@@ -3378,10 +3382,10 @@ function renderInboxBox(){
   <div class="card" style="border-color:var(--sage);margin-bottom:16px;">
     <div class="card-title"><h3>📝 صندوق المهام</h3></div>
     <p class="muted" style="margin-bottom:10px;">مكان مؤقت لأي فكرة أو مهمة غير منظمة، لين ترتبينها لمهمة كاملة.</p>
-    <div style="display:flex;gap:8px;margin-bottom:10px;">
-      <input type="text" id="inboxNew" placeholder="دزّي فكرة بسرعة…" value="${escapeHtml(inboxDraftText)}" style="flex:1;"/>
-      <button class="btn sm" id="inboxAddBtn">إضافة</button>
+    <div class="field" style="margin-bottom:8px;">
+      <textarea id="inboxNew" placeholder="دزّي فكرة بسرعة… (سطر لكل فكرة إذا أكثر من وحدة)" style="min-height:44px;">${escapeHtml(inboxDraftText)}</textarea>
     </div>
+    <button class="btn btn-block" id="inboxAddBtn" style="margin-bottom:10px;">إضافة</button>
     ${state.inbox.length===0? `<div class="empty">الصندوق فاضي.</div>` :
       state.inbox.map(it=>`
         <div class="inbox-row" data-inbox-row="${it.id}">
@@ -4000,7 +4004,7 @@ function attachGlobalEvents(){
   const inboxNew = document.getElementById('inboxNew');
   if(inboxNew){
     inboxNew.oninput = ()=>{ inboxDraftText = inboxNew.value; };
-    inboxNew.onkeydown = (ev)=>{ if(ev.key==='Enter'){ ev.preventDefault(); addInboxItem(); } };
+    /* Enter just inserts a newline here (default textarea behavior) — no auto-submit */
   }
   const inboxAddBtn = document.getElementById('inboxAddBtn');
   if(inboxAddBtn) inboxAddBtn.onclick = addInboxItem;
@@ -4049,9 +4053,10 @@ function attachGlobalEvents(){
 
 function addInboxItem(){
   const inp = document.getElementById('inboxNew');
-  const val = (inp?inp.value:inboxDraftText).trim();
-  if(!val) return;
-  state.inbox.push({id:uid(), text:val, category:null, addedAt:todayStr()});
+  const raw = (inp?inp.value:inboxDraftText);
+  const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean);
+  if(lines.length===0) return;
+  lines.forEach(line=> state.inbox.push({id:uid(), text:line, category:null, addedAt:todayStr()}));
   inboxDraftText = '';
   saveState(); render();
 }
