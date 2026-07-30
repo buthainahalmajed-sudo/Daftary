@@ -782,10 +782,11 @@ function attachOnboardingEvents(){
 /* ============ goal wizard ============ */
 function renderGoalWizard(){
   const qs = QUESTIONS[goalWizard.cat] || [];
+  const isEdit = !!goalWizard.id;
   return `
   <div style="padding-top:10px;">
     <div class="card">
-      <span class="eyebrow">هدف سنوي جديد</span>
+      <span class="eyebrow">${isEdit? 'تعديل هدف سنوي' : 'هدف سنوي جديد'}</span>
       <h3 style="margin-bottom:14px;">وش الهدف اللي حابة تشتغلين عليه؟</h3>
       <div class="field">
         <label>اسم الهدف</label>
@@ -805,8 +806,8 @@ function renderGoalWizard(){
           <textarea id="gwAns${i}" placeholder="اكتبي إجابتك هنا…">${escapeHtml(goalWizard.answers[i]||'')}</textarea>
         </div>`).join('')}
       <div style="display:flex;gap:10px;margin-top:8px;">
-        <button class="btn btn-block" id="gwSave">حفظ الهدف</button>
-        <button class="btn ghost" id="gwCancel">${state.goals.length||state.tasks.length?'إلغاء':'تخطي الآن'}</button>
+        <button class="btn btn-block" id="gwSave">${isEdit? 'حفظ التعديلات' : 'حفظ الهدف'}</button>
+        <button class="btn ghost" id="gwCancel">${isEdit || state.goals.length || state.tasks.length? 'إلغاء':'تخطي الآن'}</button>
       </div>
     </div>
   </div>`;
@@ -825,7 +826,12 @@ function attachGoalWizardEvents(){
     if(!title){ document.getElementById('gwTitle').focus(); return; }
     const qs = QUESTIONS[goalWizard.cat]||[];
     const answers = qs.map((_,i)=> (document.getElementById('gwAns'+i)?.value||'').trim());
-    state.goals.push({id:uid(), title, cat:goalWizard.cat, answers, createdAt:todayStr()});
+    if(goalWizard.id){
+      const g = state.goals.find(x=>x.id===goalWizard.id);
+      if(g){ g.title = title; g.cat = goalWizard.cat; g.answers = answers; }
+    }else{
+      state.goals.push({id:uid(), title, cat:goalWizard.cat, answers, createdAt:todayStr()});
+    }
     saveState();
     goalWizard = null;
     view = 'goals';
@@ -1413,6 +1419,7 @@ function renderGoals(){
         <div style="display:flex;gap:2px;">
           <button class="icon-btn" data-goal-up="${i}" ${i===0?'disabled':''}>▲</button>
           <button class="icon-btn" data-goal-down="${i}" ${i===state.goals.length-1?'disabled':''}>▼</button>
+          <button class="icon-btn" data-edit-goal="${g.id}">✎</button>
           <button class="icon-btn" data-delgoal="${g.id}">✕</button>
         </div>
       </div>
@@ -3776,6 +3783,12 @@ function attachGlobalEvents(){
     state.goals = state.goals.filter(x=>x.id!==b.dataset.delgoal);
     state.tasks.forEach(t=>{ if(t.goalId===b.dataset.delgoal) t.goalId=null; });
     saveState(); render();
+  });
+  document.querySelectorAll('[data-edit-goal]').forEach(b=> b.onclick=()=>{
+    const g = state.goals.find(x=>x.id===b.dataset.editGoal);
+    if(!g) return;
+    goalWizard = {id:g.id, title:g.title, cat:g.cat, answers:(g.answers||[]).slice()};
+    render();
   });
   document.querySelectorAll('[data-goal-up]').forEach(b=> b.onclick=()=>{
     const i = parseInt(b.dataset.goalUp,10);
