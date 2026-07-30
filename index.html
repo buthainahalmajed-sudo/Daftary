@@ -593,6 +593,8 @@ function taskDoneToday(t){
 }
 function taskActiveToday(t){
   if(!t.recur || !t.recur.length) return true;
+  if(t.recurStart && todayStr() < t.recurStart) return false;
+  if(t.recurEnd && todayStr() > t.recurEnd) return false;
   return t.recur.includes(new Date().getDay());
 }
 function topTasks(){
@@ -1211,7 +1213,7 @@ function taskRowHtml(t, opts){
         ${g? `<span class="tag">${CAT_MAP[g.cat]?.icon||''} ${escapeHtml(g.title)}</span>`:''}
         ${t.period? `<span class="tag">${t.period}</span>`:''}
         ${t.due? `<span class="tag">📅 ${t.due}</span>`:''}
-        ${t.recur && t.recur.length? `<span class="tag">🔁 ${t.recur.slice().sort().map(d=>DOW_SHORT[d]).join('، ')}</span>`:''}
+        ${t.recur && t.recur.length? `<span class="tag">🔁 ${t.recur.slice().sort().map(d=>DOW_SHORT[d]).join('، ')}${(t.recurStart||t.recurEnd)? ' ('+(t.recurStart?'من '+t.recurStart:'')+(t.recurStart&&t.recurEnd?' ':'')+(t.recurEnd?'إلى '+t.recurEnd:'')+')' : ''}</span>`:''}
         ${t.link? `<a href="${escapeHtml(t.link)}" target="_blank" rel="noopener" class="tag" style="text-decoration:none;">🔗 رابط مساعد</a>`:''}
       </div>
     </div>
@@ -3422,6 +3424,17 @@ function renderTaskDraft(){
           ${DOW_NAMES.map((name,idx)=>`<button type="button" class="chip ${(d.recur||[]).includes(idx)?'selected':''}" data-recur-day="${idx}">${name}</button>`).join('')}
         </div>
         <p class="muted" style="margin-top:6px;">إذا حددتي أيام، المهمة ترجع تظهر تلقائيًا كل أسبوع بنفس الأيام بعد ما تنجزينها.</p>
+        ${(d.recur||[]).length? `
+        <div style="display:flex;gap:10px;margin-top:10px;">
+          <div style="flex:1;">
+            <label style="font-size:12.5px;">تبدأ من (اختياري)</label>
+            <input type="date" id="tdRecurStart" value="${d.recurStart||''}"/>
+          </div>
+          <div style="flex:1;">
+            <label style="font-size:12.5px;">تنتهي في (اختياري)</label>
+            <input type="date" id="tdRecurEnd" value="${d.recurEnd||''}"/>
+          </div>
+        </div>`:''}
       </div>
       <div class="field">
         <label>موعدها (اختياري)</label>
@@ -3454,6 +3467,8 @@ function attachTaskDraftEvents(){
     syncDraft();
     if(!taskDraft.title.trim()){ document.getElementById('tdTitle').focus(); return; }
     const recur = (taskDraft.recur && taskDraft.recur.length)? taskDraft.recur.slice() : null;
+    const recurStart = recur? (taskDraft.recurStart||null) : null;
+    const recurEnd = recur? (taskDraft.recurEnd||null) : null;
     if(taskDraft.id){
       const t = state.tasks.find(x=>x.id===taskDraft.id);
       if(t){
@@ -3465,6 +3480,8 @@ function attachTaskDraftEvents(){
         t.due = taskDraft.due||null;
         t.link = taskDraft.link||null;
         t.recur = recur;
+        t.recurStart = recurStart;
+        t.recurEnd = recurEnd;
         if(!recur && t.lastDoneDate){
           t.done = (t.lastDoneDate === todayStr());
           t.doneAt = t.done? todayStr() : null;
@@ -3475,7 +3492,7 @@ function attachTaskDraftEvents(){
       state.tasks.push({
         id:uid(), title:taskDraft.title.trim(), goalId:taskDraft.goalId||null, category:taskDraft.category||null,
         priority:taskDraft.priority, period:taskDraft.period||null, due:taskDraft.due||null, link:taskDraft.link||null,
-        recur, lastDoneDate:null, done:false, createdAt:todayStr()
+        recur, recurStart, recurEnd, lastDoneDate:null, done:false, createdAt:todayStr()
       });
     }
     saveState();
@@ -3490,6 +3507,10 @@ function syncDraft(){
   taskDraft.category = document.getElementById('tdCat').value;
   taskDraft.due = document.getElementById('tdDue').value;
   taskDraft.link = document.getElementById('tdLink').value;
+  const rs = document.getElementById('tdRecurStart');
+  const re = document.getElementById('tdRecurEnd');
+  if(rs) taskDraft.recurStart = rs.value;
+  if(re) taskDraft.recurEnd = re.value;
 }
 
 /* ============ nav ============ */
@@ -3623,7 +3644,8 @@ function attachGlobalEvents(){
     if(!t) return;
     taskDraft = {
       id:t.id, title:t.title, goalId:t.goalId||'', category:t.category||'',
-      priority:t.priority, period:t.period||null, due:t.due||'', link:t.link||'', recur:(t.recur||[]).slice()
+      priority:t.priority, period:t.period||null, due:t.due||'', link:t.link||'', recur:(t.recur||[]).slice(),
+      recurStart:t.recurStart||'', recurEnd:t.recurEnd||''
     };
     render();
   });
