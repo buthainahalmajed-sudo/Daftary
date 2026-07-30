@@ -4509,22 +4509,28 @@ function registerOfflineSupport(){
   if(!('serviceWorker' in navigator)) return;
   try{
     const swCode = `
-      const CACHE = 'daftari-v1';
+      const CACHE = 'daftari-v2';
       self.addEventListener('install', e => {
         e.waitUntil(caches.open(CACHE).then(c => c.add(self.registration.scope)));
         self.skipWaiting();
       });
-      self.addEventListener('activate', e => { self.clients.claim(); });
+      self.addEventListener('activate', e => {
+        e.waitUntil(
+          caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+        );
+        self.clients.claim();
+      });
       self.addEventListener('fetch', e => {
         if(e.request.method !== 'GET') return;
+        /* network-first: always serve the latest version when online, and only
+           fall back to the cached copy when there's no connection at all —
+           the previous cache-first strategy kept showing stale versions after
+           every update until a second reload. */
         e.respondWith(
-          caches.match(e.request).then(cached => {
-            const fetchPromise = fetch(e.request).then(res => {
-              if(res && res.ok){ caches.open(CACHE).then(c => c.put(e.request, res.clone())); }
-              return res;
-            }).catch(() => cached);
-            return cached || fetchPromise;
-          })
+          fetch(e.request).then(res => {
+            if(res && res.ok){ caches.open(CACHE).then(c => c.put(e.request, res.clone())); }
+            return res;
+          }).catch(() => caches.match(e.request))
         );
       });
     `;
