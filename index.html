@@ -576,7 +576,10 @@ async function saveState(){
   }catch(e){
     console.error('تعذر الحفظ', e);
   }
-  if(cloud.linked){ cloudPush().then(render); }
+  /* only re-render after the async cloud push if the settings page (where sync
+     status is shown) is actually open — otherwise this silently steals focus from
+     whatever input the user is still typing in, elsewhere in the app */
+  if(cloud.linked){ cloudPush().then(()=>{ if(settingsOpen) render(); }); }
 }
 
 
@@ -1337,18 +1340,33 @@ function renderReflectionCard(log){
 }
 
 /* ============ TASKS page ============ */
+let taskSearchQuery = '';
+function renderTaskListBody(){
+  const q = taskSearchQuery.trim().toLowerCase();
+  if(!q){
+    /* stable partition: undone tasks first (in their manual/stored order), done tasks after */
+    const undone = state.tasks.filter(t=>!taskDoneToday(t));
+    const done = state.tasks.filter(t=>taskDoneToday(t));
+    if(undone.length===0 && done.length===0) return `<div class="empty">ما عندك مهام بعد.</div>`;
+    return undone.map((t,i)=>taskRowHtml(t,{reorder:true, first:i===0, last:i===undone.length-1})).join('') + done.map(t=>taskRowHtml(t)).join('');
+  }
+  const matches = state.tasks.filter(t=> t.title.toLowerCase().includes(q));
+  if(matches.length===0) return `<div class="empty">ما فيه مهام مطابقة لبحثك.</div>`;
+  const undoneMatches = matches.filter(t=>!taskDoneToday(t));
+  const doneMatches = matches.filter(t=>taskDoneToday(t));
+  return undoneMatches.map(t=>taskRowHtml(t)).join('') + doneMatches.map(t=>taskRowHtml(t)).join('');
+}
 function renderTasks(){
-  /* stable partition: undone tasks first (in their manual/stored order), done tasks after */
-  const undone = state.tasks.filter(t=>!taskDoneToday(t));
-  const done = state.tasks.filter(t=>taskDoneToday(t));
-  const list = [...undone, ...done];
   return `
   <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:14px;">مهامي</h2>
   ${renderInboxBox()}
+  <div class="field" style="margin-bottom:12px;">
+    <input type="text" id="taskSearchInput" placeholder="🔍 ابحثي عن مهمة…" value="${escapeHtml(taskSearchQuery)}"/>
+  </div>
   <p class="muted" style="margin-bottom:14px;">رتّبي مهامك بالسهمين ▲▼ حسب وش يناسب يومك.</p>
   <button class="btn btn-block" id="goAddTask2" style="margin-bottom:16px;">+ إضافة مهمة جديدة</button>
-  <div class="card">
-    ${list.length===0? `<div class="empty">ما عندك مهام بعد.</div>` : undone.map((t,i)=>taskRowHtml(t,{reorder:true, first:i===0, last:i===undone.length-1})).join('') + done.map(t=>taskRowHtml(t)).join('')}
+  <div class="card" id="taskListCard">
+    ${renderTaskListBody()}
   </div>`;
 }
 
@@ -3585,6 +3603,17 @@ function renderNav(){
 /* ============ global events ============ */
 function attachGlobalEvents(){
   document.querySelectorAll('[data-nav]').forEach(b=> b.onclick=()=>{ view=b.dataset.nav; render(); });
+
+  /* task search: only refresh the task-list card, never the whole page, so the search
+     input itself is never rebuilt and never loses focus while typing */
+  const taskSearchInput = document.getElementById('taskSearchInput');
+  if(taskSearchInput){
+    taskSearchInput.oninput = ()=>{
+      taskSearchQuery = taskSearchInput.value;
+      const card = document.getElementById('taskListCard');
+      if(card){ card.innerHTML = renderTaskListBody(); attachGlobalEvents(); }
+    };
+  }
 
   const sizeDown = document.getElementById('sizeDown');
   if(sizeDown) sizeDown.onclick = ()=> changeTextScale(-0.1);
