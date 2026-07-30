@@ -1373,21 +1373,32 @@ function renderTasksByGoalSection(){
     grouped[catId][g.id].tasks.push(t);
   });
 
+  const renderCatBlock = (catKey, icon, label, goalGroups)=>{
+    const catCollapsed = state.collapsed[catKey];
+    const taskCount = goalGroups.reduce((s,x)=>s+x.tasks.length,0);
+    return `
+    <div class="card" style="margin-bottom:12px;">
+      <div class="card-title"><h3 style="cursor:pointer;flex:1;font-size:15px;" data-toggle-collapse="${catKey}">${catCollapsed?'▸':'▾'} ${icon} ${label} <span class="muted" style="font-size:12px;font-weight:400;">(${taskCount})</span></h3></div>
+      ${catCollapsed? '' : goalGroups.map(({goal, tasks})=>{
+        if(!goal) return tasks.map(t=>taskRowHtml(t)).join('');
+        const goalKey = 'goal:'+goal.id;
+        const goalCollapsed = state.collapsed[goalKey];
+        return `
+        <div style="margin-bottom:10px;border-top:1px dashed var(--line);padding-top:10px;">
+          <h4 style="cursor:pointer;font-size:14px;color:var(--petrol-dark);margin-bottom:6px;" data-toggle-collapse="${goalKey}">${goalCollapsed?'▸':'▾'} ${escapeHtml(goal.title)} <span class="muted" style="font-size:11.5px;font-weight:400;">(${tasks.length})</span></h4>
+          ${goalCollapsed? '' : tasks.map(t=>taskRowHtml(t)).join('')}
+        </div>`;
+      }).join('')}
+    </div>`;
+  };
+
   let body = '';
   CATS.forEach(c=>{
     if(!grouped[c.id]) return;
-    body += `<div style="font-size:13px;font-weight:700;color:var(--petrol-dark);margin:${body?'18px':'0'} 0 8px;">${c.icon} ${c.label}</div>`;
-    Object.values(grouped[c.id]).forEach(({goal, tasks})=>{
-      body += `
-      <div class="card" style="margin-bottom:12px;">
-        <div class="card-title"><h3>${escapeHtml(goal.title)}</h3></div>
-        ${tasks.map(t=>taskRowHtml(t)).join('')}
-      </div>`;
-    });
+    body += renderCatBlock('cat:'+c.id, c.icon, c.label, Object.values(grouped[c.id]));
   });
   if(noGoalTasks.length){
-    body += `<div style="font-size:13px;font-weight:700;color:var(--petrol-dark);margin:${body?'18px':'0'} 0 8px;">🗂️ بدون هدف محدد</div>
-    <div class="card" style="margin-bottom:12px;">${noGoalTasks.map(t=>taskRowHtml(t)).join('')}</div>`;
+    body += renderCatBlock('cat:__none__', '🗂️', 'بدون هدف محدد', [{goal:null, tasks:noGoalTasks}]);
   }
   if(!body) body = `<div class="empty">ما فيه مهام بعد.</div>`;
 
