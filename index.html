@@ -302,6 +302,7 @@ const CATS = [
   {id:'finance', label:'الأمور المالية', icon:'💰'},
   {id:'selfdev', label:'تطوير الذات', icon:'📚'},
   {id:'career', label:'العمل والمهنة', icon:'💼'},
+  {id:'business', label:'البزنس وزيادة الدخل', icon:'📈'},
   {id:'relationships', label:'العلاقات', icon:'❤️'},
   {id:'spiritual', label:'الروحانيات', icon:'🕊️'},
   {id:'other', label:'أخرى', icon:'✨'},
@@ -324,6 +325,7 @@ const QUESTIONS = {
   finance:['وش أول هدف مالي واضح تبين توصلينه هالسنة؟','تبين تتابعين مصروفك يومياً ولا أسبوعياً؟'],
   selfdev:['أي مهارة أو عادة تبين تطورينها أول شي؟','كم دقيقة يومياً تقدرين تخصصين لها؟'],
   career:['وش أقرب خطوة محسوسة في مسارك المهني؟','فيه شهادة أو مهارة معينة تبين تحصلينها؟'],
+  business:['وش فكرة الدخل أو البزنس اللي تبين تبدين فيها أو تطورينها؟','كم تستهدفين تزودين دخلك الإضافي شهرياً؟'],
   relationships:['مين الشخص أو العلاقة اللي تبين تعطينها وقت أكثر؟','وش تحسين ينقص علاقاتك حالياً؟'],
   spiritual:['وش تبين تضيفينه لروتينك الروحاني؟','فيه وقت معيّن باليوم يناسبك له؟'],
   other:['وش أول خطوة عملية لهالهدف؟','متى تبين تبدئين فيها؟'],
@@ -335,6 +337,7 @@ const TIPS = {
   finance:['سجلي كل مصروف اليوم في قائمة بسيطة.','حددي مبلغ ثابت للادخار قبل ما تصرفين.','راجعي اشتراكاتك الشهرية وألغي اللي ما تستخدمينه.'],
   selfdev:['اقرئي 10 صفحات اليوم من كتاب يفيدك.','دوّني 3 أشياء تعلمتيها هالأسبوع.','جربي مهارة جديدة لمدة 20 دقيقة.'],
   career:['حدثي جزء بسيط من سيرتك الذاتية اليوم.','تواصلي مع شخص واحد في مجالك.','دوّني 3 إنجازات مهنية هالشهر لملفك.'],
+  business:['ابحثي عن طريقة دخل إضافي واحدة تناسب وقتك ومهاراتك.','تواصلي مع عميل أو زبون محتمل واحد اليوم.','راجعي أسعارك أو خدماتك وشوفي وين تقدرين تحسنين.'],
   relationships:['ابعتي رسالة لطيفة لشخص تحبينه بدون مناسبة.','خصصي وقت بدون جوال مع شخص مهم لك.','اسألي شخص قريب منك كيف حاله فعلاً.'],
   spiritual:['خصصي 5 دقائق هدوء وتأمل الصبح.','دوّني 3 أشياء تشكرين عليها اليوم.','اقرئي شي يغذي روحك قبل النوم.'],
   other:['قسمي هدفك إلى خطوة صغيرة تسويها اليوم.','راجعي تقدمك في هذا الهدف هالأسبوع.','اكتبي سبب أهمية هالهدف لك.'],
@@ -400,7 +403,7 @@ let state = {
   tipIndex:{},
   tipGoalIndex:0, tipLastDate:null,
   inbox:[], /* {id, text, category, addedAt} - unsorted brain-dump items */
-  collapsed:{habits:false, questions:true, reflection:true, mood:true, schedule:true},
+  collapsed:{habits:false, questions:true, reflection:true, mood:true, schedule:true, tasksByGoal:true},
   financialGoal:null, /* {title, targetAmount, currentAmount, deadline, configured, stages:[...]} */
   safety:null, /* {assets, income, expenses, goals, goalsTargetYears} for the financial safety point calculator */
   expenseDiag:null, /* {monthKey: {salary, extra, rows:[...]}} for the monthly expense diagnosis */
@@ -472,7 +475,7 @@ let cloudStatusMsg = '';
 let cloudLastSync = null;
 
 function hydrateState(parsed){
-  state = Object.assign({name:'', onboarded:false, goals:[], tasks:[], dayTemplates: defaultTemplates(), dailyLogs:{}, tipIndex:{}, tipGoalIndex:0, tipLastDate:null, inbox:[], collapsed:{habits:false, questions:true, reflection:true, mood:true, schedule:true}}, parsed);
+  state = Object.assign({name:'', onboarded:false, goals:[], tasks:[], dayTemplates: defaultTemplates(), dailyLogs:{}, tipIndex:{}, tipGoalIndex:0, tipLastDate:null, inbox:[], collapsed:{habits:false, questions:true, reflection:true, mood:true, schedule:true, tasksByGoal:true}}, parsed);
   if(!state.dayTemplates) state.dayTemplates = defaultTemplates();
   if(!state.dailyLogs) state.dailyLogs = {};
   if(!state.inbox) state.inbox = [];
@@ -1356,6 +1359,43 @@ function renderTaskListBody(){
   const doneMatches = matches.filter(t=>taskDoneToday(t));
   return undoneMatches.map(t=>taskRowHtml(t)).join('') + doneMatches.map(t=>taskRowHtml(t)).join('');
 }
+function renderTasksByGoalSection(){
+  const grouped = {}; /* catId -> {goalId -> {goal, tasks}} */
+  const noGoalTasks = [];
+  state.tasks.forEach(t=>{
+    const g = t.goalId? state.goals.find(x=>x.id===t.goalId) : null;
+    if(!g){ noGoalTasks.push(t); return; }
+    const catId = g.cat || 'other';
+    grouped[catId] = grouped[catId] || {};
+    grouped[catId][g.id] = grouped[catId][g.id] || {goal:g, tasks:[]};
+    grouped[catId][g.id].tasks.push(t);
+  });
+
+  let body = '';
+  CATS.forEach(c=>{
+    if(!grouped[c.id]) return;
+    body += `<div style="font-size:13px;font-weight:700;color:var(--petrol-dark);margin:${body?'18px':'0'} 0 8px;">${c.icon} ${c.label}</div>`;
+    Object.values(grouped[c.id]).forEach(({goal, tasks})=>{
+      body += `
+      <div class="card" style="margin-bottom:12px;">
+        <div class="card-title"><h3>${escapeHtml(goal.title)}</h3></div>
+        ${tasks.map(t=>taskRowHtml(t)).join('')}
+      </div>`;
+    });
+  });
+  if(noGoalTasks.length){
+    body += `<div style="font-size:13px;font-weight:700;color:var(--petrol-dark);margin:${body?'18px':'0'} 0 8px;">🗂️ بدون هدف محدد</div>
+    <div class="card" style="margin-bottom:12px;">${noGoalTasks.map(t=>taskRowHtml(t)).join('')}</div>`;
+  }
+  if(!body) body = `<div class="empty">ما فيه مهام بعد.</div>`;
+
+  const collapsed = state.collapsed.tasksByGoal;
+  return `
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-title"><h3 style="cursor:pointer;flex:1;" data-toggle-collapse="tasksByGoal">${collapsed?'▸':'▾'} 📊 المهام مجمّعة حسب الهدف</h3></div>
+    ${collapsed? '' : body}
+  </div>`;
+}
 function renderTasks(){
   return `
   <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:14px;">مهامي</h2>
@@ -1367,7 +1407,8 @@ function renderTasks(){
   <button class="btn btn-block" id="goAddTask2" style="margin-bottom:16px;">+ إضافة مهمة جديدة</button>
   <div class="card" id="taskListCard">
     ${renderTaskListBody()}
-  </div>`;
+  </div>
+  ${renderTasksByGoalSection()}`;
 }
 
 /* ============ GOALS page ============ */
