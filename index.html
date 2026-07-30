@@ -348,6 +348,7 @@ const PERIODS = [{id:'صباح',label:'صباحاً'},{id:'ظهر',label:'ظهر
 const PRIORITIES = ['عالية','متوسطة','منخفضة'];
 
 const DOW_NAMES = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+const DOW_SHORT = ['أحد','إثنين','ثلاثاء','أربعاء','خميس','جمعة','سبت'];
 const MONTHS = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 
 /* recurring daily reflection questions, taken from the user's own routine notes */
@@ -584,16 +585,26 @@ function scoreTask(t){
   if(t.due && t.due < todayStr()) s += 3;
   return s;
 }
+/* recurring tasks (weekly, on chosen weekdays) track completion via lastDoneDate
+   instead of the plain done flag, so they automatically reappear on their next scheduled day */
+function taskDoneToday(t){
+  if(t.recur && t.recur.length) return t.lastDoneDate === todayStr();
+  return !!t.done;
+}
+function taskActiveToday(t){
+  if(!t.recur || !t.recur.length) return true;
+  return t.recur.includes(new Date().getDay());
+}
 function topTasks(){
   const log = getLog(todayStr());
   if(log.pinnedTop3 && log.pinnedTop3.length){
-    const pinned = log.pinnedTop3.map(id=> state.tasks.find(t=>t.id===id && !t.done)).filter(Boolean);
+    const pinned = log.pinnedTop3.map(id=> state.tasks.find(t=>t.id===id && !taskDoneToday(t))).filter(Boolean);
     if(pinned.length) return pinned;
   }
-  return state.tasks.filter(t=>!t.done).sort((a,b)=>scoreTask(b)-scoreTask(a)).slice(0,3);
+  return state.tasks.filter(t=>!taskDoneToday(t) && taskActiveToday(t)).sort((a,b)=>scoreTask(b)-scoreTask(a)).slice(0,3);
 }
 function topTasksHasTie(){
-  const undone = state.tasks.filter(t=>!t.done).sort((a,b)=>scoreTask(b)-scoreTask(a));
+  const undone = state.tasks.filter(t=>!taskDoneToday(t) && taskActiveToday(t)).sort((a,b)=>scoreTask(b)-scoreTask(a));
   if(undone.length<4) return false;
   return scoreTask(undone[2]) === scoreTask(undone[3]);
 }
@@ -602,7 +613,7 @@ function moveTaskAmongUndone(taskId, dir){
   const i = arr.findIndex(t=>t.id===taskId);
   if(i<0) return;
   let j = i+dir;
-  while(j>=0 && j<arr.length && arr[j].done) j += dir;
+  while(j>=0 && j<arr.length && taskDoneToday(arr[j])) j += dir;
   if(j>=0 && j<arr.length){
     const tmp = arr[i]; arr[i]=arr[j]; arr[j]=tmp;
     saveState(); render();
@@ -667,7 +678,7 @@ function render(){
 function renderMoneyDashboard(){
   const fg = state.financialGoal;
   const sc = state.safety;
-  const pendingFinTasks = state.tasks.filter(t=>!t.done && t.category==='business').length;
+  const pendingFinTasks = state.tasks.filter(t=>!taskDoneToday(t) && t.category==='business').length;
   const liquid = sc ? scActiveList(sc.assets).filter(a=>a.tag!=='fixed').reduce((s,a)=>s+a.amount,0) : 0;
   const m = state.expenseDiag ? state.expenseDiag[edMonthKey()] : null;
   const lastExp = m ? edActiveExpenses(m).reduce((s,e)=>s+e.amount,0) : 0;
@@ -1050,7 +1061,7 @@ function renderHome(){
   const dow = dowOf(selectedDate);
   const tpl = state.dayTemplates[dow];
   const log = getLog(selectedDate);
-  const doneToday = state.tasks.filter(t=>t.done && t.doneAt===selectedDate).length;
+  const doneToday = state.tasks.filter(t=> (t.recur&&t.recur.length)? (selectedDate===todayStr() && t.lastDoneDate===todayStr()) : (t.done && t.doneAt===selectedDate)).length;
 
   return `
   ${renderDateNav()}
@@ -1156,7 +1167,7 @@ function renderTasksForDate(isToday){
 }
 
 function renderTop3Picker(){
-  const undone = state.tasks.filter(t=>!t.done);
+  const undone = state.tasks.filter(t=>!taskDoneToday(t) && taskActiveToday(t));
   return `
   <div class="card" style="border-color:var(--rose);">
     <div class="card-title"><h3>اختاري أهم ٣ مهام بنفسك</h3></div>
@@ -1183,6 +1194,7 @@ function renderTop3Picker(){
 function taskRowHtml(t, opts){
   opts = opts || {};
   const g = t.goalId? state.goals.find(x=>x.id===t.goalId): null;
+  const done = taskDoneToday(t);
   return `
   <div class="task-row" data-task="${t.id}">
     ${opts.reorder? `
@@ -1190,15 +1202,16 @@ function taskRowHtml(t, opts){
         <button type="button" class="icon-btn" style="padding:1px 6px;font-size:12px;" data-task-up="${t.id}" ${opts.first?'disabled':''}>▲</button>
         <button type="button" class="icon-btn" style="padding:1px 6px;font-size:12px;" data-task-down="${t.id}" ${opts.last?'disabled':''}>▼</button>
       </div>`:''}
-    <button class="check ${t.done?'done':''}" data-toggle="${t.id}">${t.done?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
+    <button class="check ${done?'done':''}" data-toggle="${t.id}">${done?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
     <div style="flex:1;">
-      <div class="task-title ${t.done?'done':''}">${escapeHtml(t.title)}</div>
+      <div class="task-title ${done?'done':''}">${escapeHtml(t.title)}</div>
       <div style="margin-top:3px;display:flex;gap:6px;flex-wrap:wrap;">
         <span class="tag p-${t.priority}">${t.priority}</span>
         ${t.category? `<span class="tag">${TCAT_MAP[t.category]?.icon||''} ${TCAT_MAP[t.category]?.label||''}</span>`:''}
         ${g? `<span class="tag">${CAT_MAP[g.cat]?.icon||''} ${escapeHtml(g.title)}</span>`:''}
         ${t.period? `<span class="tag">${t.period}</span>`:''}
         ${t.due? `<span class="tag">📅 ${t.due}</span>`:''}
+        ${t.recur && t.recur.length? `<span class="tag">🔁 ${t.recur.slice().sort().map(d=>DOW_SHORT[d]).join('، ')}</span>`:''}
         ${t.link? `<a href="${escapeHtml(t.link)}" target="_blank" rel="noopener" class="tag" style="text-decoration:none;">🔗 رابط مساعد</a>`:''}
       </div>
     </div>
@@ -1210,7 +1223,7 @@ function taskRowHtml(t, opts){
 function renderScheduleCard(){
   const period = window.__activePeriod || 'صباح';
   window.__activePeriod = period;
-  const items = state.tasks.filter(t=>!t.done && t.period===period);
+  const items = state.tasks.filter(t=>!taskDoneToday(t) && taskActiveToday(t) && t.period===period);
   const collapsed = state.collapsed.schedule;
   return `
   <div class="card">
@@ -1307,8 +1320,8 @@ function renderReflectionCard(log){
 /* ============ TASKS page ============ */
 function renderTasks(){
   /* stable partition: undone tasks first (in their manual/stored order), done tasks after */
-  const undone = state.tasks.filter(t=>!t.done);
-  const done = state.tasks.filter(t=>t.done);
+  const undone = state.tasks.filter(t=>!taskDoneToday(t));
+  const done = state.tasks.filter(t=>taskDoneToday(t));
   const list = [...undone, ...done];
   return `
   <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:14px;">مهامي</h2>
@@ -3404,6 +3417,13 @@ function renderTaskDraft(){
         </div>
       </div>
       <div class="field">
+        <label>🔁 تكرار أسبوعي (اختياري)</label>
+        <div class="chip-row">
+          ${DOW_NAMES.map((name,idx)=>`<button type="button" class="chip ${(d.recur||[]).includes(idx)?'selected':''}" data-recur-day="${idx}">${name}</button>`).join('')}
+        </div>
+        <p class="muted" style="margin-top:6px;">إذا حددتي أيام، المهمة ترجع تظهر تلقائيًا كل أسبوع بنفس الأيام بعد ما تنجزينها.</p>
+      </div>
+      <div class="field">
         <label>موعدها (اختياري)</label>
         <input type="date" id="tdDue" value="${d.due||''}"/>
       </div>
@@ -3422,9 +3442,18 @@ function renderTaskDraft(){
 function attachTaskDraftEvents(){
   document.querySelectorAll('[data-pri]').forEach(b=> b.onclick=()=>{ syncDraft(); taskDraft.priority=b.dataset.pri; render(); });
   document.querySelectorAll('[data-per]').forEach(b=> b.onclick=()=>{ syncDraft(); taskDraft.period = (taskDraft.period===b.dataset.per? null : b.dataset.per); render(); });
+  document.querySelectorAll('[data-recur-day]').forEach(b=> b.onclick=()=>{
+    syncDraft();
+    const day = parseInt(b.dataset.recurDay,10);
+    taskDraft.recur = taskDraft.recur || [];
+    const i = taskDraft.recur.indexOf(day);
+    if(i>-1) taskDraft.recur.splice(i,1); else taskDraft.recur.push(day);
+    render();
+  });
   document.getElementById('tdSave').onclick = ()=>{
     syncDraft();
     if(!taskDraft.title.trim()){ document.getElementById('tdTitle').focus(); return; }
+    const recur = (taskDraft.recur && taskDraft.recur.length)? taskDraft.recur.slice() : null;
     if(taskDraft.id){
       const t = state.tasks.find(x=>x.id===taskDraft.id);
       if(t){
@@ -3435,12 +3464,18 @@ function attachTaskDraftEvents(){
         t.period = taskDraft.period||null;
         t.due = taskDraft.due||null;
         t.link = taskDraft.link||null;
+        t.recur = recur;
+        if(!recur && t.lastDoneDate){
+          t.done = (t.lastDoneDate === todayStr());
+          t.doneAt = t.done? todayStr() : null;
+          t.lastDoneDate = null;
+        }
       }
     }else{
       state.tasks.push({
         id:uid(), title:taskDraft.title.trim(), goalId:taskDraft.goalId||null, category:taskDraft.category||null,
         priority:taskDraft.priority, period:taskDraft.period||null, due:taskDraft.due||null, link:taskDraft.link||null,
-        done:false, createdAt:todayStr()
+        recur, lastDoneDate:null, done:false, createdAt:todayStr()
       });
     }
     saveState();
@@ -3569,10 +3604,17 @@ function attachGlobalEvents(){
   document.querySelectorAll('[data-toggle]').forEach(b=> b.onclick=()=>{
     const t = state.tasks.find(x=>x.id===b.dataset.toggle);
     if(!t) return;
-    t.done = !t.done;
-    t.doneAt = t.done? selectedDate: null;
-    saveState();
-    if(t.done){ popStamp('أنجزتها','ماشاءالله'); }
+    if(t.recur && t.recur.length){
+      const wasDone = t.lastDoneDate === todayStr();
+      t.lastDoneDate = wasDone? null : todayStr();
+      saveState();
+      if(!wasDone){ popStamp('أنجزتها','ماشاءالله'); }
+    }else{
+      t.done = !t.done;
+      t.doneAt = t.done? selectedDate: null;
+      saveState();
+      if(t.done){ popStamp('أنجزتها','ماشاءالله'); }
+    }
     render();
   });
 
@@ -3581,7 +3623,7 @@ function attachGlobalEvents(){
     if(!t) return;
     taskDraft = {
       id:t.id, title:t.title, goalId:t.goalId||'', category:t.category||'',
-      priority:t.priority, period:t.period||null, due:t.due||'', link:t.link||''
+      priority:t.priority, period:t.period||null, due:t.due||'', link:t.link||'', recur:(t.recur||[]).slice()
     };
     render();
   });
@@ -3679,13 +3721,13 @@ function attachGlobalEvents(){
   if(cancelTop3Pick) cancelTop3Pick.onclick = ()=>{ top3Picker = null; render(); };
 
   const addTask = document.getElementById('goAddTask2');
-  if(addTask) addTask.onclick = ()=>{ taskDraft={title:'',goalId:'',priority:'متوسطة',period:null,due: selectedDate!==todayStr()? selectedDate : ''}; render(); };
+  if(addTask) addTask.onclick = ()=>{ taskDraft={title:'',goalId:'',priority:'متوسطة',period:null,due: selectedDate!==todayStr()? selectedDate : '', recur:[]}; render(); };
 
   const addTaskPeriod = document.getElementById('goAddTaskPeriod');
-  if(addTaskPeriod) addTaskPeriod.onclick = ()=>{ taskDraft={title:'',goalId:'',priority:'متوسطة',period:addTaskPeriod.dataset.addPeriod,due: selectedDate!==todayStr()? selectedDate : ''}; render(); };
+  if(addTaskPeriod) addTaskPeriod.onclick = ()=>{ taskDraft={title:'',goalId:'',priority:'متوسطة',period:addTaskPeriod.dataset.addPeriod,due: selectedDate!==todayStr()? selectedDate : '', recur:[]}; render(); };
 
   document.querySelectorAll('[data-addtaskfor]').forEach(b=> b.onclick=()=>{
-    taskDraft={title:'',goalId:b.dataset.addtaskfor,priority:'متوسطة',period:null,due:''}; render();
+    taskDraft={title:'',goalId:b.dataset.addtaskfor,priority:'متوسطة',period:null,due:'', recur:[]}; render();
   });
 
   const addGoal = document.getElementById('goAddGoal') || document.getElementById('goAddGoal2');
@@ -4066,7 +4108,7 @@ async function runAiSuggestion(){
   aiLoading = true; aiError = null; render();
   try{
     const goalsText = state.goals.map(g=>`- ${g.title} (${CAT_MAP[g.cat]?.label||g.cat}): ${g.answers.filter(Boolean).join(' | ')}`).join('\n') || 'لا توجد أهداف مسجلة بعد';
-    const tasksText = state.tasks.filter(t=>!t.done).map(t=>`- ${t.title}`).join('\n') || 'لا توجد مهام حالياً';
+    const tasksText = state.tasks.filter(t=>!taskDoneToday(t)).map(t=>`- ${t.title}`).join('\n') || 'لا توجد مهام حالياً';
     const inboxText = state.inbox.map((it,i)=>`${i}: ${it.text}${it.category? ' ('+(TCAT_MAP[it.category]?.label||it.category)+')':''}`).join('\n') || 'لا توجد مهام بصندوق المهام حالياً';
     const log = getLog(todayStr());
 
@@ -4128,7 +4170,7 @@ async function runInboxOrganizer(){
     const items = state.inbox;
     const itemsText = items.map((it,i)=>`${i}: ${it.text}`).join('\n');
     const goalsText = state.goals.map(g=>`- ${g.title} (${CAT_MAP[g.cat]?.label||g.cat})`).join('\n') || 'لا توجد أهداف مسجلة';
-    const busyText = state.tasks.filter(t=>!t.done).map(t=>`- ${t.title} (${t.priority}${t.due? '، موعدها '+t.due:''})`).join('\n') || 'لا توجد مهام أخرى حالياً';
+    const busyText = state.tasks.filter(t=>!taskDoneToday(t)).map(t=>`- ${t.title} (${t.priority}${t.due? '، موعدها '+t.due:''})`).join('\n') || 'لا توجد مهام أخرى حالياً';
     const catList = TCATS.map(c=>`"${c.id}" (${c.label})`).join('، ');
 
     const prompt = `أنت مساعدة تنظيم شخصي محترفة. اليوم هو ${todayStr()}.
