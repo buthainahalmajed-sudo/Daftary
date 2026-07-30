@@ -399,7 +399,7 @@ let state = {
   tipIndex:{},
   tipGoalIndex:0, tipLastDate:null,
   inbox:[], /* {id, text, category, addedAt} - unsorted brain-dump items */
-  collapsed:{habits:false, questions:false, reflection:false, mood:false},
+  collapsed:{habits:false, questions:true, reflection:true, mood:true, schedule:true},
   financialGoal:null, /* {title, targetAmount, currentAmount, deadline, configured, stages:[...]} */
   safety:null, /* {assets, income, expenses, goals, goalsTargetYears} for the financial safety point calculator */
   expenseDiag:null, /* {monthKey: {salary, extra, rows:[...]}} for the monthly expense diagnosis */
@@ -471,12 +471,19 @@ let cloudStatusMsg = '';
 let cloudLastSync = null;
 
 function hydrateState(parsed){
-  state = Object.assign({name:'', onboarded:false, goals:[], tasks:[], dayTemplates: defaultTemplates(), dailyLogs:{}, tipIndex:{}, tipGoalIndex:0, tipLastDate:null, inbox:[], collapsed:{habits:false, questions:false, reflection:false, mood:false}}, parsed);
+  state = Object.assign({name:'', onboarded:false, goals:[], tasks:[], dayTemplates: defaultTemplates(), dailyLogs:{}, tipIndex:{}, tipGoalIndex:0, tipLastDate:null, inbox:[], collapsed:{habits:false, questions:true, reflection:true, mood:true, schedule:true}}, parsed);
   if(!state.dayTemplates) state.dayTemplates = defaultTemplates();
   if(!state.dailyLogs) state.dailyLogs = {};
   if(!state.inbox) state.inbox = [];
-  if(!state.collapsed) state.collapsed = {habits:false, questions:false, reflection:false, mood:false};
+  if(!state.collapsed) state.collapsed = {habits:false, questions:true, reflection:true, mood:true, schedule:true};
   else state.collapsed = Object.assign({habits:false, questions:false, reflection:false, mood:false}, state.collapsed);
+  if(!state._collapseDefaultsV2){
+    state.collapsed.questions = true;
+    state.collapsed.mood = true;
+    state.collapsed.reflection = true;
+    state.collapsed.schedule = true;
+    state._collapseDefaultsV2 = true;
+  }
   Object.keys(state.dayTemplates).forEach(k=>{
     const tpl = state.dayTemplates[k];
     if(tpl && Array.isArray(tpl.habits)){
@@ -1207,13 +1214,16 @@ function renderScheduleCard(){
   const period = window.__activePeriod || 'صباح';
   window.__activePeriod = period;
   const items = state.tasks.filter(t=>!t.done && t.period===period);
+  const collapsed = state.collapsed.schedule;
   return `
   <div class="card">
-    <div class="card-title"><h3>جدول يومك</h3></div>
+    <div class="card-title"><h3 style="cursor:pointer;flex:1;" data-toggle-collapse="schedule">${collapsed?'▸':'▾'} جدول يومك</h3></div>
+    ${collapsed? '' : `
     <div class="period-tabs">
       ${PERIODS.map(p=>`<button type="button" class="period-tab ${period===p.id?'active':''}" data-period="${p.id}">${p.label}</button>`).join('')}
     </div>
     ${items.length===0? `<div class="empty">ما فيه مهام في هالفترة. وزّعي مهامك من صفحة المهام.</div>` : items.map(t=>taskRowHtml(t)).join('')}
+    `}
   </div>`;
 }
 
