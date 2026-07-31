@@ -471,6 +471,7 @@ let syncMsg = null; /* {ok:bool, text:string} */
 let storageReady = false;
 let inboxDraftText = '';
 let textScale = 1;
+let openSections = {}; /* sectionKey -> bool, remembers manually-toggled <details> panels across the re-renders that follow every click inside them */
 let voiceCardOpen = false;
 let voiceDraftText = '';
 let voicePlan = null; /* array of {id, text, category, priority, period, due, include} once analyzed */
@@ -1327,7 +1328,7 @@ function renderScheduleCard(){
 
 function renderTimeBoxManager(){
   return `
-  <details class="card" style="margin-bottom:14px;">
+  <details class="card" data-sec="tboxes" ${openSections.tboxes?'open':''} style="margin-bottom:14px;">
     <summary><h3>🎨 صناديق الزمن <span class="chev">▾</span></h3></summary>
     <div class="details-body">
       <p class="muted" style="margin-bottom:10px;">حددي وقت كل صندوق، لونه، ووش نوع المهام المناسبة له (مثلاً "مهام عائلية" أو "مهام مهنية") — عشان أي مهمة جديدة تنقترح تلقائيًا للصندوق المناسب لوقتها.</p>
@@ -1357,7 +1358,7 @@ function renderTimeBoxManager(){
 
 function renderTaskCategoryManager(){
   return `
-  <details class="card" style="margin-bottom:14px;">
+  <details class="card" data-sec="tcats" ${openSections.tcats?'open':''} style="margin-bottom:14px;">
     <summary><h3>🗂️ التصنيفات الرئيسية <span class="chev">▾</span></h3></summary>
     <div class="details-body">
       <p class="muted" style="margin-bottom:10px;">هذي التصنيفات تنحط على مهامك (عمل، عائلية، شخصية...). غيّري اسم أو أيقونة أي تصنيف، أو ضيفي وحذفي حسب ما يناسبك.</p>
@@ -1517,7 +1518,7 @@ function renderGoals(){
   <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:4px;">الأساس</h2>
   <p class="muted" style="margin-bottom:16px;">أهدافك السنوية، صناديق الزمن، والتصنيفات اللي تُبنى عليها مهامك — كل شي أساسي بمكان واحد.</p>
 
-  <details class="card" open style="margin-bottom:14px;">
+  <details class="card" data-sec="goals" ${openSections.goals===false?'':'open'} style="margin-bottom:14px;">
     <summary><h3>🎯 الأهداف السنوية <span class="chev">▾</span></h3></summary>
     <div class="details-body">
       <button class="btn btn-block" id="goAddGoal2" style="margin-bottom:16px;">+ إضافة هدف جديد</button>
@@ -2194,8 +2195,9 @@ function renderFinancePathsCard(fg){
   const selected = fg.paths || [];
   if(!fg.pathProgress) fg.pathProgress = {};
   const available = FINANCE_PATHS.filter(p=>!selected.includes(p.id));
+  const pathsOpen = openSections.finPaths!==undefined? openSections.finPaths : selected.length>0;
   return `
-  <details class="card" ${selected.length? 'open':''}>
+  <details class="card" data-sec="finPaths" ${pathsOpen?'open':''}>
     <summary><h3>🧭 طريقتك لتحقيق الهدف <span class="chev">▾</span></h3></summary>
     <div class="details-body">
       <p class="muted" style="margin-bottom:10px;">اختاري طريقة أو أكثر من القائمة، وأنا أعطيك مقترحات مرتبة وحدة وحدة لكل طريقة — توافقين عليها أو تطلبين غيرها.</p>
@@ -2371,7 +2373,7 @@ function renderFinanceDashboard(){
   <div class="card ai-box"><p style="text-align:center;font-size:16px;">🎉 خلّصتي كل مراحل هدفك، ماشاءالله!</p></div>`}
 
   ${upcoming.length? `
-  <details class="card">
+  <details class="card" data-sec="finUpcoming" ${openSections.finUpcoming?'open':''}>
     <summary><h3>المراحل الجاية (${upcoming.length}) <span class="chev">▾</span></h3></summary>
     <div class="details-body">
       ${upcoming.map(s=>`
@@ -2389,7 +2391,7 @@ function renderFinanceDashboard(){
   </details>`:''}
 
   ${done.length? `
-  <details class="card">
+  <details class="card" data-sec="finDone" ${openSections.finDone?'open':''}>
     <summary><h3>مراحل خلّصتيها ✅ (${done.length}) <span class="chev">▾</span></h3></summary>
     <div class="details-body">
       ${done.map(s=>`<div class="habit-item"><span class="habit-label done" style="flex:1;">${escapeHtml(s.title)}</span><span class="muted" style="font-size:12px;">${s.targetAmount.toLocaleString('ar')} ريال</span></div>`).join('')}
@@ -3433,7 +3435,7 @@ function renderHabitsPage(){
   </div>
   <p class="muted" style="padding:0 4px;">العلامة "–" تعني إن هالعادة مو ضمن روتين ذاك اليوم. الإدارة الكاملة تحت 👇</p>
 
-  <details class="card" style="margin-top:16px;">
+  <details class="card" data-sec="habitsEdit" ${openSections.habitsEdit?'open':''} style="margin-top:16px;">
     <summary><h3>✏️ تعديل العادات <span class="chev">▾</span></h3></summary>
     <div class="details-body">
       <p class="muted" style="margin-bottom:10px;">اختاري اليوم، وفعّلي أو عطّلي أو عدّلي أو احذفي أو رتّبي أي عادة منه.</p>
@@ -3461,7 +3463,7 @@ function renderHabitsPage(){
     </div>
   </details>
 
-  <details class="card" style="margin-top:12px;">
+  <details class="card" data-sec="habitsAdd" ${openSections.habitsAdd?'open':''} style="margin-top:12px;">
     <summary><h3>➕ إضافة عادة جديدة <span class="chev">▾</span></h3></summary>
     <div class="details-body">
       <p class="muted" style="margin-bottom:6px;">لأي أيام تضيفين العادة الجديدة؟ (تقدرين تختارين أكثر من يوم)</p>
@@ -3700,6 +3702,12 @@ function renderNav(){
 /* ============ global events ============ */
 function attachGlobalEvents(){
   document.querySelectorAll('[data-nav]').forEach(b=> b.onclick=()=>{ view=b.dataset.nav; render(); });
+
+  /* remember which <details> panels the user opened, so clicking anything inside them
+     (which triggers a render()) doesn't snap the panel shut again */
+  document.querySelectorAll('details[data-sec]').forEach(d=>{
+    d.ontoggle = ()=>{ openSections[d.dataset.sec] = d.open; };
+  });
 
   /* task search: only refresh the task-list card, never the whole page, so the search
      input itself is never rebuilt and never loses focus while typing */
