@@ -241,6 +241,20 @@ details.card > .details-body{padding:0 18px 18px;}
 .period-tab{flex:1;text-align:center;padding:7px;border-radius:8px;background:var(--parchment);border:1px solid var(--line);font-size:12.5px;font-weight:700;color:#6b7a78;}
 .period-tab.active{background:var(--petrol);color:#fff;border-color:var(--petrol);}
 
+/* time-box color picker + management rows */
+.color-dot{width:26px;height:26px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;flex-shrink:0;}
+.color-dot.selected{border-color:var(--petrol-dark);box-shadow:0 0 0 2px var(--paper) inset;}
+.tbox-row{display:flex;flex-direction:column;gap:8px;padding:12px 0;border-bottom:1px dashed var(--line);}
+.tbox-row:last-of-type{border-bottom:none;}
+.tbox-times{display:flex;align-items:center;gap:8px;}
+.tbox-times input[type="time"]{flex:1;}
+.tcat-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px dashed var(--line);}
+.tcat-row:last-of-type{border-bottom:none;}
+.tbox-row input[type="text"], .tbox-row input[type="time"], .tcat-row input[type="text"]{
+  padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;background:var(--parchment);font-size:14px;color:var(--ink);
+}
+.tbox-row input:focus, .tcat-row input:focus{outline:2px solid var(--sage);outline-offset:1px;}
+
 .empty{text-align:center;padding:26px 10px;color:#8b9694;font-size:13.5px;}
 .spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;display:inline-block;animation:spin .7s linear infinite;vertical-align:middle;margin-left:6px;}
 @keyframes spin{to{transform:rotate(360deg);}}
@@ -309,16 +323,18 @@ const CATS = [
 ];
 const CAT_MAP = Object.fromEntries(CATS.map(c=>[c.id,c]));
 
-/* categories used to classify raw inbox tasks (business/personal/etc.) */
-const TCATS = [
-  {id:'work', label:'عمل', icon:'💼'},
-  {id:'business', label:'بزنس', icon:'📈'},
-  {id:'project', label:'مشروع مهم', icon:'🚀'},
-  {id:'family', label:'عائلية', icon:'👨‍👩‍👧'},
-  {id:'personal', label:'شخصية', icon:'🌸'},
-  {id:'other', label:'أخرى', icon:'✨'},
-];
-const TCAT_MAP = Object.fromEntries(TCATS.map(c=>[c.id,c]));
+/* categories used to classify raw inbox tasks (business/personal/etc.) — user-editable, lives in state.taskCategories */
+function defaultTaskCategories(){
+  return [
+    {id:'work', label:'عمل', icon:'💼'},
+    {id:'business', label:'بزنس', icon:'📈'},
+    {id:'project', label:'مشروع مهم', icon:'🚀'},
+    {id:'family', label:'عائلية', icon:'👨‍👩‍👧'},
+    {id:'personal', label:'شخصية', icon:'🌸'},
+    {id:'other', label:'أخرى', icon:'✨'},
+  ];
+}
+function tcatOf(id){ return state.taskCategories.find(c=>c.id===id) || null; }
 
 const QUESTIONS = {
   health:['وش أول خطوة صغيرة تقدرين تبدئين فيها هالأسبوع؟','كم مرة بالأسبوع تبين تخصصين وقت لها؟'],
@@ -348,8 +364,29 @@ const MOODS = [
   {id:'مركزة',e:'🎯'},{id:'هادئة',e:'🌿'},{id:'نشيطة',e:'⚡'},
   {id:'مرتاحة',e:'☁️'},{id:'متحمسة',e:'✨'},{id:'ممتنة',e:'🌸'},
 ];
-const PERIODS = [{id:'صباح',label:'صباحاً'},{id:'ظهر',label:'ظهراً'},{id:'مساء',label:'مساءً'}];
 const PRIORITIES = ['عالية','متوسطة','منخفضة'];
+
+/* time-box colors: a fresh 7-swatch palette (kept distinct from the app's core petrol/rose/gold/sage accents) */
+const TIME_BOX_COLORS = [
+  '#5C7A99', /* أزرق دخاني */
+  '#C97B5F', /* خوخي ترابي */
+  '#8B5C7E', /* عنّابي */
+  '#8C8B4E', /* زيتوني */
+  '#C16E3A', /* برتقالي محروق */
+  '#6E7F8C', /* رمادي أزرق */
+  '#C98A9C', /* وردي غبش */
+];
+function defaultTimeBoxes(){
+  return [
+    {id:'صباح', label:'الصباح', start:'05:00', end:'12:00', color:TIME_BOX_COLORS[0], note:''},
+    {id:'ظهر', label:'الظهر', start:'12:00', end:'17:00', color:TIME_BOX_COLORS[1], note:''},
+    {id:'مساء', label:'المساء', start:'17:00', end:'23:59', color:TIME_BOX_COLORS[2], note:''},
+  ];
+}
+
+/* preset learning domains + modes for the routine's "learning" field */
+const LEARNING_DOMAINS = ['تسويق','تطوير روحي','تطوير شخصي','تطوير تقني','قراءة عامة','صحة ولياقة','تربية وأمومة','إدارة مالية','لغة','أخرى'];
+const LEARNING_MODES = [{id:'سلبي',label:'سلبي (نظري / قراءة أو مشاهدة)'},{id:'إيجابي',label:'إيجابي (تطبيق عملي)'}];
 
 const DOW_NAMES = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
 const DOW_SHORT = ['أحد','إثنين','ثلاثاء','أربعاء','خميس','جمعة','سبت'];
@@ -367,18 +404,18 @@ const DEFAULT_QUESTIONS = [
 function H(label){ return {label, enabled:true}; }
 function defaultTemplates(){
   return {
-    0:{ name:'الأحد', motto:'', note:'', timeLabel:'4:30 - 6:15 صباحًا', learning:'كلود',
+    0:{ name:'الأحد', motto:'', note:'', timeLabel:'4:30 - 6:15 صباحًا', learning:'كلود', learningDomain:'تطوير تقني', learningMode:'إيجابي',
         habits:['كوب ماء','حركة صباحية (15-20 دقيقة)','مشي خفيف','تمارين مرونة','تنشيط للمفاصل','استحمام','تجهيز الإفطار مع القرآن والأدعية'].map(H) },
-    1:{ name:'الإثنين', motto:'الحركة تصنع الطاقة', note:'', timeLabel:'4:30 - 6:15 صباحًا', learning:'',
+    1:{ name:'الإثنين', motto:'الحركة تصنع الطاقة', note:'', timeLabel:'4:30 - 6:15 صباحًا', learning:'', learningDomain:'', learningMode:'',
         habits:['كوب ماء','حركة صباحية (15-20 دقيقة)','تمارين مرونة','تنشيط الجسم','تمارين توازن خفيفة','استحمام'].map(H) },
-    2:{ name:'الثلاثاء', motto:'كل فكرة أتعلمها اليوم يجب أن تتحول إلى تطبيق', note:'الثلاثاء = يوم التعلم العميق، بدون تغيير جذري في الروتين.', timeLabel:'4:30 - 6:15 صباحًا', learning:'',
+    2:{ name:'الثلاثاء', motto:'كل فكرة أتعلمها اليوم يجب أن تتحول إلى تطبيق', note:'الثلاثاء = يوم التعلم العميق، بدون تغيير جذري في الروتين.', timeLabel:'4:30 - 6:15 صباحًا', learning:'', learningDomain:'', learningMode:'',
         habits:['كوب ماء'].map(H) },
-    3:{ name:'الأربعاء', motto:'العناية بالنفس ليست رفاهية، بل وقود لما بعده', note:'الأربعاء = يوم للعناية بالنفس', timeLabel:'4:30 - 6:15 صباحًا', learning:'',
+    3:{ name:'الأربعاء', motto:'العناية بالنفس ليست رفاهية، بل وقود لما بعده', note:'الأربعاء = يوم للعناية بالنفس', timeLabel:'4:30 - 6:15 صباحًا', learning:'', learningDomain:'', learningMode:'',
         habits:['كوب ماء','حركة صباحية (15-20 دقيقة)','تمارين مرونة','تنشيط الجسم','تمارين توازن خفيفة','استحمام'].map(H) },
-    4:{ name:'الخميس', motto:'العلاقات التي أعتني بها اليوم هي أجمل استثمار للمستقبل', note:'الخميس هو اليوم اللي تبدأين فيه بأجواء الويكند.', timeLabel:'4:30 - 6:15 صباحًا', learning:'',
+    4:{ name:'الخميس', motto:'العلاقات التي أعتني بها اليوم هي أجمل استثمار للمستقبل', note:'الخميس هو اليوم اللي تبدأين فيه بأجواء الويكند.', timeLabel:'4:30 - 6:15 صباحًا', learning:'', learningDomain:'', learningMode:'',
         habits:[] },
-    5:{ name:'الجمعة', motto:'', note:'', timeLabel:'', learning:'', habits:[] },
-    6:{ name:'السبت', motto:'', note:'', timeLabel:'', learning:'', habits:[] },
+    5:{ name:'الجمعة', motto:'', note:'', timeLabel:'', learning:'', learningDomain:'', learningMode:'', habits:[] },
+    6:{ name:'السبت', motto:'', note:'', timeLabel:'', learning:'', learningDomain:'', learningMode:'', habits:[] },
   };
 }
 
@@ -400,6 +437,8 @@ let state = {
   name:'', onboarded:false,
   goals:[], tasks:[],
   dayTemplates: defaultTemplates(),
+  timeBoxes: defaultTimeBoxes(),
+  taskCategories: defaultTaskCategories(),
   dailyLogs:{}, /* dateStr -> {habits:{label:bool}, answers:[..], mood:[..], reflection:num|null} */
   tipIndex:{},
   tipGoalIndex:0, tipLastDate:null,
@@ -429,21 +468,13 @@ let settingsOpen = false;
 let syncExportCode = '';
 let syncImportText = '';
 let syncMsg = null; /* {ok:bool, text:string} */
-let aiLoading = false;
-let aiSuggestion = null;
-let aiError = null;
 let storageReady = false;
 let inboxDraftText = '';
-let inboxBulkText = '';
-let bulkSplitLoading = false;
 let textScale = 1;
-let bulkSplitError = null;
 let importPasteText = '';
 let importError = null;
 let importSugError = null;
-let aiPlan = null; /* array of {id, text, priority, period, due, note, include} once organized */
-let aiPlanLoading = false;
-let aiPlanError = null;
+let aiPlan = null; /* array of {sourceId, text, category, priority, period, due, note, include} pending review, from the offline text-extraction flow */
 let voiceCardOpen = false;
 let voiceDraftText = '';
 let voicePlan = null; /* array of {id, text, category, priority, period, due, include} once analyzed */
@@ -479,6 +510,8 @@ let cloudLastSync = null;
 function hydrateState(parsed){
   state = Object.assign({name:'', onboarded:false, goals:[], tasks:[], dayTemplates: defaultTemplates(), dailyLogs:{}, tipIndex:{}, tipGoalIndex:0, tipLastDate:null, inbox:[], collapsed:{habits:false, questions:true, reflection:true, mood:true, schedule:true}}, parsed);
   if(!state.dayTemplates) state.dayTemplates = defaultTemplates();
+  if(!state.timeBoxes || !state.timeBoxes.length) state.timeBoxes = defaultTimeBoxes();
+  if(!state.taskCategories || !state.taskCategories.length) state.taskCategories = defaultTaskCategories();
   if(!state.dailyLogs) state.dailyLogs = {};
   if(!state.inbox) state.inbox = [];
   if(!state.collapsed) state.collapsed = {habits:false, questions:true, reflection:true, mood:true, schedule:true};
@@ -495,6 +528,8 @@ function hydrateState(parsed){
     if(tpl && Array.isArray(tpl.habits)){
       tpl.habits = tpl.habits.map(h => (typeof h === 'string') ? {label:h, enabled:true} : h);
     }
+    if(tpl && tpl.learningDomain===undefined) tpl.learningDomain = '';
+    if(tpl && tpl.learningMode===undefined) tpl.learningMode = '';
   });
   (state.tasks||[]).forEach(t=>{
     if(t.recur && t.recur.length && !t.recurType) t.recurType = 'weekly';
@@ -597,6 +632,28 @@ function scoreTask(t){
   if(t.due && t.due < todayStr()) s += 3;
   return s;
 }
+/* ============ time boxes ============ */
+function timeBoxOf(id){ return state.timeBoxes.find(b=>b.id===id) || null; }
+function timeToMins(hhmm){ const [h,m] = (hhmm||'0:0').split(':').map(Number); return h*60+(m||0); }
+/* returns the id of the time box whose [start,end) range contains the current clock time,
+   used to pre-select the right box when a task is added without an explicit period */
+function currentTimeBoxId(){
+  const now = new Date().getHours()*60 + new Date().getMinutes();
+  const box = state.timeBoxes.find(b=>{
+    const s = timeToMins(b.start), e = timeToMins(b.end);
+    return e>s ? (now>=s && now<e) : (now>=s || now<e); /* handles a box that wraps past midnight */
+  });
+  return box ? box.id : (state.timeBoxes[0]? state.timeBoxes[0].id : null);
+}
+function hexToRgba(hex, alpha){
+  const h = hex.replace('#','');
+  const r = parseInt(h.substring(0,2),16), g = parseInt(h.substring(2,4),16), b = parseInt(h.substring(4,6),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+function timeBoxTagStyle(box){
+  return box ? `style="background:${hexToRgba(box.color,.15)};color:${box.color};"` : '';
+}
+
 /* recurring tasks (daily / weekly on chosen weekdays / monthly on a chosen day-of-month)
    track completion via lastDoneDate instead of the plain done flag, so they automatically
    reappear on their next scheduled occurrence */
@@ -639,21 +696,6 @@ function moveHabitAmongActive(dow, idx, dir){
   const arr = state.dayTemplates[dow].habits;
   if(swapAmongActive(arr, idx, dir)){ saveState(); render(); }
 }
-function moveHabitAcrossWeek(label, dir){
-  const start = startOfWeek(weekRef);
-  const dates = Array.from({length:7},(_,i)=>addDays(start,i));
-  const dowsSeen = new Set();
-  dates.forEach(d=>{
-    const dow = dowOf(d);
-    if(dowsSeen.has(dow)) return;
-    dowsSeen.add(dow);
-    const arr = state.dayTemplates[dow].habits;
-    const idx = arr.findIndex(h=>h.label===label && h.enabled!==false);
-    if(idx>-1) swapAmongActive(arr, idx, dir);
-  });
-  saveState(); render();
-}
-
 /* ============ render root ============ */
 function render(){
   const app = document.getElementById('app');
@@ -866,8 +908,20 @@ function renderTemplateDraft(){
         <input type="text" id="tdTime" value="${escapeHtml(d.timeLabel)}" placeholder="مثال: 4:30 - 6:15 صباحًا"/>
       </div>
       <div class="field">
-        <label>تعلّم اليوم (اختياري)</label>
-        <input type="text" id="tdLearning" value="${escapeHtml(d.learning)}" placeholder="مثال: كورس أو كتاب"/>
+        <label>مجال تعلّم اليوم (اختياري)</label>
+        <div class="chip-row">
+          ${LEARNING_DOMAINS.map(dom=>`<button type="button" class="chip ${d.learningDomain===dom?'selected':''}" data-learn-domain="${escapeHtml(dom)}">${dom}</button>`).join('')}
+        </div>
+      </div>
+      <div class="field">
+        <label>نوع التعلّم (اختياري)</label>
+        <div class="chip-row">
+          ${LEARNING_MODES.map(m=>`<button type="button" class="chip ${d.learningMode===m.id?'selected':''}" data-learn-mode="${m.id}">${m.label}</button>`).join('')}
+        </div>
+      </div>
+      <div class="field">
+        <label>تفاصيل (اختياري)</label>
+        <input type="text" id="tdLearning" value="${escapeHtml(d.learning)}" placeholder="مثال: كورس أو كتاب معيّن"/>
       </div>
       <div class="field">
         <label>🔗 رابط مساعد لتعلّم اليوم (اختياري)</label>
@@ -883,12 +937,23 @@ function renderTemplateDraft(){
   </div>`;
 }
 function attachTemplateDraftEvents(){
+  document.querySelectorAll('[data-learn-domain]').forEach(b=> b.onclick=()=>{
+    syncTemplateDraftFields();
+    templateDraft.learningDomain = (templateDraft.learningDomain===b.dataset.learnDomain? '' : b.dataset.learnDomain);
+    render();
+  });
+  document.querySelectorAll('[data-learn-mode]').forEach(b=> b.onclick=()=>{
+    syncTemplateDraftFields();
+    templateDraft.learningMode = (templateDraft.learningMode===b.dataset.learnMode? '' : b.dataset.learnMode);
+    render();
+  });
   document.getElementById('tdSaveTemplate').onclick = ()=>{
     syncTemplateDraftFields();
     const existingHabits = state.dayTemplates[templateDraft.dow].habits;
     state.dayTemplates[templateDraft.dow] = {
       name: templateDraft.name, motto: templateDraft.motto, note: templateDraft.note,
-      timeLabel: templateDraft.timeLabel, learning: templateDraft.learning, learningLink: templateDraft.learningLink, habits: existingHabits
+      timeLabel: templateDraft.timeLabel, learning: templateDraft.learning, learningLink: templateDraft.learningLink,
+      learningDomain: templateDraft.learningDomain, learningMode: templateDraft.learningMode, habits: existingHabits
     };
     saveState();
     templateDraft = null;
@@ -1122,7 +1187,7 @@ function renderTemplateCard(tpl, dow){
     ${tpl.note? `<p class="muted" style="margin-bottom:8px;">${escapeHtml(tpl.note)}</p>`:''}
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       ${tpl.timeLabel? `<span class="tag">⏰ ${escapeHtml(tpl.timeLabel)}</span>`:''}
-      ${tpl.learning? `<span class="tag">📖 تعلّم: ${escapeHtml(tpl.learning)}</span>`:''}
+      ${(tpl.learningDomain||tpl.learningMode||tpl.learning)? `<span class="tag">📖 ${[tpl.learningDomain, tpl.learningMode, tpl.learning].filter(Boolean).map(escapeHtml).join(' · ')}</span>`:''}
       ${tpl.learningLink? `<a href="${escapeHtml(tpl.learningLink)}" target="_blank" rel="noopener" class="tag" style="text-decoration:none;">🔗 رابط التعلّم</a>`:''}
     </div>
     ${(!tpl.motto && !tpl.timeLabel && !tpl.habits.length)? `<p class="muted" style="margin-top:10px;">ما فيه روتين محدد لهذا اليوم بعد، اضغطي "تعديل الروتين" عشان تبنينه.</p>`:''}
@@ -1216,6 +1281,7 @@ function recurLabel(t){
 function taskRowHtml(t){
   const g = t.goalId? state.goals.find(x=>x.id===t.goalId): null;
   const done = taskDoneToday(t);
+  const box = t.period? timeBoxOf(t.period) : null;
   return `
   <div class="task-row" data-task="${t.id}">
     <button class="check ${done?'done':''}" data-toggle="${t.id}">${done?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
@@ -1223,9 +1289,9 @@ function taskRowHtml(t){
       <div class="task-title ${done?'done':''}">${escapeHtml(t.title)}</div>
       <div style="margin-top:3px;display:flex;gap:6px;flex-wrap:wrap;">
         <span class="tag p-${t.priority}">${t.priority}</span>
-        ${t.category? `<span class="tag">${TCAT_MAP[t.category]?.icon||''} ${TCAT_MAP[t.category]?.label||''}</span>`:''}
+        ${t.category? `<span class="tag">${tcatOf(t.category)?.icon||''} ${tcatOf(t.category)?.label||''}</span>`:''}
         ${g? `<span class="tag">${CAT_MAP[g.cat]?.icon||''} ${escapeHtml(g.title)}</span>`:''}
-        ${t.period? `<span class="tag">${t.period}</span>`:''}
+        ${t.period? `<span class="tag" ${timeBoxTagStyle(box)}>${box? escapeHtml(box.label) : escapeHtml(t.period)}</span>`:''}
         ${t.due? `<span class="tag">📅 ${t.due}</span>`:''}
         ${t.recurType? `<span class="tag">🔁 ${recurLabel(t)}</span>`:''}
         ${t.link? `<a href="${escapeHtml(t.link)}" target="_blank" rel="noopener" class="tag" style="text-decoration:none;">🔗 رابط مساعد</a>`:''}
@@ -1237,21 +1303,68 @@ function taskRowHtml(t){
 }
 
 function renderScheduleCard(){
-  const period = window.__activePeriod || 'صباح';
+  const period = window.__activePeriod || currentTimeBoxId();
   window.__activePeriod = period;
   const items = state.tasks.filter(t=>!taskDoneToday(t) && taskActiveToday(t) && t.period===period);
   const collapsed = state.collapsed.schedule;
+  const activeBox = timeBoxOf(period);
   return `
   <div class="card">
     <div class="card-title"><h3 style="cursor:pointer;flex:1;" data-toggle-collapse="schedule">${collapsed?'▸':'▾'} جدول يومك</h3></div>
     ${collapsed? '' : `
     <div class="period-tabs">
-      ${PERIODS.map(p=>`<button type="button" class="period-tab ${period===p.id?'active':''}" data-period="${p.id}">${p.label}</button>`).join('')}
+      ${state.timeBoxes.map(b=>`<button type="button" class="period-tab ${period===b.id?'active':''}" data-period="${b.id}" ${period===b.id?`style="background:${b.color};border-color:${b.color};color:#fff;"`:''}>${escapeHtml(b.label)}</button>`).join('')}
     </div>
-    ${items.length===0? `<div class="empty">ما فيه مهام في هالفترة. وزّعي مهامك من صفحة المهام.</div>` : items.map(t=>taskRowHtml(t)).join('')}
-    <button class="btn ghost btn-block" style="margin-top:8px;" id="goAddTaskPeriod" data-add-period="${period}">+ إضافة مهمة لفترة ${period}</button>
+    ${activeBox? `<p class="muted" style="margin-bottom:10px;">⏰ ${activeBox.start} – ${activeBox.end}${activeBox.note? ' · '+escapeHtml(activeBox.note):''}</p>`:''}
+    ${items.length===0? `<div class="empty">ما فيه مهام في هالصندوق. وزّعي مهامك من صفحة المهام.</div>` : items.map(t=>taskRowHtml(t)).join('')}
+    <button class="btn ghost btn-block" style="margin-top:8px;" id="goAddTaskPeriod" data-add-period="${period}">+ إضافة مهمة ${activeBox?'لـ'+escapeHtml(activeBox.label):''}</button>
+    <p class="muted" style="margin-top:8px;font-size:12px;">🎨 تعديل صناديق الزمن (الاسم، الوقت، اللون) صار من تبويب "الأساس".</p>
     `}
   </div>`;
+}
+
+function renderTimeBoxManager(){
+  return `
+  <details class="card" style="margin-bottom:14px;">
+    <summary><h3>🎨 صناديق الزمن <span class="chev">▾</span></h3></summary>
+    <div class="details-body">
+      <p class="muted" style="margin-bottom:10px;">حددي وقت كل صندوق، لونه، ووش نوع المهام المناسبة له (مثلاً "مهام عائلية" أو "مهام مهنية") — عشان أي مهمة جديدة تنقترح تلقائيًا للصندوق المناسب لوقتها.</p>
+      ${state.timeBoxes.map(b=>`
+        <div class="tbox-row" data-tbox="${b.id}">
+          <input type="text" data-tbox-label="${b.id}" value="${escapeHtml(b.label)}" placeholder="اسم الصندوق"/>
+          <div class="tbox-times">
+            <input type="time" data-tbox-start="${b.id}" value="${b.start}"/>
+            <span class="muted">إلى</span>
+            <input type="time" data-tbox-end="${b.id}" value="${b.end}"/>
+          </div>
+          <input type="text" data-tbox-note="${b.id}" value="${escapeHtml(b.note||'')}" placeholder="مثال: مهام عائلية، تحضير الفطور"/>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <div class="chip-row" style="flex:1;">
+              ${TIME_BOX_COLORS.map(c=>`<button type="button" class="color-dot ${b.color===c?'selected':''}" data-tbox-color="${b.id}" data-color="${c}" style="background:${c};" title="${c}"></button>`).join('')}
+            </div>
+            ${state.timeBoxes.length>1? `<button type="button" class="icon-btn sm" data-tbox-del="${b.id}">✕ حذف</button>`:''}
+          </div>
+        </div>`).join('')}
+      <button type="button" class="btn ghost btn-block" style="margin-top:10px;" id="tboxAddNew">+ إضافة صندوق زمن جديد</button>
+    </div>
+  </details>`;
+}
+
+function renderTaskCategoryManager(){
+  return `
+  <details class="card" style="margin-bottom:14px;">
+    <summary><h3>🗂️ التصنيفات الرئيسية <span class="chev">▾</span></h3></summary>
+    <div class="details-body">
+      <p class="muted" style="margin-bottom:10px;">هذي التصنيفات تنحط على مهامك (عمل، عائلية، شخصية...). غيّري اسم أو أيقونة أي تصنيف، أو ضيفي وحذفي حسب ما يناسبك.</p>
+      ${state.taskCategories.map(c=>`
+        <div class="tcat-row" data-tcat="${c.id}">
+          <input type="text" data-tcat-icon="${c.id}" value="${escapeHtml(c.icon)}" placeholder="🏷️" style="width:52px;text-align:center;flex-shrink:0;"/>
+          <input type="text" data-tcat-label="${c.id}" value="${escapeHtml(c.label)}" placeholder="اسم التصنيف" style="flex:1;"/>
+          ${state.taskCategories.length>1? `<button type="button" class="icon-btn" data-tcat-del="${c.id}">✕</button>`:''}
+        </div>`).join('')}
+      <button type="button" class="btn ghost btn-block" style="margin-top:10px;" id="tcatAddNew">+ إضافة تصنيف جديد</button>
+    </div>
+  </details>`;
 }
 
 function tipsPoolForGoal(g){
@@ -1299,24 +1412,7 @@ function renderSuggestionsCard(){
   if(!hasGoals && !hasInbox) return tipCard;
 
   return `
-  ${tipCard}
-
-  <details>
-    <summary class="muted" style="cursor:pointer;font-size:12.5px;">تجربة الاتصال المباشر بالذكاء الاصطناعي (يشتغل فقط داخل Claude.ai، مو بالنسخة المستضافة)</summary>
-    <div class="card ai-box" style="margin-top:10px;">
-      <p class="muted" style="margin-bottom:10px;">يحلل أهدافك السنوية ومهام صندوقك ويقترح أفضل مهمة لليوم.</p>
-      ${aiError? `<p class="muted" style="color:var(--rose-dark);margin-bottom:10px;">${escapeHtml(aiError)}</p>`:''}
-      ${aiSuggestion? `
-        <div class="card" style="margin:0 0 10px;background:var(--parchment);">
-          <p style="font-size:14.5px;margin-bottom:10px;">${escapeHtml(aiSuggestion.text)}</p>
-          <button class="btn sm" id="acceptAiTask">أضيفيها لمهامي</button>
-        </div>
-      `:''}
-      <button class="btn ghost btn-block" id="askAi" ${aiLoading?'disabled':''}>
-        ${aiLoading? 'جاري التفكير…<span class="spinner"></span>' : 'اقترح لي مهمة ذكية'}
-      </button>
-    </div>
-  </details>`;
+  ${tipCard}`;
 }
 
 function renderReflectionCard(log){
@@ -1382,12 +1478,12 @@ function renderGroupedTaskBlocks(taskList, rowRenderer, emptyMsg){
     if(!grouped[c.id]) return;
     body += renderCatBlock('cat:'+c.id, c.icon, c.label, Object.values(grouped[c.id]));
   });
-  TCATS.forEach(c=>{
+  state.taskCategories.forEach(c=>{
     if(!tcatGroups[c.id] || !tcatGroups[c.id].length) return;
     body += renderCatBlock('tcat:'+c.id, c.icon, c.label, [{goal:null, tasks:tcatGroups[c.id]}]);
   });
   if(freeTasks.length){
-    body += renderCatBlock('cat:__none__', '🗂️', 'غير مصنّفة (تحتاج تصنيف)', [{goal:null, tasks:freeTasks}]);
+    body += renderCatBlock('cat:__none__', '🗂️', 'غير مصنّفة', [{goal:null, tasks:freeTasks}]);
   }
   if(!body) body = `<div class="empty">${emptyMsg}</div>`;
   return body;
@@ -1413,28 +1509,39 @@ function renderTasks(){
 /* ============ GOALS page ============ */
 function renderGoals(){
   return `
-  <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:14px;">أهدافي السنوية</h2>
-  <button class="btn btn-block" id="goAddGoal2" style="margin-bottom:16px;">+ إضافة هدف جديد</button>
-  ${state.goals.length===0? `<div class="card"><div class="empty">لسا ما أضفتي أهداف. ابدئي بأول هدف يمثلك هالسنة.</div></div>` :
-    state.goals.map((g,i)=>`
-    <div class="card goal-card">
-      <div class="card-title" style="justify-content:space-between;">
-        <h3>${CAT_MAP[g.cat]?.icon||''} ${escapeHtml(g.title)}</h3>
-        <div style="display:flex;gap:2px;">
-          <button class="icon-btn" data-goal-up="${i}" ${i===0?'disabled':''}>▲</button>
-          <button class="icon-btn" data-goal-down="${i}" ${i===state.goals.length-1?'disabled':''}>▼</button>
-          <button class="icon-btn" data-edit-goal="${g.id}">✎</button>
-          <button class="icon-btn" data-delgoal="${g.id}">✕</button>
+  <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:4px;">الأساس</h2>
+  <p class="muted" style="margin-bottom:16px;">أهدافك السنوية، صناديق الزمن، والتصنيفات اللي تُبنى عليها مهامك — كل شي أساسي بمكان واحد.</p>
+
+  <details class="card" open style="margin-bottom:14px;">
+    <summary><h3>🎯 الأهداف السنوية <span class="chev">▾</span></h3></summary>
+    <div class="details-body">
+      <button class="btn btn-block" id="goAddGoal2" style="margin-bottom:16px;">+ إضافة هدف جديد</button>
+      ${state.goals.length===0? `<div class="empty">لسا ما أضفتي أهداف. ابدئي بأول هدف يمثلك هالسنة.</div>` :
+        state.goals.map((g,i)=>`
+        <div class="card goal-card">
+          <div class="card-title" style="justify-content:space-between;">
+            <h3>${CAT_MAP[g.cat]?.icon||''} ${escapeHtml(g.title)}</h3>
+            <div style="display:flex;gap:2px;">
+              <button class="icon-btn" data-goal-up="${i}" ${i===0?'disabled':''}>▲</button>
+              <button class="icon-btn" data-goal-down="${i}" ${i===state.goals.length-1?'disabled':''}>▼</button>
+              <button class="icon-btn" data-edit-goal="${g.id}">✎</button>
+              <button class="icon-btn" data-delgoal="${g.id}">✕</button>
+            </div>
+          </div>
+          ${g.answers && g.answers.some(a=>a) ? `
+            <div style="margin-top:6px;">
+              ${QUESTIONS[g.cat].map((q,i)=> g.answers[i]? `<p class="muted" style="margin-bottom:6px;"><b style="color:var(--petrol-dark);">${q}</b><br>${escapeHtml(g.answers[i])}</p>`:'').join('')}
+            </div>`:''}
+          <button class="btn ghost sm" data-addtaskfor="${g.id}" style="margin-top:8px;">+ إضافة مهمة لهالهدف</button>
+          ${g.cat==='finance'? renderFinanceGoalLink() : ''}
         </div>
-      </div>
-      ${g.answers && g.answers.some(a=>a) ? `
-        <div style="margin-top:6px;">
-          ${QUESTIONS[g.cat].map((q,i)=> g.answers[i]? `<p class="muted" style="margin-bottom:6px;"><b style="color:var(--petrol-dark);">${q}</b><br>${escapeHtml(g.answers[i])}</p>`:'').join('')}
-        </div>`:''}
-      <button class="btn ghost sm" data-addtaskfor="${g.id}" style="margin-top:8px;">+ إضافة مهمة لهالهدف</button>
-      ${g.cat==='finance'? renderFinanceGoalLink() : ''}
+      `).join('')}
     </div>
-  `).join('')}`;
+  </details>
+
+  ${renderTimeBoxManager()}
+  ${renderTaskCategoryManager()}
+  `;
 }
 function renderFinanceGoalLink(){
   const fg = state.financialGoal;
@@ -2133,7 +2240,7 @@ function renderFinancePathsCard(fg){
               </div>
               <p class="muted" style="margin-bottom:6px;">وأي فترة من اليوم؟ (اختياري)</p>
               <div class="period-tabs" style="margin-bottom:10px;">
-                ${PERIODS.map(p=>`<button type="button" class="period-tab ${pendingTipAdd.period===p.id?'active':''}" data-tip-period="${p.id}">${p.label}</button>`).join('')}
+                ${state.timeBoxes.map(p=>`<button type="button" class="period-tab ${pendingTipAdd.period===p.id?'active':''}" data-tip-period="${p.id}" ${pendingTipAdd.period===p.id?`style="background:${p.color};border-color:${p.color};color:#fff;"`:''}>${escapeHtml(p.label)}</button>`).join('')}
               </div>
               <div style="display:flex;gap:8px;">
                 <button class="btn sm" id="confirmTipAdd">✅ أضيفيها لمهامي</button>
@@ -2242,7 +2349,7 @@ function renderFinanceDashboard(){
           </div>
           <p class="muted" style="margin-bottom:6px;">وأي فترة من اليوم؟ (اختياري)</p>
           <div class="period-tabs" style="margin-bottom:10px;">
-            ${PERIODS.map(p=>`<button type="button" class="period-tab ${pendingStageTaskAdd.period===p.id?'active':''}" data-stagetask-period="${p.id}">${p.label}</button>`).join('')}
+            ${state.timeBoxes.map(p=>`<button type="button" class="period-tab ${pendingStageTaskAdd.period===p.id?'active':''}" data-stagetask-period="${p.id}" ${pendingStageTaskAdd.period===p.id?`style="background:${p.color};border-color:${p.color};color:#fff;"`:''}>${escapeHtml(p.label)}</button>`).join('')}
           </div>
           <div style="display:flex;gap:8px;">
             <button class="btn sm" id="stageTaskAddConfirm">✅ أضيفيها لمهامي</button>
@@ -3249,7 +3356,7 @@ function renderHabitsPage(){
   if(habitSet.length===0){
     rows = `<tr><td colspan="8" style="padding:20px;color:#8b9694;">ما فيه عادات مفعّلة لأيام هالأسبوع. أضيفي وفعّلي عادات من الإدارة تحت.</td></tr>`;
   }else{
-    rows = habitSet.map((label,rowIdx)=>{
+    rows = habitSet.map((label)=>{
       let cells = dates.map(d=>{
         const tpl = state.dayTemplates[dowOf(d)];
         const active = tpl.habits.filter(h=>h.enabled!==false).map(h=>h.label);
@@ -3258,15 +3365,7 @@ function renderHabitsPage(){
         const done = !!log.habits[label];
         return `<td><button type="button" class="gcheck ${done?'done':''}" data-gdate="${d}" data-glabel="${escapeHtml(label)}">${done?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button></td>`;
       }).join('');
-      return `<tr><td class="habit-label-cell">
-        <div style="display:flex;align-items:center;gap:4px;justify-content:flex-end;">
-          <span>${escapeHtml(label)}</span>
-          <div style="display:flex;flex-direction:column;gap:0;">
-            <button type="button" class="icon-btn" style="padding:0 4px;font-size:10px;line-height:1;" data-weekhabit-up="${escapeHtml(label)}" ${rowIdx===0?'disabled':''}>▲</button>
-            <button type="button" class="icon-btn" style="padding:0 4px;font-size:10px;line-height:1;" data-weekhabit-down="${escapeHtml(label)}" ${rowIdx===habitSet.length-1?'disabled':''}>▼</button>
-          </div>
-        </div>
-      </td>${cells}</tr>`;
+      return `<tr><td class="habit-label-cell">${escapeHtml(label)}</td>${cells}</tr>`;
     }).join('');
   }
 
@@ -3392,7 +3491,7 @@ function renderInboxBox(){
           <span class="dot"></span>
           <div style="flex:1;">
             <div class="txt">${escapeHtml(it.text)}</div>
-            <span class="tag" style="margin-top:4px;display:inline-block;">${it.category? (TCAT_MAP[it.category]?.icon+' '+TCAT_MAP[it.category]?.label) : 'غير مصنّفة'}</span>
+            <span class="tag" style="margin-top:4px;display:inline-block;">${it.category? (tcatOf(it.category)?.icon+' '+tcatOf(it.category)?.label) : 'غير مصنّفة'}</span>
           </div>
           <button class="icon-btn" data-del-inbox="${it.id}">✕</button>
         </div>`).join('')}
@@ -3410,24 +3509,6 @@ function renderInboxBox(){
     </div>
   </details>
 
-  <details style="margin-bottom:16px;">
-    <summary class="muted" style="cursor:pointer;font-size:12.5px;">تجربة الاتصال المباشر بالذكاء الاصطناعي (يشتغل فقط داخل Claude.ai، مو بالنسخة المستضافة)</summary>
-    <div class="card" style="margin-top:10px;">
-      <div class="field" style="margin-bottom:8px;">
-        <textarea id="bulkPaste" placeholder="الصقي هنا…" style="min-height:70px;">${escapeHtml(inboxBulkText)}</textarea>
-      </div>
-      ${bulkSplitError? `<p class="muted" style="color:var(--rose-dark);margin-bottom:8px;">${escapeHtml(bulkSplitError)}</p>`:''}
-      <button class="btn ghost btn-block" id="bulkSplitBtn" ${bulkSplitLoading?'disabled':''} style="margin-bottom:10px;">
-        ${bulkSplitLoading? 'جاري الفصل والتصنيف…<span class="spinner"></span>' : '🤖 قسّمي وصنّفي المهام'}
-      </button>
-      ${state.inbox.length>0? `
-      <button class="btn ghost btn-block" id="organizeBtn" ${aiPlanLoading?'disabled':''}>
-        ${aiPlanLoading? 'جاري الترتيب…<span class="spinner"></span>' : '🤖 رتّبي المهام بالذكاء الاصطناعي'}
-      </button>`:''}
-      ${aiPlanError? `<p class="muted" style="color:var(--rose-dark);margin-top:8px;">${escapeHtml(aiPlanError)}</p>`:''}
-    </div>
-  </details>
-
   ${aiPlan? renderAiPlanReview():''}
   `;
 }
@@ -3435,8 +3516,8 @@ function renderInboxBox(){
 function renderAiPlanReview(){
   return `
   <div class="card">
-    <div class="card-title"><h3>الخطة المقترحة</h3></div>
-    <p class="muted" style="margin-bottom:12px;">راجعي المقترحات، ألغي أي وحدة ما تبينها الحين، وبعدين اعتمدي الخطة عشان تنضاف لمهامك.</p>
+    <div class="card-title"><h3>المهام المستخلصة</h3></div>
+    <p class="muted" style="margin-bottom:12px;">راجعي المقترحات، ألغي أي وحدة ما تبينها الحين، وبعدين اعتمدي القائمة عشان تنضاف لمهامك.</p>
     ${aiPlan.map((p,i)=>`
       <div class="plan-item ${p.include?'':'excluded'}">
         <div class="plan-head">
@@ -3444,7 +3525,7 @@ function renderAiPlanReview(){
           <button type="button" class="plan-check ${p.include?'on':''}" data-plan-toggle="${i}">${p.include?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          ${p.category? `<span class="tag">${TCAT_MAP[p.category]?.icon||''} ${TCAT_MAP[p.category]?.label||p.category}</span>`:''}
+          ${p.category? `<span class="tag">${tcatOf(p.category)?.icon||''} ${tcatOf(p.category)?.label||p.category}</span>`:''}
           <span class="tag p-${p.priority}">${p.priority}</span>
           ${p.period? `<span class="tag">${p.period}</span>`:''}
           ${p.due? `<span class="tag">📅 ${p.due}</span>`:''}
@@ -3453,7 +3534,7 @@ function renderAiPlanReview(){
       </div>
     `).join('')}
     <div style="display:flex;gap:10px;margin-top:6px;">
-      <button class="btn btn-block" id="acceptPlan">اعتمدي الخطة المحددة</button>
+      <button class="btn btn-block" id="acceptPlan">اعتمدي المهام المحددة</button>
       <button class="btn ghost" id="discardPlan">تراجعي</button>
     </div>
   </div>`;
@@ -3482,7 +3563,7 @@ function renderTaskDraft(){
         <label>التصنيف (اختياري)</label>
         <select id="tdCat">
           <option value="">بدون تصنيف</option>
-          ${TCATS.map(c=>`<option value="${c.id}" ${d.category===c.id?'selected':''}>${c.icon} ${c.label}</option>`).join('')}
+          ${state.taskCategories.map(c=>`<option value="${c.id}" ${d.category===c.id?'selected':''}>${c.icon} ${c.label}</option>`).join('')}
         </select>
       </div>
       <div class="field">
@@ -3494,7 +3575,7 @@ function renderTaskDraft(){
       <div class="field">
         <label>فترة اليوم</label>
         <div class="chip-row">
-          ${PERIODS.map(p=>`<button type="button" class="chip ${d.period===p.id?'selected':''}" data-per="${p.id}">${p.label}</button>`).join('')}
+          ${state.timeBoxes.map(p=>`<button type="button" class="chip ${d.period===p.id?'selected':''}" data-per="${p.id}" ${d.period===p.id?`style="background:${p.color};border-color:${p.color};"`:''}>${escapeHtml(p.label)}</button>`).join('')}
         </div>
       </div>
       <div class="field">
@@ -3635,7 +3716,7 @@ function renderNav(){
   const items = [
     {id:'home', label:'اليوم', icon:'<circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>'},
     {id:'tasks', label:'المهام', icon:'<polyline points="4 7 8 11 15 4"/><path d="M3 15h18M3 20h18"/>'},
-    {id:'goals', label:'أهدافي', icon:'<path d="M12 2v20M2 12h20"/><circle cx="12" cy="12" r="9"/>'},
+    {id:'goals', label:'الأساس', icon:'<path d="M12 2v20M2 12h20"/><circle cx="12" cy="12" r="9"/>'},
     {id:'habits', label:'العادات', icon:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/>'},
     {id:'money', label:'المالية', icon:'<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5c0-1.4 1.1-2.5 2.5-2.5s2.5.8 2.5 2c0 1.5-2 2-2.5 2.2C11 11.4 9.5 12 9.5 13.5c0 1.2 1.1 2 2.5 2s2.5-1.1 2.5-2.5"/>'},
   ];
@@ -3683,7 +3764,7 @@ function attachGlobalEvents(){
   document.querySelectorAll('[data-edit-template]').forEach(b=> b.onclick=()=>{
     const dow = parseInt(b.dataset.editTemplate,10);
     const tpl = state.dayTemplates[dow];
-    templateDraft = {dow, name:tpl.name, motto:tpl.motto, note:tpl.note, timeLabel:tpl.timeLabel, learning:tpl.learning, learningLink:tpl.learningLink||'', habits:tpl.habits.map(h=>({label:h.label, enabled:h.enabled}))};
+    templateDraft = {dow, name:tpl.name, motto:tpl.motto, note:tpl.note, timeLabel:tpl.timeLabel, learning:tpl.learning, learningLink:tpl.learningLink||'', learningDomain:tpl.learningDomain||'', learningMode:tpl.learningMode||'', habits:tpl.habits.map(h=>({label:h.label, enabled:h.enabled}))};
     render();
   });
 
@@ -3731,10 +3812,7 @@ function attachGlobalEvents(){
     saveState(); render();
   });
 
-  document.querySelectorAll('[data-weekhabit-up]').forEach(b=> b.onclick=()=> moveHabitAcrossWeek(b.dataset.weekhabitUp, -1));
-  document.querySelectorAll('[data-weekhabit-down]').forEach(b=> b.onclick=()=> moveHabitAcrossWeek(b.dataset.weekhabitDown, 1));
-
-  document.querySelectorAll('[data-qidx]').forEach(ta=>{
+document.querySelectorAll('[data-qidx]').forEach(ta=>{
     ta.onchange = ()=>{
       const log = getLog(selectedDate);
       log.answers[parseInt(ta.dataset.qidx,10)] = ta.value;
@@ -3875,13 +3953,13 @@ function attachGlobalEvents(){
   if(cancelTop3Pick) cancelTop3Pick.onclick = ()=>{ top3Picker = null; render(); };
 
   const addTask = document.getElementById('goAddTask2');
-  if(addTask) addTask.onclick = ()=>{ taskDraft={title:'',goalId:'',priority:'متوسطة',period:null,due: selectedDate!==todayStr()? selectedDate : '', recur:[]}; taskDraftRecurOpen=false; render(); };
+  if(addTask) addTask.onclick = ()=>{ taskDraft={title:'',goalId:'',priority:'متوسطة',period:currentTimeBoxId(),due: selectedDate!==todayStr()? selectedDate : '', recur:[]}; taskDraftRecurOpen=false; render(); };
 
   const addTaskPeriod = document.getElementById('goAddTaskPeriod');
   if(addTaskPeriod) addTaskPeriod.onclick = ()=>{ taskDraft={title:'',goalId:'',priority:'متوسطة',period:addTaskPeriod.dataset.addPeriod,due: selectedDate!==todayStr()? selectedDate : '', recur:[]}; taskDraftRecurOpen=false; render(); };
 
   document.querySelectorAll('[data-addtaskfor]').forEach(b=> b.onclick=()=>{
-    taskDraft={title:'',goalId:b.dataset.addtaskfor,priority:'متوسطة',period:null,due:'', recur:[]}; taskDraftRecurOpen=false; render();
+    taskDraft={title:'',goalId:b.dataset.addtaskfor,priority:'متوسطة',period:currentTimeBoxId(),due:'', recur:[]}; taskDraftRecurOpen=false; render();
   });
 
   const addGoal = document.getElementById('goAddGoal') || document.getElementById('goAddGoal2');
@@ -3892,6 +3970,73 @@ function attachGlobalEvents(){
   });
 
   document.querySelectorAll('[data-period]').forEach(b=> b.onclick=()=>{ window.__activePeriod=b.dataset.period; render(); });
+
+  document.querySelectorAll('[data-tbox-label]').forEach(inp=>{
+    inp.onchange = ()=>{
+      const b = timeBoxOf(inp.dataset.tboxLabel);
+      if(b){ b.label = inp.value.trim() || b.label; saveState(); render(); }
+    };
+  });
+  document.querySelectorAll('[data-tbox-start]').forEach(inp=>{
+    inp.onchange = ()=>{
+      const b = timeBoxOf(inp.dataset.tboxStart);
+      if(b && inp.value){ b.start = inp.value; saveState(); }
+    };
+  });
+  document.querySelectorAll('[data-tbox-end]').forEach(inp=>{
+    inp.onchange = ()=>{
+      const b = timeBoxOf(inp.dataset.tboxEnd);
+      if(b && inp.value){ b.end = inp.value; saveState(); }
+    };
+  });
+  document.querySelectorAll('[data-tbox-note]').forEach(inp=>{
+    inp.onchange = ()=>{
+      const b = timeBoxOf(inp.dataset.tboxNote);
+      if(b){ b.note = inp.value.trim(); saveState(); }
+    };
+  });
+  document.querySelectorAll('[data-tbox-color]').forEach(btn=> btn.onclick=()=>{
+    const b = timeBoxOf(btn.dataset.tboxColor);
+    if(b){ b.color = btn.dataset.color; saveState(); render(); }
+  });
+  document.querySelectorAll('[data-tbox-del]').forEach(btn=> btn.onclick=()=>{
+    if(state.timeBoxes.length<=1) return;
+    state.timeBoxes = state.timeBoxes.filter(b=>b.id!==btn.dataset.tboxDel);
+    saveState(); render();
+  });
+  const tboxAddNew = document.getElementById('tboxAddNew');
+  if(tboxAddNew) tboxAddNew.onclick = ()=>{
+    const last = state.timeBoxes[state.timeBoxes.length-1];
+    const usedColors = state.timeBoxes.map(b=>b.color);
+    const nextColor = TIME_BOX_COLORS.find(c=>!usedColors.includes(c)) || TIME_BOX_COLORS[state.timeBoxes.length % TIME_BOX_COLORS.length];
+    const start = last? last.end : '08:00';
+    const end = pad(Math.floor((timeToMins(start)+120)/60)%24)+':'+pad((timeToMins(start)+120)%60);
+    state.timeBoxes.push({ id:uid(), label:'صندوق جديد', start, end, color: nextColor, note:'' });
+    saveState(); render();
+  };
+
+  document.querySelectorAll('[data-tcat-label]').forEach(inp=>{
+    inp.onchange = ()=>{
+      const c = tcatOf(inp.dataset.tcatLabel);
+      if(c){ c.label = inp.value.trim() || c.label; saveState(); render(); }
+    };
+  });
+  document.querySelectorAll('[data-tcat-icon]').forEach(inp=>{
+    inp.onchange = ()=>{
+      const c = tcatOf(inp.dataset.tcatIcon);
+      if(c){ c.icon = inp.value.trim() || c.icon; saveState(); render(); }
+    };
+  });
+  document.querySelectorAll('[data-tcat-del]').forEach(btn=> btn.onclick=()=>{
+    if(state.taskCategories.length<=1) return;
+    state.taskCategories = state.taskCategories.filter(c=>c.id!==btn.dataset.tcatDel);
+    saveState(); render();
+  });
+  const tcatAddNew = document.getElementById('tcatAddNew');
+  if(tcatAddNew) tcatAddNew.onclick = ()=>{
+    state.taskCategories.push({ id:uid(), label:'تصنيف جديد', icon:'🏷️' });
+    saveState(); render();
+  };
 
   const addTip = document.getElementById('addTipTask');
   if(addTip) addTip.onclick = ()=>{
@@ -3917,21 +4062,6 @@ function attachGlobalEvents(){
     saveState(); render();
   });
 
-  const askAi = document.getElementById('askAi');
-  if(askAi) askAi.onclick = runAiSuggestion;
-  const acceptAi = document.getElementById('acceptAiTask');
-  if(acceptAi) acceptAi.onclick = ()=>{
-    if(!aiSuggestion) return;
-    const srcItem = aiSuggestion.sourceId? state.inbox.find(it=>it.id===aiSuggestion.sourceId) : null;
-    state.tasks.push({
-      id:uid(), title:aiSuggestion.text, goalId:null,
-      category: srcItem? srcItem.category : null,
-      priority:'متوسطة', period:null, due:todayStr(), done:false, createdAt:todayStr()
-    });
-    if(aiSuggestion.sourceId) state.inbox = state.inbox.filter(it=>it.id!==aiSuggestion.sourceId);
-    aiSuggestion=null;
-    saveState(); render();
-  };
 
   const prevWeek = document.getElementById('prevWeek');
   if(prevWeek) prevWeek.onclick = ()=>{ weekRef = addDays(weekRef,-7); render(); };
@@ -4014,25 +4144,16 @@ function attachGlobalEvents(){
   const importBtn = document.getElementById('importBtn');
   if(importBtn) importBtn.onclick = runImportPaste;
 
-  const bulkPaste = document.getElementById('bulkPaste');
-  if(bulkPaste) bulkPaste.oninput = ()=>{ inboxBulkText = bulkPaste.value; };
-  const bulkSplitBtn = document.getElementById('bulkSplitBtn');
-  if(bulkSplitBtn) bulkSplitBtn.onclick = runBulkSplit;
-
   document.querySelectorAll('[data-del-inbox]').forEach(b=> b.onclick=()=>{
     state.inbox = state.inbox.filter(x=>x.id!==b.dataset.delInbox);
     saveState(); render();
   });
-
-  const organizeBtn = document.getElementById('organizeBtn');
-  if(organizeBtn) organizeBtn.onclick = runInboxOrganizer;
 
   document.querySelectorAll('[data-plan-toggle]').forEach(b=> b.onclick=()=>{
     const i = parseInt(b.dataset.planToggle,10);
     aiPlan[i].include = !aiPlan[i].include;
     render();
   });
-
   const acceptPlan = document.getElementById('acceptPlan');
   if(acceptPlan) acceptPlan.onclick = ()=>{
     const accepted = aiPlan.filter(p=>p.include);
@@ -4042,13 +4163,11 @@ function attachGlobalEvents(){
         period:p.period||null, due:p.due||null, done:false, createdAt:todayStr()
       });
     });
-    const acceptedIds = new Set(accepted.map(p=>p.sourceId));
-    state.inbox = state.inbox.filter(it=>!acceptedIds.has(it.id));
     aiPlan = null;
     saveState(); render();
   };
   const discardPlan = document.getElementById('discardPlan');
-  if(discardPlan) discardPlan.onclick = ()=>{ aiPlan=null; aiPlanError=null; render(); };
+  if(discardPlan) discardPlan.onclick = ()=>{ aiPlan=null; render(); };
 }
 
 function addInboxItem(){
@@ -4218,7 +4337,7 @@ function renderVoicePlanReview(){
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
           <span class="tag p-${p.priority}">${p.priority}</span>
-          ${p.category? `<span class="tag">${TCAT_MAP[p.category]?.icon||''} ${TCAT_MAP[p.category]?.label||''}</span>`:''}
+          ${p.category? `<span class="tag">${tcatOf(p.category)?.icon||''} ${tcatOf(p.category)?.label||''}</span>`:''}
           ${p.period? `<span class="tag">${p.period}</span>`:''}
           ${p.due? `<span class="tag">📅 ${p.due}</span>`:''}
         </div>
@@ -4288,205 +4407,6 @@ function popStamp(line1, line2){
   el.innerHTML = stampSVG(line1, line2);
   el.classList.add('show');
   setTimeout(()=> el.classList.remove('show'), 900);
-}
-
-/* ============ AI suggestion via Claude API ============ */
-async function runAiSuggestion(){
-  aiLoading = true; aiError = null; render();
-  try{
-    const goalsText = state.goals.map(g=>`- ${g.title} (${CAT_MAP[g.cat]?.label||g.cat}): ${g.answers.filter(Boolean).join(' | ')}`).join('\n') || 'لا توجد أهداف مسجلة بعد';
-    const tasksText = state.tasks.filter(t=>!taskDoneToday(t)).map(t=>`- ${t.title}`).join('\n') || 'لا توجد مهام حالياً';
-    const inboxText = state.inbox.map((it,i)=>`${i}: ${it.text}${it.category? ' ('+(TCAT_MAP[it.category]?.label||it.category)+')':''}`).join('\n') || 'لا توجد مهام بصندوق المهام حالياً';
-    const log = getLog(todayStr());
-
-    const prompt = `أنت مساعدة تنظيم شخصي. هذه أهداف المستخدمة السنوية:
-${goalsText}
-
-هذه مهامها المجدولة حالياً غير المنجزة (لا تكرري شي يشبهها):
-${tasksText}
-
-هذه مهام بصندوقها العشوائي (لسا ما انضافت لجدولها):
-${inboxText}
-
-مزاجها اليوم: ${log.mood.join('، ')||'غير محددة'}
-
-اختاري أفضل مهمة واحدة تقرّبها من أهدافها اليوم: إما مهمة جديدة تخدم الهدف الأقل تغطية، أو -إذا فيه شي بصندوقها يخدم هدف واضح- اختاري نفس نصها بالضبط من الصندوق.
-أجيبي فقط بكائن JSON صالح وبدون أي نص أو markdown حوله، بهذا الشكل بالضبط:
-{"text":"جملة المهمة بالعربية العامية الخليجية الخفيفة، أقل من 18 كلمة، بدون علامات تنصيص","sourceInboxIndex": الرقم من الصندوق أو null إذا مهمة جديدة}`;
-
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method:"POST",
-      headers:{"Content-Type":"text/plain"},
-      body: JSON.stringify({
-        model:"claude-sonnet-4-6",
-        max_tokens:1000,
-        messages:[{role:"user", content: prompt}]
-      })
-    });
-    const data = await response.json();
-    if(!response.ok || data.type==='error'){
-      throw new Error(data?.error?.message || `فشل الاتصال (${response.status})`);
-    }
-    let raw = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join(' ').trim();
-    raw = raw.replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
-    const firstBrace = raw.indexOf('{');
-    const lastBrace = raw.lastIndexOf('}');
-    if(firstBrace>-1 && lastBrace>-1) raw = raw.slice(firstBrace, lastBrace+1);
-    if(!raw) throw new Error('ما رجع لي أي مقترح.');
-    const parsed = JSON.parse(raw);
-    const text = (parsed.text||'').replace(/^["“]|["”]$/g,'').trim();
-    if(!text) throw new Error('ما رجع لي أي مقترح.');
-    let sourceId = null;
-    if(parsed.sourceInboxIndex!==null && parsed.sourceInboxIndex!==undefined){
-      const it = state.inbox[parsed.sourceInboxIndex];
-      if(it) sourceId = it.id;
-    }
-    aiSuggestion = { text, sourceId };
-  }catch(e){
-    console.error('ai suggestion error', e);
-    aiError = 'صار خطأ: ' + friendlyErr(e);
-    aiSuggestion = null;
-  }
-  aiLoading = false;
-  render();
-}
-
-async function runInboxOrganizer(){
-  aiPlanLoading = true; aiPlanError = null; render();
-  try{
-    const items = state.inbox;
-    const itemsText = items.map((it,i)=>`${i}: ${it.text}`).join('\n');
-    const goalsText = state.goals.map(g=>`- ${g.title} (${CAT_MAP[g.cat]?.label||g.cat})`).join('\n') || 'لا توجد أهداف مسجلة';
-    const busyText = state.tasks.filter(t=>!taskDoneToday(t)).map(t=>`- ${t.title} (${t.priority}${t.due? '، موعدها '+t.due:''})`).join('\n') || 'لا توجد مهام أخرى حالياً';
-    const catList = TCATS.map(c=>`"${c.id}" (${c.label})`).join('، ');
-
-    const prompt = `أنت مساعدة تنظيم شخصي محترفة. اليوم هو ${todayStr()}.
-هذه أهداف المستخدمة السنوية:
-${goalsText}
-
-هذه مهامها الأخرى غير المنجزة حالياً (لا تكرري أي شي يشبهها):
-${busyText}
-
-هذه قائمة مهام عشوائية غير مرتبة كتبتها المستخدمة بدون أي ترتيب، وممكن بعضها ملزق مع بعض من نفس الفكرة:
-${itemsText}
-
-لكل عنصر بالقائمة أعلاه حددي:
-- category: وحدة من هذي القيم بالضبط: ${catList}
-- priority: "عالية" أو "متوسطة" أو "منخفضة"
-- period: "صباح" أو "ظهر" أو "مساء" أو null (أنسب وقت لتنفيذها)
-- due: "today" أو "tomorrow" أو "week" أو null (متى يفضل تنجزها)
-- note: سبب مختصر جداً بالعربية العامية الخليجية الخفيفة، أقل من 10 كلمات، بدون علامات تنصيص، اربطيه بهدفها إذا فيه ارتباط واضح
-
-أجيبي فقط بمصفوفة JSON صالحة (valid JSON array) وبدون أي نص أو شرح أو علامات markdown قبلها أو بعدها، بهذا الشكل بالضبط:
-[{"index":0,"category":"business","priority":"عالية","period":"صباح","due":"today","note":"..."}, ...]
-لازم تشمل كل عناصر القائمة بدون استثناء، وبنفس ترقيم index المعطى.`;
-
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method:"POST",
-      headers:{"Content-Type":"text/plain"},
-      body: JSON.stringify({
-        model:"claude-sonnet-4-6",
-        max_tokens:2000,
-        messages:[{role:"user", content: prompt}]
-      })
-    });
-    const data = await response.json();
-    if(!response.ok || data.type==='error'){
-      throw new Error(data?.error?.message || `فشل الاتصال (${response.status})`);
-    }
-    let raw = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join(' ').trim();
-    raw = raw.replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
-    const firstBracket = raw.indexOf('[');
-    const lastBracket = raw.lastIndexOf(']');
-    if(firstBracket>-1 && lastBracket>-1) raw = raw.slice(firstBracket, lastBracket+1);
-    if(!raw) throw new Error('ما رجع لي أي نتيجة، جربي مرة ثانية.');
-    const parsed = JSON.parse(raw);
-
-    const dueMap = { today: todayStr(), tomorrow: addDays(todayStr(),1), week: addDays(todayStr(),6) };
-    const validCat = TCATS.map(c=>c.id);
-    aiPlan = parsed.map(p=>{
-      const src = items[p.index];
-      if(!src) return null;
-      const cat = validCat.includes(p.category)? p.category : null;
-      if(cat) src.category = cat; /* persist classification back onto the inbox item */
-      return {
-        sourceId: src.id,
-        text: src.text,
-        category: cat,
-        priority: ['عالية','متوسطة','منخفضة'].includes(p.priority)? p.priority : 'متوسطة',
-        period: ['صباح','ظهر','مساء'].includes(p.period)? p.period : null,
-        due: dueMap[p.due] || null,
-        note: p.note || '',
-        include: true,
-      };
-    }).filter(Boolean);
-
-    if(aiPlan.length===0){ aiPlanError = 'ما قدرت أنظم القائمة هالمرة، جربي مرة ثانية.'; aiPlan=null; }
-    else{ saveState(); }
-  }catch(e){
-    console.error('inbox organizer error', e);
-    aiPlanError = 'صار خطأ أثناء الترتيب: ' + friendlyErr(e);
-    aiPlan = null;
-  }
-  aiPlanLoading = false;
-  render();
-}
-
-async function runBulkSplit(){
-  const ta = document.getElementById('bulkPaste');
-  const text = (ta? ta.value : inboxBulkText).trim();
-  if(!text) return;
-  bulkSplitLoading = true; bulkSplitError = null; render();
-  try{
-    const catList = TCATS.map(c=>`"${c.id}" (${c.label})`).join('، ');
-    const prompt = `هذا نص ملصوق من مصدر خارجي (ممكن يكون وصف حدث بتقويم أو ملاحظات) فيه أكثر من مهمة ملزقة مع بعض بدون فواصل واضحة:
-"""
-${text}
-"""
-
-افصلي هذا النص إلى مهام منفصلة ومحددة (كل مهمة سطر مستقل بصيغة فعل أمر واضحة)، وصنّفي كل مهمة تحت وحدة من هذي الفئات بالضبط: ${catList}.
-تجاهلي أي جزء مو مهمة فعلية (زي عناوين أو تواريخ فارغة).
-
-أجيبي فقط بمصفوفة JSON صالحة بدون أي نص إضافي ولا علامات markdown، بهذا الشكل بالضبط:
-[{"text":"...","category":"business"}, ...]`;
-
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method:"POST",
-      headers:{"Content-Type":"text/plain"},
-      body: JSON.stringify({
-        model:"claude-sonnet-4-6",
-        max_tokens:2000,
-        messages:[{role:"user", content: prompt}]
-      })
-    });
-    const data = await response.json();
-    if(!response.ok || data.type==='error'){
-      throw new Error(data?.error?.message || `فشل الاتصال (${response.status})`);
-    }
-    let raw = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join(' ').trim();
-    raw = raw.replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
-    const firstBracket = raw.indexOf('[');
-    const lastBracket = raw.lastIndexOf(']');
-    if(firstBracket>-1 && lastBracket>-1) raw = raw.slice(firstBracket, lastBracket+1);
-    if(!raw) throw new Error('ما قدرت أفصل النص، جربي صياغة أوضح.');
-    const parsed = JSON.parse(raw);
-    const validCat = TCATS.map(c=>c.id);
-    let added = 0;
-    parsed.forEach(p=>{
-      const t = (p.text||'').trim();
-      if(!t) return;
-      state.inbox.push({id:uid(), text:t, category: validCat.includes(p.category)? p.category : null, addedAt:todayStr()});
-      added++;
-    });
-    if(added===0) throw new Error('ما لقيت مهام واضحة بالنص.');
-    inboxBulkText = '';
-    saveState();
-  }catch(e){
-    console.error('bulk split error', e);
-    bulkSplitError = 'صار خطأ أثناء الفصل: ' + friendlyErr(e);
-  }
-  bulkSplitLoading = false;
-  render();
 }
 
 /* ============ utils ============ */
