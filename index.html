@@ -471,10 +471,6 @@ let syncMsg = null; /* {ok:bool, text:string} */
 let storageReady = false;
 let inboxDraftText = '';
 let textScale = 1;
-let importPasteText = '';
-let importError = null;
-let importSugError = null;
-let aiPlan = null; /* array of {sourceId, text, category, priority, period, due, note, include} pending review, from the offline text-extraction flow */
 let voiceCardOpen = false;
 let voiceDraftText = '';
 let voicePlan = null; /* array of {id, text, category, priority, period, due, include} once analyzed */
@@ -3496,49 +3492,9 @@ function renderInboxBox(){
           <button class="icon-btn" data-del-inbox="${it.id}">✕</button>
         </div>`).join('')}
   </div>
-
-  <details style="margin-bottom:16px;">
-    <summary class="muted" style="cursor:pointer;font-size:12.5px;">✨ استخلصي مهام من نص حر</summary>
-    <div class="card" style="margin-top:10px;border-color:var(--sage);">
-      <p class="muted" style="margin-bottom:8px;">الصقي أو اكتبي أي نص فيه مهمة أو أكثر — جملة عادية أو فقرة كاملة، ما تحتاجين تنسيق معيّن — وراح أفصلها وأستخرج منها الموعد والفترة والتصنيف تلقائيًا، بدون اتصال إنترنت. هذي الطريقة تشتغل دايم.</p>
-      <div class="field" style="margin-bottom:8px;">
-        <textarea id="importPaste" placeholder="مثال: اتصلي بالبنك بكرة الساعة 5، وجهزي فاتورة الكهرباء الأسبوع الجاي" style="min-height:90px;">${escapeHtml(importPasteText)}</textarea>
-      </div>
-      ${importError? `<p class="muted" style="color:var(--rose-dark);margin-bottom:8px;">${escapeHtml(importError)}</p>`:''}
-      <button class="btn btn-block" id="importBtn">استخلصي المهام</button>
-    </div>
-  </details>
-
-  ${aiPlan? renderAiPlanReview():''}
   `;
 }
 
-function renderAiPlanReview(){
-  return `
-  <div class="card">
-    <div class="card-title"><h3>المهام المستخلصة</h3></div>
-    <p class="muted" style="margin-bottom:12px;">راجعي المقترحات، ألغي أي وحدة ما تبينها الحين، وبعدين اعتمدي القائمة عشان تنضاف لمهامك.</p>
-    ${aiPlan.map((p,i)=>`
-      <div class="plan-item ${p.include?'':'excluded'}">
-        <div class="plan-head">
-          <span class="ptxt">${escapeHtml(p.text)}</span>
-          <button type="button" class="plan-check ${p.include?'on':''}" data-plan-toggle="${i}">${p.include?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
-        </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          ${p.category? `<span class="tag">${tcatOf(p.category)?.icon||''} ${tcatOf(p.category)?.label||p.category}</span>`:''}
-          <span class="tag p-${p.priority}">${p.priority}</span>
-          ${p.period? `<span class="tag">${p.period}</span>`:''}
-          ${p.due? `<span class="tag">📅 ${p.due}</span>`:''}
-        </div>
-        ${p.note? `<div class="pnote">${escapeHtml(p.note)}</div>`:''}
-      </div>
-    `).join('')}
-    <div style="display:flex;gap:10px;margin-top:6px;">
-      <button class="btn btn-block" id="acceptPlan">اعتمدي المهام المحددة</button>
-      <button class="btn ghost" id="discardPlan">تراجعي</button>
-    </div>
-  </div>`;
-}
 
 /* ============ task draft (add/edit) ============ */
 function renderTaskDraft(){
@@ -4139,35 +4095,10 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
   const inboxAddBtn = document.getElementById('inboxAddBtn');
   if(inboxAddBtn) inboxAddBtn.onclick = addInboxItem;
 
-  const importPaste = document.getElementById('importPaste');
-  if(importPaste) importPaste.oninput = ()=>{ importPasteText = importPaste.value; };
-  const importBtn = document.getElementById('importBtn');
-  if(importBtn) importBtn.onclick = runImportPaste;
-
   document.querySelectorAll('[data-del-inbox]').forEach(b=> b.onclick=()=>{
     state.inbox = state.inbox.filter(x=>x.id!==b.dataset.delInbox);
     saveState(); render();
   });
-
-  document.querySelectorAll('[data-plan-toggle]').forEach(b=> b.onclick=()=>{
-    const i = parseInt(b.dataset.planToggle,10);
-    aiPlan[i].include = !aiPlan[i].include;
-    render();
-  });
-  const acceptPlan = document.getElementById('acceptPlan');
-  if(acceptPlan) acceptPlan.onclick = ()=>{
-    const accepted = aiPlan.filter(p=>p.include);
-    accepted.forEach(p=>{
-      state.tasks.push({
-        id:uid(), title:p.text, goalId:null, category:p.category||null, priority:p.priority||'متوسطة',
-        period:p.period||null, due:p.due||null, done:false, createdAt:todayStr()
-      });
-    });
-    aiPlan = null;
-    saveState(); render();
-  };
-  const discardPlan = document.getElementById('discardPlan');
-  if(discardPlan) discardPlan.onclick = ()=>{ aiPlan=null; render(); };
 }
 
 function addInboxItem(){
@@ -4180,39 +4111,6 @@ function addInboxItem(){
   saveState(); render();
 }
 
-/* parses lines like: "نص المهمة | تصنيف | أولوية | فترة | موعد"
-   pasted from a chat reply, with no network call involved. */
-function guessCategory(raw){
-  const s = (raw||'').trim();
-  if(/بزنس|دخل إضافي|business/i.test(s)) return 'business';
-  if(/عمل|وظيف|شغل|work/i.test(s)) return 'work';
-  if(/مشروع|project/i.test(s)) return 'project';
-  if(/عائل|family/i.test(s)) return 'family';
-  if(/شخص|personal/i.test(s)) return 'personal';
-  return 'other';
-}
-function guessPriority(raw){
-  const s = (raw||'').trim();
-  if(/عالي|high/i.test(s)) return 'عالية';
-  if(/منخفض|low/i.test(s)) return 'منخفضة';
-  return 'متوسطة';
-}
-function guessPeriod(raw){
-  const s = (raw||'').trim();
-  if(/صباح/i.test(s)) return 'صباح';
-  if(/ظهر/i.test(s)) return 'ظهر';
-  if(/مساء/i.test(s)) return 'مساء';
-  return null;
-}
-function guessDue(raw){
-  const s = (raw||'').trim();
-  if(!s || s==='-') return null;
-  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  if(/اليوم|today/i.test(s)) return todayStr();
-  if(/بكرة|غدا|غداً|tomorrow/i.test(s)) return addDays(todayStr(),1);
-  if(/أسبوع|اسبوع|week/i.test(s)) return addDays(todayStr(),6);
-  return null;
-}
 /* ============ voice / smart quick-add ============ */
 function vqParseDateTime(text){
   const s = text;
@@ -4348,57 +4246,6 @@ function renderVoicePlanReview(){
       <button type="button" class="btn ghost" id="voiceDiscardBtn">تراجعي</button>
     </div>
   </div>`;
-}
-
-function importPlanFromText(text){
-  const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
-  const items = [];
-  lines.forEach(line=>{
-    if(line.includes('|')){
-      /* strict pipe-delimited format, e.g. copy-pasted from a chat reply */
-      const parts = line.split('|').map(p=>p.trim());
-      const [textPart, catPart, priPart, perPart, duePart] = parts;
-      if(!textPart) return;
-      items.push({
-        sourceId: uid(),
-        text: textPart.replace(/^[-•\d.\)]+\s*/,''),
-        category: catPart? guessCategory(catPart) : null,
-        priority: priPart? guessPriority(priPart) : 'متوسطة',
-        period: perPart? guessPeriod(perPart) : null,
-        due: duePart? guessDue(duePart) : null,
-        note: '',
-        include: true,
-      });
-      return;
-    }
-    /* free-form line or paragraph: split into individual tasks and extract
-       date/period/category/priority from natural phrasing, same extraction
-       used by the voice quick-add */
-    vqSplitTasks(line).filter(Boolean).forEach(part=>{
-      const clean = part.replace(/^[-•\d.\)]+\s*/,'');
-      if(!clean) return;
-      const {due, period} = vqParseDateTime(clean);
-      items.push({
-        sourceId: uid(),
-        text: clean,
-        category: vqParseCategory(clean),
-        priority: vqParsePriority(clean),
-        period, due, note:'', include:true,
-      });
-    });
-  });
-  return items;
-}
-async function runImportPaste(){
-  const ta = document.getElementById('importPaste');
-  const text = (ta? ta.value : importPasteText).trim();
-  importError = null;
-  if(!text){ importError = 'الصقي النص أول.'; render(); return; }
-  const items = importPlanFromText(text);
-  if(items.length===0){ importError = 'ما لقيت مهام بالنص، تأكدي من التنسيق.'; render(); return; }
-  aiPlan = items;
-  importPasteText = '';
-  render();
 }
 
 function popStamp(line1, line2){
