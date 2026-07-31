@@ -378,9 +378,9 @@ const TIME_BOX_COLORS = [
 ];
 function defaultTimeBoxes(){
   return [
-    {id:'صباح', label:'الصباح', start:'05:00', end:'12:00', color:TIME_BOX_COLORS[0], note:''},
-    {id:'ظهر', label:'الظهر', start:'12:00', end:'17:00', color:TIME_BOX_COLORS[1], note:''},
-    {id:'مساء', label:'المساء', start:'17:00', end:'23:59', color:TIME_BOX_COLORS[2], note:''},
+    {id:'صباح', label:'الصباح', start:'05:00', end:'12:00', color:TIME_BOX_COLORS[0], categoryIds:[]},
+    {id:'ظهر', label:'الظهر', start:'12:00', end:'17:00', color:TIME_BOX_COLORS[1], categoryIds:[]},
+    {id:'مساء', label:'المساء', start:'17:00', end:'23:59', color:TIME_BOX_COLORS[2], categoryIds:[]},
   ];
 }
 
@@ -507,6 +507,7 @@ function hydrateState(parsed){
   state = Object.assign({name:'', onboarded:false, goals:[], tasks:[], dayTemplates: defaultTemplates(), dailyLogs:{}, tipIndex:{}, tipGoalIndex:0, tipLastDate:null, inbox:[], collapsed:{habits:false, questions:true, reflection:true, mood:true, schedule:true}}, parsed);
   if(!state.dayTemplates) state.dayTemplates = defaultTemplates();
   if(!state.timeBoxes || !state.timeBoxes.length) state.timeBoxes = defaultTimeBoxes();
+  state.timeBoxes.forEach(b=>{ if(!Array.isArray(b.categoryIds)) b.categoryIds = []; });
   if(!state.taskCategories || !state.taskCategories.length) state.taskCategories = defaultTaskCategories();
   if(!state.dailyLogs) state.dailyLogs = {};
   if(!state.inbox) state.inbox = [];
@@ -630,6 +631,11 @@ function scoreTask(t){
 }
 /* ============ time boxes ============ */
 function timeBoxOf(id){ return state.timeBoxes.find(b=>b.id===id) || null; }
+/* the time box a task's category should default into, if that category is linked to one */
+function timeBoxForCategory(catId){
+  if(!catId) return null;
+  return state.timeBoxes.find(b=> (b.categoryIds||[]).includes(catId)) || null;
+}
 function timeToMins(hhmm){ const [h,m] = (hhmm||'0:0').split(':').map(Number); return h*60+(m||0); }
 /* returns the id of the time box whose [start,end) range contains the current clock time,
    used to pre-select the right box when a task is added without an explicit period */
@@ -1311,7 +1317,7 @@ function renderScheduleCard(){
     <div class="period-tabs">
       ${state.timeBoxes.map(b=>`<button type="button" class="period-tab ${period===b.id?'active':''}" data-period="${b.id}" ${period===b.id?`style="background:${b.color};border-color:${b.color};color:#fff;"`:''}>${escapeHtml(b.label)}</button>`).join('')}
     </div>
-    ${activeBox? `<p class="muted" style="margin-bottom:10px;">⏰ ${activeBox.start} – ${activeBox.end}${activeBox.note? ' · '+escapeHtml(activeBox.note):''}</p>`:''}
+    ${activeBox? `<p class="muted" style="margin-bottom:10px;">⏰ ${activeBox.start} – ${activeBox.end}${(activeBox.categoryIds&&activeBox.categoryIds.length)? ' · '+activeBox.categoryIds.map(id=>tcatOf(id)?.label).filter(Boolean).join('، ') : ''}</p>`:''}
     ${items.length===0? `<div class="empty">ما فيه مهام في هالصندوق. وزّعي مهامك من صفحة المهام.</div>` : items.map(t=>taskRowHtml(t)).join('')}
     <button class="btn ghost btn-block" style="margin-top:8px;" id="goAddTaskPeriod" data-add-period="${period}">+ إضافة مهمة ${activeBox?'لـ'+escapeHtml(activeBox.label):''}</button>
     <p class="muted" style="margin-top:8px;font-size:12px;">🎨 تعديل صناديق الزمن (الاسم، الوقت، اللون) صار من تبويب "الأساس".</p>
@@ -1333,7 +1339,10 @@ function renderTimeBoxManager(){
             <span class="muted">إلى</span>
             <input type="time" data-tbox-end="${b.id}" value="${b.end}"/>
           </div>
-          <input type="text" data-tbox-note="${b.id}" value="${escapeHtml(b.note||'')}" placeholder="مثال: مهام عائلية، تحضير الفطور"/>
+          <p class="muted" style="font-size:12px;margin-bottom:2px;">وش نوع المهام المناسبة لهالصندوق؟</p>
+          <div class="chip-row">
+            ${state.taskCategories.map(c=>`<button type="button" class="chip ${(b.categoryIds||[]).includes(c.id)?'selected':''}" data-tbox-cat="${b.id}" data-cat="${c.id}">${c.icon} ${c.label}</button>`).join('')}
+          </div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <div class="chip-row" style="flex:1;">
               ${TIME_BOX_COLORS.map(c=>`<button type="button" class="color-dot ${b.color===c?'selected':''}" data-tbox-color="${b.id}" data-color="${c}" style="background:${c};" title="${c}"></button>`).join('')}
@@ -3586,6 +3595,13 @@ function renderTaskDraft(){
   </div>`;
 }
 function attachTaskDraftEvents(){
+  const tdCat = document.getElementById('tdCat');
+  if(tdCat) tdCat.onchange = ()=>{
+    syncDraft();
+    const box = timeBoxForCategory(taskDraft.category);
+    if(box) taskDraft.period = box.id;
+    render();
+  };
   document.querySelectorAll('[data-pri]').forEach(b=> b.onclick=()=>{ syncDraft(); taskDraft.priority=b.dataset.pri; render(); });
   document.querySelectorAll('[data-per]').forEach(b=> b.onclick=()=>{ syncDraft(); taskDraft.period = (taskDraft.period===b.dataset.per? null : b.dataset.per); render(); });
   const recurDetails = document.getElementById('tdRecurDetails');
@@ -3945,11 +3961,13 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
       if(b && inp.value){ b.end = inp.value; saveState(); }
     };
   });
-  document.querySelectorAll('[data-tbox-note]').forEach(inp=>{
-    inp.onchange = ()=>{
-      const b = timeBoxOf(inp.dataset.tboxNote);
-      if(b){ b.note = inp.value.trim(); saveState(); }
-    };
+  document.querySelectorAll('[data-tbox-cat]').forEach(btn=> btn.onclick=()=>{
+    const b = timeBoxOf(btn.dataset.tboxCat);
+    if(!b) return;
+    if(!Array.isArray(b.categoryIds)) b.categoryIds = [];
+    const idx = b.categoryIds.indexOf(btn.dataset.cat);
+    if(idx>-1) b.categoryIds.splice(idx,1); else b.categoryIds.push(btn.dataset.cat);
+    saveState(); render();
   });
   document.querySelectorAll('[data-tbox-color]').forEach(btn=> btn.onclick=()=>{
     const b = timeBoxOf(btn.dataset.tboxColor);
@@ -3967,7 +3985,7 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
     const nextColor = TIME_BOX_COLORS.find(c=>!usedColors.includes(c)) || TIME_BOX_COLORS[state.timeBoxes.length % TIME_BOX_COLORS.length];
     const start = last? last.end : '08:00';
     const end = pad(Math.floor((timeToMins(start)+120)/60)%24)+':'+pad((timeToMins(start)+120)%60);
-    state.timeBoxes.push({ id:uid(), label:'صندوق جديد', start, end, color: nextColor, note:'' });
+    state.timeBoxes.push({ id:uid(), label:'صندوق جديد', start, end, color: nextColor, categoryIds:[] });
     saveState(); render();
   };
 
