@@ -369,6 +369,35 @@ const MOODS = [
   {id:'مرتاحة',e:'☁️'},{id:'متحمسة',e:'✨'},{id:'ممتنة',e:'🌸'},
 ];
 const PRIORITIES = ['عالية','متوسطة','منخفضة'];
+/* shown instead of the top-3 task list when nothing's pending today — picks a
+   different one each day (stable all day, not re-rolled on every render) */
+const RELAXATION_MESSAGES = [
+  'يومك خفيف اليوم — خذي نفس عميق واستمتعي فيه. 🌿',
+  'ما فيه شي عاجل، يعني عندك مساحة تسوين فيها اللي يريّحك.',
+  'أحيانًا أجمل إنجاز إنك ترتاحين بضمير مرتاح.',
+  'اسمعي نفسك شوي اليوم، ما فيه شي يستعجلك.',
+  'خلي اليوم يكون لك، بس لك. ✨',
+  'راحتك اليوم جزء من إنجازك، مو عكسه.',
+  'استلقي دقيقتين وسكّري عينك، ما راح يفوتك شي.',
+  'فراغ اليوم مو نقص، هو مساحة.',
+  'قدّري نفسك اليوم بدون ما تربطينها بقائمة مهام.',
+  'خذي كوب شاي واستمتعي بالسكون شوي. 🌸',
+  'الراحة مو كسل، هي وقود ليوم ثاني.',
+  'امنحي نفسك إذن تكونين بطيئة اليوم.',
+  'ما فيه شي يستنّاك اليوم — استأنسي بوقتك.',
+  'هدوء اليوم هدية، افتحيها بامتنان.',
+  'لا شي يلحّ عليك — خليه وقتك الخاص.',
+  'استرخاء اليوم استثمار بغدٍ أقوى.',
+  'خلي جسمك يرتاح زي ما ارتاح جدولك.',
+  'يومك صافي، خليه وقت هدوء حقيقي.',
+  'ما فيه شي يطاردك اليوم، تنفّسي بارتياح. 🌿',
+  'الرضا عن نفسك اليوم كافٍ، بدون أي إثبات.',
+];
+function dailyPick(arr, dateStr){
+  let hash = 0;
+  for(let i=0;i<dateStr.length;i++) hash = (hash*31 + dateStr.charCodeAt(i)) >>> 0;
+  return arr[hash % arr.length];
+}
 /* graduated face scale for the daily self-appreciation check-in (1=low, 5=high), replacing a plain star rating */
 const REFLECTION_FACES = ['😔','😕','🙂','😊','🥰'];
 
@@ -1267,6 +1296,11 @@ function renderHome(){
     `}
   </div>
 
+  ${isToday && topTasks().length===0? `
+  <div class="card" style="text-align:center;">
+    <p style="font-size:15px;color:var(--petrol-dark);line-height:1.8;margin:6px 0;">${escapeHtml(dailyPick(RELAXATION_MESSAGES, todayStr()))}</p>
+  </div>
+  ` : `
   <div class="card">
     <div class="card-title"><h3>${isToday? 'أهم 3 مهام اليوم':'مهام هذا التاريخ'}</h3>
       ${isToday? `<button class="icon-btn sm" id="refreshTop" title="إعادة الاختيار">↻</button>`:''}
@@ -1276,6 +1310,7 @@ function renderHome(){
     ${isToday? `<button class="btn ghost btn-block" style="margin-top:8px;" id="openTop3Picker">🗣️ ساعديني أحدد الأهم بنفسي</button>`:''}
     ${isToday && getLog(todayStr()).pinnedTop3? `<button class="btn ghost btn-block" style="margin-top:8px;" id="resetTop3">↻ رجّعيها للاختيار التلقائي</button>`:''}
   </div>
+  `}
 
   ${isToday? renderScheduleCard():''}
   ${isToday? renderSuggestionsCard():''}
