@@ -369,6 +369,8 @@ const MOODS = [
   {id:'مرتاحة',e:'☁️'},{id:'متحمسة',e:'✨'},{id:'ممتنة',e:'🌸'},
 ];
 const PRIORITIES = ['عالية','متوسطة','منخفضة'];
+/* graduated face scale for the daily self-appreciation check-in (1=low, 5=high), replacing a plain star rating */
+const REFLECTION_FACES = ['😔','😕','🙂','😊','🥰'];
 
 /* time-box colors: a fresh 7-swatch palette (kept distinct from the app's core petrol/rose/gold/sage accents) */
 const TIME_BOX_COLORS = [
@@ -1519,14 +1521,17 @@ function renderSuggestionsCard(){
 
 function renderReflectionCard(log){
   const collapsed = state.collapsed.reflection;
+  const weekStart = startOfWeek(todayStr());
+  const ratedThisWeek = Array.from({length:7},(_,i)=>addDays(weekStart,i)).filter(d=> getLog(d).reflection!=null).length;
   return `
   <div class="card">
-    <div class="card-title"><h3 style="cursor:pointer;flex:1;" data-toggle-collapse="reflection">${collapsed?'▸':'▾'} وش نتيجة هالليوم؟</h3></div>
+    <div class="card-title"><h3 style="cursor:pointer;flex:1;" data-toggle-collapse="reflection">${collapsed?'▸':'▾'} لحظة تقدير</h3></div>
     ${collapsed? '' : `
-    <p class="muted" style="margin-bottom:10px;">قيّمي رضاك عن إنجاز هذا اليوم</p>
+    <p class="muted" style="margin-bottom:10px;">بعيدًا عن قائمة مهامك، قد ايش راضية عن نفسك اليوم؟</p>
     <div class="chip-row">
-      ${[1,2,3,4,5].map(n=>`<button type="button" class="chip ${log.reflection===n?'selected':''}" data-refl="${n}">${'⭐'.repeat(n)}</button>`).join('')}
+      ${REFLECTION_FACES.map((face,i)=>`<button type="button" class="chip ${log.reflection===i+1?'selected':''}" data-refl="${i+1}" style="font-size:19px;padding:8px 14px;">${face}</button>`).join('')}
     </div>
+    <p class="muted" style="margin-top:10px;">قيّمتِ نفسك ${ratedThisWeek} من 7 أيام هالأسبوع.</p>
     `}
   </div>`;
 }
@@ -3505,7 +3510,6 @@ function renderHabitsPage(){
 
   const reflections = dates.map(d=> getLog(d).reflection);
   const rated = reflections.filter(r=> r!=null);
-  const avg = rated.length? (rated.reduce((a,b)=>a+b,0)/rated.length) : null;
 
   let totalPossible = 0, totalDone = 0;
   dates.forEach(d=>{
@@ -3554,9 +3558,9 @@ function renderHabitsPage(){
   </details>
 
   <details class="card" data-sec="habitsMood" ${openSections.habitsMood?'open':''} style="margin-top:12px;">
-    <summary><h3>⭐ تقييم يومك (المزاج) <span class="chev">▾</span></h3></summary>
+    <summary><h3>🌿 لحظات التقدير <span class="chev">▾</span></h3></summary>
     <div class="details-body">
-      <p class="muted" style="margin-bottom:12px;">تقييمك اليومي (⭐) لكل يوم بالأسبوع، عشان تشوفين شلون كانت معظم أيامك.</p>
+      <p class="muted" style="margin-bottom:12px;">قد ايش راضية عن نفسك كل يوم بالأسبوع — بعيدًا عن كم أنجزتِ.</p>
       <div class="htable-wrap">
         <table class="htable">
           <thead>
@@ -3566,12 +3570,12 @@ function renderHabitsPage(){
           </thead>
           <tbody>
             <tr>
-              ${dates.map((d,i)=>`<td style="font-size:14px;">${reflections[i]? '⭐'.repeat(reflections[i]) : '<span class="gcheck na">–</span>'}</td>`).join('')}
+              ${dates.map((d,i)=>`<td style="font-size:17px;">${reflections[i]? REFLECTION_FACES[reflections[i]-1] : '<span class="gcheck na">–</span>'}</td>`).join('')}
             </tr>
           </tbody>
         </table>
       </div>
-      ${avg!=null? `<p class="muted" style="margin-top:10px;">متوسط تقييمك هالأسبوع: <b style="color:var(--petrol-dark);">${avg.toFixed(1)} ⭐</b> (من ${rated.length} يوم مقيّم)</p>` : `<p class="muted" style="margin-top:10px;">ما فيه تقييمات هالأسبوع بعد. قيّمي يومك من صفحة "اليوم" آخر كل يوم.</p>`}
+      <p class="muted" style="margin-top:10px;">قيّمتِ نفسك <b style="color:var(--petrol-dark);">${rated.length} من 7</b> أيام هالأسبوع.</p>
     </div>
   </details>
 
