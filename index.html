@@ -778,16 +778,18 @@ function tasksPlannedForDate(dateStr){
 function tasksDoneCountForDate(dateStr, planned){
   return planned.filter(t=> t.recurType? t.lastDoneDate===dateStr : (t.done && t.doneAt===dateStr)).length;
 }
+/* "أهم 3 مهام لليوم" only ever shows real عالية-priority tasks — no padding
+   with متوسطة/منخفضة ones just to fill 3 slots */
 function topTasks(){
   const log = getLog(todayStr());
   if(log.pinnedTop3 && log.pinnedTop3.length){
     const pinned = log.pinnedTop3.map(id=> state.tasks.find(t=>t.id===id && !taskDoneToday(t))).filter(Boolean);
     if(pinned.length) return pinned;
   }
-  return state.tasks.filter(t=>!taskDoneToday(t) && taskActiveToday(t)).sort((a,b)=>scoreTask(b)-scoreTask(a)).slice(0,3);
+  return state.tasks.filter(t=>!taskDoneToday(t) && taskActiveToday(t) && t.priority==='عالية').sort((a,b)=>scoreTask(b)-scoreTask(a)).slice(0,3);
 }
 function topTasksHasTie(){
-  const undone = state.tasks.filter(t=>!taskDoneToday(t) && taskActiveToday(t)).sort((a,b)=>scoreTask(b)-scoreTask(a));
+  const undone = state.tasks.filter(t=>!taskDoneToday(t) && taskActiveToday(t) && t.priority==='عالية').sort((a,b)=>scoreTask(b)-scoreTask(a));
   if(undone.length<4) return false;
   return scoreTask(undone[2]) === scoreTask(undone[3]);
 }
@@ -1346,7 +1348,7 @@ function renderHome(){
   </div>
   ` : `
   <div class="card">
-    <div class="card-title"><h3>${isToday? 'أهم 3 مهام اليوم': (hasUrgentOnDate(selectedDate)? '⚠️ أهم مهام هذا اليوم' : 'مهام هذا التاريخ')}</h3>
+    <div class="card-title"><h3>${isToday? 'أهم 3 مهام لليوم': (hasUrgentOnDate(selectedDate)? '⚠️ أهم مهام هذا اليوم' : 'مهام هذا التاريخ')}</h3>
       ${isToday? `<button class="icon-btn sm" id="refreshTop" title="إعادة الاختيار">↻</button>`:''}
     </div>
     ${renderTasksForDate(isToday)}
@@ -2628,6 +2630,8 @@ function attachFinanceEvents(){
   };
   document.querySelectorAll('[data-path-remove]').forEach(b=> b.onclick=()=>{
     const fg = state.financialGoal;
+    const p = FINANCE_PATHS.find(x=>x.id===b.dataset.pathRemove);
+    if(!confirm(`تحذفين طريقة "${p? p.label : ''}"؟`)) return;
     fg.paths = fg.paths.filter(id=>id!==b.dataset.pathRemove);
     if(fg.pathProgress) delete fg.pathProgress[b.dataset.pathRemove];
     if(fg.pathOverrides) delete fg.pathOverrides[b.dataset.pathRemove];
@@ -2646,6 +2650,8 @@ function attachFinanceEvents(){
   };
   document.querySelectorAll('[data-custompath-del]').forEach(b=> b.onclick=()=>{
     const fg = state.financialGoal;
+    const cp = fg.customPaths.find(x=>x.id===b.dataset.custompathDel);
+    if(!confirm(`تحذفين طريقة "${cp? cp.label : ''}"؟`)) return;
     fg.customPaths = fg.customPaths.filter(x=>x.id!==b.dataset.custompathDel);
     saveState(); render();
   });
@@ -2765,6 +2771,8 @@ function attachFinanceEvents(){
   document.querySelectorAll('[data-stagetask-del]').forEach(b=> b.onclick=()=>{
     const [stageId, taskId] = b.dataset.stagetaskDel.split('|');
     const stage = state.financialGoal.stages.find(s=>s.id===stageId);
+    const t = stage.tasks.find(x=>x.id===taskId);
+    if(!confirm(`تحذفين مهمة "${t? t.text : ''}"؟`)) return;
     stage.tasks = stage.tasks.filter(x=>x.id!==taskId);
     saveState(); render();
   });
@@ -2787,7 +2795,9 @@ function attachFinanceEvents(){
   };
   document.querySelectorAll('[data-stage-del]').forEach(b=> b.onclick=()=>{
     const fg = state.financialGoal;
-    fg.stages = fg.stages.filter(s=>s.id!==b.dataset.stageDel);
+    const s = fg.stages.find(x=>x.id===b.dataset.stageDel);
+    if(!confirm(`تحذفين مرحلة "${s? s.title : ''}"؟`)) return;
+    fg.stages = fg.stages.filter(x=>x.id!==b.dataset.stageDel);
     saveState(); render();
   });
   const stageAddBtn = document.getElementById('stageAddBtn');
@@ -4050,10 +4060,14 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
   });
 
   document.querySelectorAll('[data-del]').forEach(b=> b.onclick=()=>{
+    const t = state.tasks.find(x=>x.id===b.dataset.del);
+    if(!confirm(`تحذفين مهمة "${t? t.title : ''}"؟`)) return;
     state.tasks = state.tasks.filter(x=>x.id!==b.dataset.del);
     saveState(); render();
   });
   document.querySelectorAll('[data-delgoal]').forEach(b=> b.onclick=()=>{
+    const g = state.goals.find(x=>x.id===b.dataset.delgoal);
+    if(!confirm(`تحذفين هدف "${g? g.title : ''}"؟`)) return;
     state.goals = state.goals.filter(x=>x.id!==b.dataset.delgoal);
     state.tasks.forEach(t=>{ if(t.goalId===b.dataset.delgoal) t.goalId=null; });
     saveState(); render();
@@ -4195,6 +4209,8 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
   });
   document.querySelectorAll('[data-tbox-del]').forEach(btn=> btn.onclick=()=>{
     if(state.timeBoxes.length<=1) return;
+    const box = timeBoxOf(btn.dataset.tboxDel);
+    if(!confirm(`تحذفين صندوق "${box? box.label : ''}"؟`)) return;
     state.timeBoxes = state.timeBoxes.filter(b=>b.id!==btn.dataset.tboxDel);
     saveState(); render();
   });
@@ -4223,6 +4239,8 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
   });
   document.querySelectorAll('[data-tcat-del]').forEach(btn=> btn.onclick=()=>{
     if(state.taskCategories.length<=1) return;
+    const cat = tcatOf(btn.dataset.tcatDel);
+    if(!confirm(`تحذفين تصنيف "${cat? cat.label : ''}"؟`)) return;
     state.taskCategories = state.taskCategories.filter(c=>c.id!==btn.dataset.tcatDel);
     saveState(); render();
   });
@@ -4297,7 +4315,9 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
     };
   });
   document.querySelectorAll('[data-mgmt-del]').forEach(b=> b.onclick=()=>{
-    state.habits = state.habits.filter(h=>h.id!==b.dataset.mgmtDel);
+    const h = state.habits.find(x=>x.id===b.dataset.mgmtDel);
+    if(!confirm(`تحذفين عادة "${h? h.label : ''}"؟`)) return;
+    state.habits = state.habits.filter(x=>x.id!==b.dataset.mgmtDel);
     saveState(); render();
   });
   document.querySelectorAll('[data-habit-day]').forEach(b=> b.onclick=()=>{
@@ -4342,6 +4362,8 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
   if(inboxAddBtn) inboxAddBtn.onclick = addInboxItem;
 
   document.querySelectorAll('[data-del-inbox]').forEach(b=> b.onclick=()=>{
+    const it = state.inbox.find(x=>x.id===b.dataset.delInbox);
+    if(!confirm(`تحذفين "${it? it.text : ''}" من صندوق المهام؟`)) return;
     state.inbox = state.inbox.filter(x=>x.id!==b.dataset.delInbox);
     saveState(); render();
   });
