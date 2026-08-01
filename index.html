@@ -798,6 +798,11 @@ function hasUrgentToday(){
   if(log.pinnedTop3 && log.pinnedTop3.length) return true;
   return state.tasks.some(t=>!taskDoneToday(t) && taskActiveToday(t) && t.priority==='عالية');
 }
+/* same check for a specific (usually future) date being browsed, so its section
+   title can call out an urgent task the same way today's card does */
+function hasUrgentOnDate(dateStr){
+  return state.tasks.some(t=> t.due===dateStr && t.priority==='عالية' && !(t.recurType? t.lastDoneDate===dateStr : t.done));
+}
 /* swaps a habit with its neighbor among habits active on the same day, keeping their
    relative order in other days intact since it swaps the two absolute positions
    in the single shared state.habits array */
@@ -1315,7 +1320,7 @@ function renderHome(){
   </div>
   ` : `
   <div class="card">
-    <div class="card-title"><h3>${isToday? 'أهم 3 مهام اليوم':'مهام هذا التاريخ'}</h3>
+    <div class="card-title"><h3>${isToday? 'أهم 3 مهام اليوم': (hasUrgentOnDate(selectedDate)? '⚠️ أهم مهام هذا اليوم' : 'مهام هذا التاريخ')}</h3>
       ${isToday? `<button class="icon-btn sm" id="refreshTop" title="إعادة الاختيار">↻</button>`:''}
     </div>
     ${renderTasksForDate(isToday)}
