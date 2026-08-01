@@ -785,6 +785,14 @@ function topTasksHasTie(){
   if(undone.length<4) return false;
   return scoreTask(undone[2]) === scoreTask(undone[3]);
 }
+/* only worth surfacing "أهم 3 مهام" when something's actually urgent — a real
+   high-priority task, or a top-3 she pinned herself (her own judgment stands
+   regardless of priority) */
+function hasUrgentToday(){
+  const log = getLog(todayStr());
+  if(log.pinnedTop3 && log.pinnedTop3.length) return true;
+  return state.tasks.some(t=>!taskDoneToday(t) && taskActiveToday(t) && t.priority==='عالية');
+}
 /* swaps a habit with its neighbor among habits active on the same day, keeping their
    relative order in other days intact since it swaps the two absolute positions
    in the single shared state.habits array */
@@ -1296,7 +1304,7 @@ function renderHome(){
     `}
   </div>
 
-  ${isToday && topTasks().length===0? `
+  ${isToday && !hasUrgentToday()? `
   <div class="card" style="text-align:center;">
     <p style="font-size:15px;color:var(--petrol-dark);line-height:1.8;margin:6px 0;">${escapeHtml(dailyPick(RELAXATION_MESSAGES, todayStr()))}</p>
   </div>
