@@ -666,8 +666,12 @@ async function saveState(){
 
 /* ============ scoring: top tasks ============ */
 function scoreTask(t){
+  /* priority is the primary ranking factor (wide 10-point tiers) — an "عالية" task
+     always outranks "متوسطة"/"منخفضة" ones; due-date urgency only breaks ties
+     within the same priority tier, it can no longer bump a low-priority-but-overdue
+     task above a high-priority one */
   let s = 0;
-  s += t.priority==='عالية'?3:t.priority==='متوسطة'?2:1;
+  s += t.priority==='عالية'?30:t.priority==='متوسطة'?20:10;
   if(t.goalId) s += 1;
   if(t.due === todayStr()) s += 2;
   if(t.due && t.due < todayStr()) s += 3;
