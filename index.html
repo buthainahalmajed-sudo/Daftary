@@ -714,6 +714,25 @@ function taskActiveToday(t){
   if(t.recurType==='monthly') return t.recurMonthDay === new Date().getDate();
   return true;
 }
+/* tasks explicitly scheduled for a given date (due that day, or recurring on it) — narrower
+   than taskActiveToday's open-ended backlog, used for the "done out of planned" progress stat */
+function tasksPlannedForDate(dateStr){
+  const dow = parseISO(dateStr).getDay();
+  return state.tasks.filter(t=>{
+    if(t.recurType){
+      if(t.recurStart && dateStr < t.recurStart) return false;
+      if(t.recurEnd && dateStr > t.recurEnd) return false;
+      if(t.recurType==='daily') return true;
+      if(t.recurType==='weekly') return !!(t.recur && t.recur.includes(dow));
+      if(t.recurType==='monthly') return t.recurMonthDay === parseISO(dateStr).getDate();
+      return false;
+    }
+    return t.due === dateStr;
+  });
+}
+function tasksDoneCountForDate(dateStr, planned){
+  return planned.filter(t=> t.recurType? t.lastDoneDate===dateStr : (t.done && t.doneAt===dateStr)).length;
+}
 function topTasks(){
   const log = getLog(todayStr());
   if(log.pinnedTop3 && log.pinnedTop3.length){
@@ -1176,19 +1195,54 @@ function renderDateNav(){
   `;
 }
 
+function renderProgressStatCard(){
+  const today = todayStr();
+  const plannedToday = tasksPlannedForDate(today);
+  const doneTodayCount = tasksDoneCountForDate(today, plannedToday);
+
+  const weekStart = startOfWeek(today);
+  const weekDates = Array.from({length:7},(_,i)=>addDays(weekStart,i));
+  let plannedWeek = 0, doneWeek = 0;
+  weekDates.forEach(d=>{
+    const planned = tasksPlannedForDate(d);
+    plannedWeek += planned.length;
+    doneWeek += tasksDoneCountForDate(d, planned);
+  });
+
+  let msg;
+  if(plannedToday.length===0) msg = 'ما خططتي أي مهمة لليوم بعد — أضيفي وحدة وابدئي.';
+  else if(doneTodayCount===plannedToday.length) msg = 'خلصتي كل مهام اليوم، ماشاءالله! 🌿';
+  else msg = `باقي ${plannedToday.length-doneTodayCount} مهمة لتخلصين يومك.`;
+
+  return `
+  <div class="card">
+    <div class="stats-grid">
+      <div class="stat-box" style="background:#e7f7ef;">
+        <div class="p" style="color:#2f9e6e;">${doneTodayCount} من ${plannedToday.length}</div>
+        <div class="l" style="color:#2f9e6e;">مهام اليوم</div>
+      </div>
+      <div class="stat-box" style="background:#e8effb;">
+        <div class="p" style="color:#3f6fd1;">${doneWeek} من ${plannedWeek}</div>
+        <div class="l" style="color:#3f6fd1;">مهام هالأسبوع</div>
+      </div>
+    </div>
+    <p class="muted" style="margin-top:10px;">${msg}</p>
+  </div>`;
+}
+
 /* ============ HOME ============ */
 function renderHome(){
   const isToday = selectedDate === todayStr();
   const dow = dowOf(selectedDate);
   const tpl = state.dayTemplates[dow];
   const log = getLog(selectedDate);
-  const doneToday = state.tasks.filter(t=> (t.recur&&t.recur.length)? (selectedDate===todayStr() && t.lastDoneDate===todayStr()) : (t.done && t.doneAt===selectedDate)).length;
 
   return `
   ${renderDateNav()}
   <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:4px;">${isToday? `صباحك أهداف، ${escapeHtml(state.name)} 🌿` : `روتين يوم ${tpl.name}`}</h2>
-  <p class="muted" style="margin-bottom:18px;">${isToday? (doneToday>0? `أنجزتي ${doneToday} مهمة اليوم، استمري كذا!` : 'يلا نبني يومك خطوة خطوة') : 'تقدرين تراجعين أو تخططين لهذا اليوم من هنا'}</p>
+  <p class="muted" style="margin-bottom:18px;">${isToday? 'يلا نبني يومك خطوة خطوة' : 'تقدرين تراجعين أو تخططين لهذا اليوم من هنا'}</p>
 
+  ${isToday? renderProgressStatCard() : ''}
   ${isToday? renderVoiceQuickAddCard() : ''}
   ${renderTemplateCard(tpl, dow)}
   ${renderHabitsCard(tpl, log, dow)}
