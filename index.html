@@ -1166,20 +1166,23 @@ function attachSettingsEvents(){
 
   const checkAppUpdate = document.getElementById('checkAppUpdate');
   if(checkAppUpdate) checkAppUpdate.onclick = async ()=>{
-    if(!('serviceWorker' in navigator)){ appUpdateMsg = {ok:false, text:'المتصفح ما يدعم هذي الميزة.'}; render(); return; }
-    try{
-      const reg = await navigator.serviceWorker.getRegistration();
-      if(!reg){ appUpdateMsg = {ok:false, text:'ما لقيت تسجيل نشط، جربي ترفرشين الصفحة يدويًا.'}; render(); return; }
-      appUpdateMsg = {ok:true, text:'أتأكد من وجود تحديث…'}; render();
-      await reg.update();
-      appUpdateMsg = (reg.waiting || reg.installing)
-        ? {ok:true, text:'لقيت تحديث، جاري تطبيقه…'}
-        : {ok:true, text:'نسختك محدثة ✓'};
+    if(!('serviceWorker' in navigator)){
+      appUpdateMsg = {ok:false, text:'المتصفح ما يدعم هذي الميزة، جربي ترفرشين الصفحة يدويًا.'};
       render();
-    }catch(e){
-      appUpdateMsg = {ok:false, text:'صار خطأ أثناء التحقق، جربي لاحقًا.'};
-      render();
+      return;
     }
+    appUpdateMsg = {ok:true, text:'جاري تحميل آخر نسخة…'};
+    render();
+    try{
+      /* checking whether sw.js itself changed isn't enough — the currently
+         loaded page can still be an older fetch even with the same worker
+         active, so always force a real reload through the network-first
+         (cache:'no-store') fetch handler rather than trusting reg.update()
+         alone to reflect whether index.html itself is stale */
+      const reg = await navigator.serviceWorker.getRegistration();
+      if(reg) await reg.update();
+    }catch(e){ /* fall through to reload regardless */ }
+    setTimeout(()=> location.reload(), 300);
   };
 
   const cfgGistId = document.getElementById('cfgGistId');
