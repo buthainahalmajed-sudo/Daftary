@@ -741,7 +741,12 @@ function taskDoneToday(t){
   return !!t.done;
 }
 function taskActiveToday(t){
-  if(!t.recurType) return true;
+  if(!t.recurType){
+    /* a task explicitly scheduled for a future date isn't today's business yet —
+       only surface it once its due date arrives (or if it's overdue, or dateless) */
+    if(t.due && t.due > todayStr()) return false;
+    return true;
+  }
   if(t.recurStart && todayStr() < t.recurStart) return false;
   if(t.recurEnd && todayStr() > t.recurEnd) return false;
   if(t.recurType==='daily') return true;
@@ -1386,8 +1391,11 @@ function renderQuestionsCard(log){
   </div>`;
 }
 
+const PRIORITY_WEIGHT = {'عالية':3, 'متوسطة':2, 'منخفضة':1};
 function renderTasksForDate(isToday){
-  const list = isToday? topTasks() : state.tasks.filter(t=>t.due===selectedDate);
+  /* future/past dates get their own simple due-date list (not the "today" scoring pool),
+     but still sort by priority so a high-priority task for that day surfaces first */
+  const list = isToday? topTasks() : state.tasks.filter(t=>t.due===selectedDate).sort((a,b)=>(PRIORITY_WEIGHT[b.priority]||0)-(PRIORITY_WEIGHT[a.priority]||0));
   if(list.length===0){
     return `<div class="empty">${isToday? 'ما فيه مهام بعد.':'ما فيه مهام مجدولة لهذا التاريخ.'}</div>`;
   }
