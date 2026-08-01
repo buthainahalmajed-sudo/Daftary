@@ -419,6 +419,25 @@ function defaultTemplates(){
   };
 }
 
+/* turns the old per-weekday embedded habit lists into unified habit entities
+   ({id, label, link, days:[dow,...]}), preserving each day's relative order */
+function extractHabitsFromTemplates(templates){
+  const byLabel = {};
+  const order = [];
+  for(let dow=0; dow<7; dow++){
+    const tpl = templates[dow];
+    if(!tpl || !Array.isArray(tpl.habits)) continue;
+    tpl.habits.forEach(raw=>{
+      const h = (typeof raw==='string')? {label:raw, enabled:true} : raw;
+      if(h.enabled===false) return;
+      if(!byLabel[h.label]){ byLabel[h.label] = {id:uid(), label:h.label, link:h.link||null, days:[]}; order.push(h.label); }
+      if(h.link && !byLabel[h.label].link) byLabel[h.label].link = h.link;
+      if(!byLabel[h.label].days.includes(dow)) byLabel[h.label].days.push(dow);
+    });
+  }
+  return order.map(l=>byLabel[l]);
+}
+
 /* ready-made habit suggestions the user can pin to any day's routine */
 const PRESET_HABITS = [
   {label:'نشاط عائلي', icon:'👨‍👩‍👧'},
@@ -453,7 +472,6 @@ let view = 'home';
 let moneySubView = 'finance'; /* 'finance' | 'safety' | 'expenses' — sub-tab within the consolidated المالية tab */
 let selectedDate = null;
 let weekRef = null;
-let _habitPickDow = new Date().getDay();
 let _habitAddDows = [new Date().getDay()];
 let top3Picker = null; /* array of selected task ids, max 3, while picker UI is open */
 let financeSetupDraft = null;
@@ -529,6 +547,23 @@ function hydrateState(parsed){
     if(tpl && tpl.learningDomain===undefined) tpl.learningDomain = '';
     if(tpl && tpl.learningMode===undefined) tpl.learningMode = '';
   });
+  if(!state.habits){
+    /* one-time migration: habits used to live duplicated inside each weekday template;
+       unify them into standalone entities with their own day list, and carry old
+       per-day checkmarks (keyed by label) over to the new id-keyed scheme */
+    state.habits = extractHabitsFromTemplates(state.dayTemplates);
+    const labelToId = Object.fromEntries(state.habits.map(h=>[h.label,h.id]));
+    Object.values(state.dailyLogs).forEach(log=>{
+      if(!log.habits) return;
+      const rekeyed = {};
+      Object.keys(log.habits).forEach(label=>{
+        const id = labelToId[label];
+        if(id) rekeyed[id] = log.habits[label];
+      });
+      log.habits = rekeyed;
+    });
+  }
+  state.habits.forEach(h=>{ if(!Array.isArray(h.days)) h.days = []; if(h.link===undefined) h.link = null; });
   (state.tasks||[]).forEach(t=>{
     if(t.recur && t.recur.length && !t.recurType) t.recurType = 'weekly';
   });
@@ -600,7 +635,7 @@ async function loadState(){
   if(!usedCloud){
     try{
       const raw = localStorage.getItem('plannerState');
-      if(raw) hydrateState(JSON.parse(raw));
+      hydrateState(raw? JSON.parse(raw) : {});
     }catch(e){ console.error('تعذر القراءة', e); }
   }
   storageReady = true;
@@ -686,18 +721,18 @@ function topTasksHasTie(){
   if(undone.length<4) return false;
   return scoreTask(undone[2]) === scoreTask(undone[3]);
 }
-function swapAmongActive(arr, idx, dir){
-  let j = idx+dir;
-  while(j>=0 && j<arr.length && arr[j].enabled===false) j += dir;
-  if(j>=0 && j<arr.length){
-    const tmp = arr[idx]; arr[idx]=arr[j]; arr[j]=tmp;
-    return true;
-  }
-  return false;
-}
-function moveHabitAmongActive(dow, idx, dir){
-  const arr = state.dayTemplates[dow].habits;
-  if(swapAmongActive(arr, idx, dir)){ saveState(); render(); }
+/* swaps a habit with its neighbor among habits active on the same day, keeping their
+   relative order in other days intact since it swaps the two absolute positions
+   in the single shared state.habits array */
+function moveHabitInDow(dow, habitId, dir){
+  const dayHabits = state.habits.filter(h=>h.days.includes(dow));
+  const pos = dayHabits.findIndex(h=>h.id===habitId);
+  const swapTarget = dayHabits[pos+dir];
+  if(pos===-1 || !swapTarget) return;
+  const i1 = state.habits.findIndex(h=>h.id===habitId);
+  const i2 = state.habits.findIndex(h=>h.id===swapTarget.id);
+  const tmp = state.habits[i1]; state.habits[i1]=state.habits[i2]; state.habits[i2]=tmp;
+  saveState(); render();
 }
 /* ============ render root ============ */
 function render(){
@@ -952,11 +987,10 @@ function attachTemplateDraftEvents(){
   });
   document.getElementById('tdSaveTemplate').onclick = ()=>{
     syncTemplateDraftFields();
-    const existingHabits = state.dayTemplates[templateDraft.dow].habits;
     state.dayTemplates[templateDraft.dow] = {
       name: templateDraft.name, motto: templateDraft.motto, note: templateDraft.note,
       timeLabel: templateDraft.timeLabel, learning: templateDraft.learning, learningLink: templateDraft.learningLink,
-      learningDomain: templateDraft.learningDomain, learningMode: templateDraft.learningMode, habits: existingHabits
+      learningDomain: templateDraft.learningDomain, learningMode: templateDraft.learningMode
     };
     saveState();
     templateDraft = null;
@@ -1193,12 +1227,12 @@ function renderTemplateCard(tpl, dow){
       ${(tpl.learningDomain||tpl.learningMode||tpl.learning)? `<span class="tag">📖 ${[tpl.learningDomain, tpl.learningMode, tpl.learning].filter(Boolean).map(escapeHtml).join(' · ')}</span>`:''}
       ${tpl.learningLink? `<a href="${escapeHtml(tpl.learningLink)}" target="_blank" rel="noopener" class="tag" style="text-decoration:none;">🔗 رابط التعلّم</a>`:''}
     </div>
-    ${(!tpl.motto && !tpl.timeLabel && !tpl.habits.length)? `<p class="muted" style="margin-top:10px;">ما فيه روتين محدد لهذا اليوم بعد، اضغطي "تعديل الروتين" عشان تبنينه.</p>`:''}
+    ${(!tpl.motto && !tpl.timeLabel && !state.habits.some(h=>h.days.includes(dow)))? `<p class="muted" style="margin-top:10px;">ما فيه روتين محدد لهذا اليوم بعد، اضغطي "تعديل الروتين" عشان تبنينه.</p>`:''}
   </div>`;
 }
 
 function renderHabitsCard(tpl, log, dow){
-  const activePairs = tpl.habits.map((h,idx)=>({h,idx})).filter(x=>x.h.enabled!==false);
+  const dayHabits = state.habits.filter(h=>h.days.includes(dow));
   const collapsed = state.collapsed.habits;
   return `
   <div class="card">
@@ -1207,15 +1241,15 @@ function renderHabitsCard(tpl, log, dow){
       <button class="icon-btn sm" data-goto-habits="1">إدارة العادات</button>
     </div>
     ${collapsed? '' : `
-    ${activePairs.length===0? `<p class="muted" style="margin-bottom:10px;">ما فيه عادات مفعّلة لهذا اليوم. أضيفي أو فعّلي من صفحة "العادات".</p>`:''}
-    ${activePairs.map(({h,idx},i)=>{
-      const done = !!log.habits[h.label];
+    ${dayHabits.length===0? `<p class="muted" style="margin-bottom:10px;">ما فيه عادات مفعّلة لهذا اليوم. أضيفي أو فعّلي من صفحة "العادات".</p>`:''}
+    ${dayHabits.map((h,i)=>{
+      const done = !!log.habits[h.id];
       return `<div class="habit-item">
         <div style="display:flex;flex-direction:column;gap:1px;">
-          <button type="button" class="icon-btn" style="padding:1px 6px;font-size:12px;" data-homehabit-up="${idx}" data-homehabit-dow="${dow}" ${i===0?'disabled':''}>▲</button>
-          <button type="button" class="icon-btn" style="padding:1px 6px;font-size:12px;" data-homehabit-down="${idx}" data-homehabit-dow="${dow}" ${i===activePairs.length-1?'disabled':''}>▼</button>
+          <button type="button" class="icon-btn" style="padding:1px 6px;font-size:12px;" data-homehabit-up="${h.id}" data-homehabit-dow="${dow}" ${i===0?'disabled':''}>▲</button>
+          <button type="button" class="icon-btn" style="padding:1px 6px;font-size:12px;" data-homehabit-down="${h.id}" data-homehabit-dow="${dow}" ${i===dayHabits.length-1?'disabled':''}>▼</button>
         </div>
-        <button type="button" class="hbox ${done?'done':''}" data-habit="${escapeHtml(h.label)}">${done?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
+        <button type="button" class="hbox ${done?'done':''}" data-habit="${h.id}">${done?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
         <span class="habit-label ${done?'done':''}" style="flex:1;">${escapeHtml(h.label)}</span>
         ${h.link? `<a href="${escapeHtml(h.link)}" target="_blank" rel="noopener" title="رابط مساعد" style="font-size:16px;text-decoration:none;">🔗</a>`:''}
       </div>`;
@@ -3350,38 +3384,32 @@ function attachExpensesEvents(){
 function renderHabitsPage(){
   const start = startOfWeek(weekRef);
   const dates = Array.from({length:7},(_,i)=>addDays(start,i));
-  /* union of active (enabled) habit labels across this week's templates, in day order, de-duplicated */
-  const habitSet = [];
-  dates.forEach(d=>{
-    const tpl = state.dayTemplates[dowOf(d)];
-    tpl.habits.filter(h=>h.enabled!==false).forEach(h=>{ if(!habitSet.includes(h.label)) habitSet.push(h.label); });
-  });
+  const habitsThisWeek = state.habits.filter(h=> dates.some(d=>h.days.includes(dowOf(d))));
 
   const rangeLabel = `${formatDateAr(dates[0])} – ${formatDateAr(dates[6])}`;
 
   let rows = '';
-  if(habitSet.length===0){
-    rows = `<tr><td colspan="8" style="padding:20px;color:#8b9694;">ما فيه عادات مفعّلة لأيام هالأسبوع. أضيفي وفعّلي عادات من الإدارة تحت.</td></tr>`;
+  if(habitsThisWeek.length===0){
+    rows = `<tr><td colspan="8" style="padding:20px;color:#8b9694;">ما فيه عادات مفعّلة لأيام هالأسبوع. أضيفي عادة من الإدارة تحت.</td></tr>`;
   }else{
-    rows = habitSet.map((label)=>{
+    rows = habitsThisWeek.map((h)=>{
       let cells = dates.map(d=>{
-        const tpl = state.dayTemplates[dowOf(d)];
-        const active = tpl.habits.filter(h=>h.enabled!==false).map(h=>h.label);
-        if(!active.includes(label)) return `<td><span class="gcheck na">–</span></td>`;
+        const dow = dowOf(d);
+        if(!h.days.includes(dow)) return `<td><span class="gcheck na">–</span></td>`;
         const log = getLog(d);
-        const done = !!log.habits[label];
-        return `<td><button type="button" class="gcheck ${done?'done':''}" data-gdate="${d}" data-glabel="${escapeHtml(label)}">${done?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button></td>`;
+        const done = !!log.habits[h.id];
+        return `<td><button type="button" class="gcheck ${done?'done':''}" data-gdate="${d}" data-ghabit="${h.id}">${done?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button></td>`;
       }).join('');
-      return `<tr><td class="habit-label-cell">${escapeHtml(label)}</td>${cells}</tr>`;
+      return `<tr><td class="habit-label-cell">${escapeHtml(h.label)}</td>${cells}</tr>`;
     }).join('');
   }
 
   let pctCells = dates.map(d=>{
-    const tpl = state.dayTemplates[dowOf(d)];
-    const active = tpl.habits.filter(h=>h.enabled!==false);
+    const dow = dowOf(d);
+    const active = state.habits.filter(h=>h.days.includes(dow));
     if(!active.length) return `<td>–</td>`;
     const log = getLog(d);
-    const done = active.filter(h=>log.habits[h.label]).length;
+    const done = active.filter(h=>log.habits[h.id]).length;
     return `<td>${done}/${active.length}</td>`;
   }).join('');
 
@@ -3428,7 +3456,7 @@ function renderHabitsPage(){
         </thead>
         <tbody>
           ${rows}
-          ${habitSet.length? `<tr class="pct-row"><td class="habit-label-cell">الإنجاز</td>${pctCells}</tr>`:''}
+          ${habitsThisWeek.length? `<tr class="pct-row"><td class="habit-label-cell">الإنجاز</td>${pctCells}</tr>`:''}
         </tbody>
       </table>
     </div>
@@ -3438,25 +3466,22 @@ function renderHabitsPage(){
   <details class="card" data-sec="habitsEdit" ${openSections.habitsEdit?'open':''} style="margin-top:16px;">
     <summary><h3>✏️ تعديل العادات <span class="chev">▾</span></h3></summary>
     <div class="details-body">
-      <p class="muted" style="margin-bottom:10px;">اختاري اليوم، وفعّلي أو عطّلي أو عدّلي أو احذفي أو رتّبي أي عادة منه.</p>
-      <div class="chip-row" style="margin-bottom:14px;" id="habitDowPicker">
-        ${DOW_NAMES.map((n,i)=>`<button type="button" class="chip ${(_habitPickDow===i)?'selected':''}" data-pick-dow="${i}">${n}</button>`).join('')}
-      </div>
-      ${state.dayTemplates[_habitPickDow].habits.length===0? `<p class="muted" style="margin-bottom:10px;">ما فيه عادات ليوم ${DOW_NAMES[_habitPickDow]} بعد.</p>`:''}
-      ${state.dayTemplates[_habitPickDow].habits.map((h,idx)=>{
-        const isOn = h.enabled!==false;
-        const last = state.dayTemplates[_habitPickDow].habits.length-1;
-        return `<div style="${isOn?'':'opacity:.45;'}padding:8px 0;border-bottom:1px dashed var(--line);">
-          <div class="habit-item" style="border:none;padding:0 0 6px;">
+      <p class="muted" style="margin-bottom:10px;">لكل عادة، حددي أيامها من هنا وغيّريها وقت ما تبين — بدون ما تحتاجين تروحين ليوم معيّن.</p>
+      ${state.habits.length===0? `<p class="muted" style="margin-bottom:10px;">ما فيه عادات بعد.</p>`:''}
+      ${state.habits.map((h,idx)=>{
+        return `<div style="${h.days.length?'':'opacity:.6;'}padding:10px 0;border-bottom:1px dashed var(--line);">
+          <div class="habit-item" style="border:none;padding:0 0 8px;">
             <div style="display:flex;flex-direction:column;gap:1px;">
-              <button type="button" class="icon-btn" style="padding:1px 6px;font-size:12px;" data-habit-up="${idx}" ${idx===0?'disabled':''}>▲</button>
-              <button type="button" class="icon-btn" style="padding:1px 6px;font-size:12px;" data-habit-down="${idx}" ${idx===last?'disabled':''}>▼</button>
+              <button type="button" class="icon-btn" style="padding:1px 6px;font-size:12px;" data-habit-up="${h.id}" ${idx===0?'disabled':''}>▲</button>
+              <button type="button" class="icon-btn" style="padding:1px 6px;font-size:12px;" data-habit-down="${h.id}" ${idx===state.habits.length-1?'disabled':''}>▼</button>
             </div>
-            <input type="text" data-mgmt-habit-i="${idx}" value="${escapeHtml(h.label)}" style="flex:1;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;background:${isOn?'var(--parchment)':'#eee'};font-size:13.5px;"/>
-            <button type="button" class="btn ${isOn?'ghost':''} sm" data-toggle-active="${idx}" data-toggle-dow="${_habitPickDow}">${isOn?'تعطيل':'تفعيل'}</button>
-            <button type="button" class="icon-btn" data-mgmt-del="${idx}">✕</button>
+            <input type="text" data-mgmt-habit-label="${h.id}" value="${escapeHtml(h.label)}" style="flex:1;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--parchment);font-size:13.5px;"/>
+            <button type="button" class="icon-btn" data-mgmt-del="${h.id}">✕</button>
           </div>
-          <input type="text" data-mgmt-habit-link="${idx}" value="${escapeHtml(h.link||'')}" placeholder="🔗 رابط مساعد (اختياري)" style="width:100%;padding:7px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--parchment);font-size:12px;direction:ltr;text-align:left;"/>
+          <div class="chip-row" style="margin-bottom:8px;">
+            ${DOW_NAMES.map((n,i)=>`<button type="button" class="chip ${h.days.includes(i)?'selected':''}" data-habit-day="${h.id}" data-day="${i}">${n}</button>`).join('')}
+          </div>
+          <input type="text" data-mgmt-habit-link="${h.id}" value="${escapeHtml(h.link||'')}" placeholder="🔗 رابط مساعد (اختياري)" style="width:100%;padding:7px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--parchment);font-size:12px;direction:ltr;text-align:left;"/>
         </div>`;
       }).join('')}
       <p class="muted" style="margin-top:8px;">💡 ما عندي بحث تلقائي بالنسخة المستضافة، بس اطلبي مني رابط فيديو يساعدك بعادة معينة بالمحادثة، وألصقيه بخانة الرابط جنبها.</p>
@@ -3744,19 +3769,18 @@ function attachGlobalEvents(){
   document.querySelectorAll('[data-edit-template]').forEach(b=> b.onclick=()=>{
     const dow = parseInt(b.dataset.editTemplate,10);
     const tpl = state.dayTemplates[dow];
-    templateDraft = {dow, name:tpl.name, motto:tpl.motto, note:tpl.note, timeLabel:tpl.timeLabel, learning:tpl.learning, learningLink:tpl.learningLink||'', learningDomain:tpl.learningDomain||'', learningMode:tpl.learningMode||'', habits:tpl.habits.map(h=>({label:h.label, enabled:h.enabled}))};
+    templateDraft = {dow, name:tpl.name, motto:tpl.motto, note:tpl.note, timeLabel:tpl.timeLabel, learning:tpl.learning, learningLink:tpl.learningLink||'', learningDomain:tpl.learningDomain||'', learningMode:tpl.learningMode||''};
     render();
   });
 
   document.querySelectorAll('[data-habit]').forEach(b=> b.onclick=()=>{
-    const label = b.dataset.habit;
+    const habitId = b.dataset.habit;
     const log = getLog(selectedDate);
-    const wasDone = !!log.habits[label];
-    log.habits[label] = !wasDone;
-    const tpl = state.dayTemplates[dowOf(selectedDate)];
-    const active = tpl.habits.filter(h=>h.enabled!==false);
+    const wasDone = !!log.habits[habitId];
+    log.habits[habitId] = !wasDone;
+    const active = state.habits.filter(h=>h.days.includes(dowOf(selectedDate)));
     saveState();
-    if(!wasDone && active.length && active.every(h=>log.habits[h.label])){
+    if(!wasDone && active.length && active.every(h=>log.habits[h.id])){
       popStamp('يوم متكامل!','ماشاءالله عليك');
     }
     render();
@@ -3771,24 +3795,16 @@ function attachGlobalEvents(){
   });
 
   document.querySelectorAll('[data-homehabit-up]').forEach(b=> b.onclick=()=>{
-    moveHabitAmongActive(parseInt(b.dataset.homehabitDow,10), parseInt(b.dataset.homehabitUp,10), -1);
+    moveHabitInDow(parseInt(b.dataset.homehabitDow,10), b.dataset.homehabitUp, -1);
   });
   document.querySelectorAll('[data-homehabit-down]').forEach(b=> b.onclick=()=>{
-    moveHabitAmongActive(parseInt(b.dataset.homehabitDow,10), parseInt(b.dataset.homehabitDown,10), 1);
-  });
-
-  document.querySelectorAll('[data-toggle-active]').forEach(b=> b.onclick=()=>{
-    const dow = parseInt(b.dataset.toggleDow,10);
-    const idx = parseInt(b.dataset.toggleActive,10);
-    const h = state.dayTemplates[dow].habits[idx];
-    if(h) h.enabled = !h.enabled;
-    saveState(); render();
+    moveHabitInDow(parseInt(b.dataset.homehabitDow,10), b.dataset.homehabitDown, 1);
   });
 
   document.querySelectorAll('[data-gdate]').forEach(b=> b.onclick=()=>{
-    const d = b.dataset.gdate, label = b.dataset.glabel;
+    const d = b.dataset.gdate, habitId = b.dataset.ghabit;
     const log = getLog(d);
-    log.habits[label] = !log.habits[label];
+    log.habits[habitId] = !log.habits[habitId];
     saveState(); render();
   });
 
@@ -4050,10 +4066,6 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
   const nextWeek = document.getElementById('nextWeek');
   if(nextWeek) nextWeek.onclick = ()=>{ weekRef = addDays(weekRef,7); render(); };
 
-  document.querySelectorAll('[data-pick-dow]').forEach(b=> b.onclick=()=>{
-    _habitPickDow = parseInt(b.dataset.pickDow,10);
-    render();
-  });
   document.querySelectorAll('[data-add-dow]').forEach(b=> b.onclick=()=>{
     const i = parseInt(b.dataset.addDow,10);
     const pos = _habitAddDows.indexOf(i);
@@ -4066,50 +4078,47 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
     const inp = document.getElementById('pageHabitInput');
     const val = (inp?inp.value:'').trim();
     if(!val) return;
-    _habitAddDows.forEach(dow=>{
-      const tpl = state.dayTemplates[dow];
-      if(!tpl.habits.some(h=>h.label===val)) tpl.habits.push({label:val, enabled:true});
-    });
+    if(!state.habits.some(h=>h.label===val)) state.habits.push({id:uid(), label:val, link:null, days:_habitAddDows.slice()});
     if(inp) inp.value = '';
     saveState(); render();
   };
   document.querySelectorAll('[data-page-preset]').forEach(b=> b.onclick=()=>{
     const label = b.dataset.pagePreset;
-    _habitAddDows.forEach(dow=>{
-      const tpl = state.dayTemplates[dow];
-      if(!tpl.habits.some(h=>h.label===label)) tpl.habits.push({label, enabled:true});
-    });
+    if(!state.habits.some(h=>h.label===label)) state.habits.push({id:uid(), label, link:null, days:_habitAddDows.slice()});
     saveState(); render();
   });
 
-  document.querySelectorAll('[data-mgmt-habit-i]').forEach(inp=>{
+  document.querySelectorAll('[data-mgmt-habit-label]').forEach(inp=>{
     inp.onchange = ()=>{
-      const idx = parseInt(inp.dataset.mgmtHabitI,10);
-      const h = state.dayTemplates[_habitPickDow].habits[idx];
+      const h = state.habits.find(x=>x.id===inp.dataset.mgmtHabitLabel);
       if(h){ h.label = inp.value.trim() || h.label; saveState(); }
     };
   });
   document.querySelectorAll('[data-mgmt-habit-link]').forEach(inp=>{
     inp.onchange = ()=>{
-      const idx = parseInt(inp.dataset.mgmtHabitLink,10);
-      const h = state.dayTemplates[_habitPickDow].habits[idx];
+      const h = state.habits.find(x=>x.id===inp.dataset.mgmtHabitLink);
       if(h){ h.link = inp.value.trim() || null; saveState(); }
     };
   });
   document.querySelectorAll('[data-mgmt-del]').forEach(b=> b.onclick=()=>{
-    const idx = parseInt(b.dataset.mgmtDel,10);
-    state.dayTemplates[_habitPickDow].habits.splice(idx,1);
+    state.habits = state.habits.filter(h=>h.id!==b.dataset.mgmtDel);
+    saveState(); render();
+  });
+  document.querySelectorAll('[data-habit-day]').forEach(b=> b.onclick=()=>{
+    const h = state.habits.find(x=>x.id===b.dataset.habitDay);
+    if(!h) return;
+    const day = parseInt(b.dataset.day,10);
+    const pos = h.days.indexOf(day);
+    if(pos>-1) h.days.splice(pos,1); else h.days.push(day);
     saveState(); render();
   });
   document.querySelectorAll('[data-habit-up]').forEach(b=> b.onclick=()=>{
-    const i = parseInt(b.dataset.habitUp,10);
-    const arr = state.dayTemplates[_habitPickDow].habits;
-    if(i>0){ const tmp=arr[i-1]; arr[i-1]=arr[i]; arr[i]=tmp; saveState(); render(); }
+    const i = state.habits.findIndex(h=>h.id===b.dataset.habitUp);
+    if(i>0){ const tmp=state.habits[i-1]; state.habits[i-1]=state.habits[i]; state.habits[i]=tmp; saveState(); render(); }
   });
   document.querySelectorAll('[data-habit-down]').forEach(b=> b.onclick=()=>{
-    const i = parseInt(b.dataset.habitDown,10);
-    const arr = state.dayTemplates[_habitPickDow].habits;
-    if(i<arr.length-1){ const tmp=arr[i+1]; arr[i+1]=arr[i]; arr[i]=tmp; saveState(); render(); }
+    const i = state.habits.findIndex(h=>h.id===b.dataset.habitDown);
+    if(i>-1 && i<state.habits.length-1){ const tmp=state.habits[i+1]; state.habits[i+1]=state.habits[i]; state.habits[i]=tmp; saveState(); render(); }
   });
 
   /* inbox / brain-dump */
