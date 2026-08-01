@@ -497,7 +497,7 @@ let state = {
   tipIndex:{},
   tipGoalIndex:0, tipLastDate:null,
   inbox:[], /* {id, text, category, addedAt} - unsorted brain-dump items */
-  collapsed:{habits:false, questions:true, reflection:true, mood:true, schedule:true},
+  collapsed:{habits:false, questions:true, reflection:true, mood:true, schedule:true, suggestion:true},
   financialGoal:null, /* {title, targetAmount, currentAmount, deadline, configured, stages:[...]} */
   safety:null, /* {assets, income, expenses, goals, goalsTargetYears} for the financial safety point calculator */
   expenseDiag:null, /* {monthKey: {salary, extra, rows:[...]}} for the monthly expense diagnosis */
@@ -560,15 +560,15 @@ let cloudStatusMsg = '';
 let cloudLastSync = null;
 
 function hydrateState(parsed){
-  state = Object.assign({name:'', onboarded:false, goals:[], tasks:[], dayTemplates: defaultTemplates(), dailyLogs:{}, tipIndex:{}, tipGoalIndex:0, tipLastDate:null, inbox:[], collapsed:{habits:false, questions:true, reflection:true, mood:true, schedule:true}}, parsed);
+  state = Object.assign({name:'', onboarded:false, goals:[], tasks:[], dayTemplates: defaultTemplates(), dailyLogs:{}, tipIndex:{}, tipGoalIndex:0, tipLastDate:null, inbox:[], collapsed:{habits:false, questions:true, reflection:true, mood:true, schedule:true, suggestion:true}}, parsed);
   if(!state.dayTemplates) state.dayTemplates = defaultTemplates();
   if(!state.timeBoxes || !state.timeBoxes.length) state.timeBoxes = defaultTimeBoxes();
   state.timeBoxes.forEach(b=>{ if(!Array.isArray(b.categoryIds)) b.categoryIds = []; });
   if(!state.taskCategories || !state.taskCategories.length) state.taskCategories = defaultTaskCategories();
   if(!state.dailyLogs) state.dailyLogs = {};
   if(!state.inbox) state.inbox = [];
-  if(!state.collapsed) state.collapsed = {habits:false, questions:true, reflection:true, mood:true, schedule:true};
-  else state.collapsed = Object.assign({habits:false, questions:false, reflection:false, mood:false}, state.collapsed);
+  if(!state.collapsed) state.collapsed = {habits:false, questions:true, reflection:true, mood:true, schedule:true, suggestion:true};
+  else state.collapsed = Object.assign({habits:false, questions:false, reflection:false, mood:false, suggestion:true}, state.collapsed);
   if(!state._collapseDefaultsV2){
     state.collapsed.questions = true;
     state.collapsed.mood = true;
@@ -1551,9 +1551,11 @@ function renderSuggestionsCard(){
     const pool = tipsPoolForGoal(g);
     const idx = (state.tipIndex[g.id]||0) % (pool.length||1);
     const entry = pool[idx] || {text:'', personal:false};
+    const collapsed = state.collapsed.suggestion;
     tipCard = `
     <div class="card">
-      <div class="card-title"><h3>مقترح اليوم</h3></div>
+      <div class="card-title"><h3 style="cursor:pointer;flex:1;" data-toggle-collapse="suggestion">${collapsed?'▸':'▾'} مقترح اليوم</h3></div>
+      ${collapsed? '' : `
       <p class="muted" style="margin-bottom:8px;">مبني على هدفك: <b style="color:var(--petrol-dark);">${CAT_MAP[g.cat]?.icon||''} ${escapeHtml(g.title)}</b>${state.goals.length>1? ` <span class="muted">(هدف ${(( state.tipGoalIndex||0)%state.goals.length)+1} من ${state.goals.length})</span>`:''}</p>
       ${entry.personal? `<p class="muted" style="margin-bottom:4px;">🎯 من إجابتك أنتِ:</p>`:''}
       <p style="font-size:15px;margin-bottom:12px;">${escapeHtml(entry.text)}</p>
@@ -1561,6 +1563,7 @@ function renderSuggestionsCard(){
         <button class="btn sm" id="addTipTask" data-tip="${escapeHtml(entry.text)}" data-goal="${g.id}">أضيفيها لمهامي</button>
         <button class="btn ghost sm" id="anotherTip" data-goal="${g.id}">اقتراح ثاني</button>
       </div>
+      `}
     </div>`;
   }
 
