@@ -523,6 +523,7 @@ let settingsOpen = false;
 let syncExportCode = '';
 let syncImportText = '';
 let syncMsg = null; /* {ok:bool, text:string} */
+let appUpdateMsg = null; /* {ok:bool, text:string} — feedback for the manual "تحديث الآن" check in Settings */
 let storageReady = false;
 let inboxDraftText = '';
 let textScale = 1;
@@ -1129,6 +1130,13 @@ function renderSettings(){
     </div>
 
     <div class="card">
+      <div class="card-title"><h3>📦 تحديثات التطبيق</h3></div>
+      <p class="muted" style="margin-bottom:10px;">لو تشكّين إن عندك نسخة قديمة، اضغطي هنا بدل ما تحذفين الأيقونة.</p>
+      ${appUpdateMsg? `<p class="muted" style="margin-bottom:10px;color:${appUpdateMsg.ok?'var(--sage)':'var(--rose-dark)'};">${escapeHtml(appUpdateMsg.text)}</p>`:''}
+      <button class="btn ghost btn-block" id="checkAppUpdate">🔄 تحديث الآن</button>
+    </div>
+
+    <div class="card">
       <div class="card-title"><h3>نسخ بياناتي يدوياً (بديل بدون إنترنت دائم)</h3></div>
       <p class="muted" style="margin-bottom:12px;">إذا ما تبين تربطين السحاب، تقدرين تنسخين كود بياناتك وتلصقينه بجهاز ثاني يدوياً.</p>
       <button class="btn ghost btn-block" id="genCode" style="margin-bottom:10px;">انسخي كود بياناتي</button>
@@ -1153,6 +1161,24 @@ function renderSettings(){
 }
 function attachSettingsEvents(){
   document.getElementById('closeSettings').onclick = ()=>{ settingsOpen=false; syncExportCode=''; syncMsg=null; render(); };
+
+  const checkAppUpdate = document.getElementById('checkAppUpdate');
+  if(checkAppUpdate) checkAppUpdate.onclick = async ()=>{
+    if(!('serviceWorker' in navigator)){ appUpdateMsg = {ok:false, text:'المتصفح ما يدعم هذي الميزة.'}; render(); return; }
+    try{
+      const reg = await navigator.serviceWorker.getRegistration();
+      if(!reg){ appUpdateMsg = {ok:false, text:'ما لقيت تسجيل نشط، جربي ترفرشين الصفحة يدويًا.'}; render(); return; }
+      appUpdateMsg = {ok:true, text:'أتأكد من وجود تحديث…'}; render();
+      await reg.update();
+      appUpdateMsg = (reg.waiting || reg.installing)
+        ? {ok:true, text:'لقيت تحديث، جاري تطبيقه…'}
+        : {ok:true, text:'نسختك محدثة ✓'};
+      render();
+    }catch(e){
+      appUpdateMsg = {ok:false, text:'صار خطأ أثناء التحقق، جربي لاحقًا.'};
+      render();
+    }
+  };
 
   const cfgGistId = document.getElementById('cfgGistId');
   const cfgToken = document.getElementById('cfgToken');
@@ -4492,37 +4518,32 @@ function escapeHtml(s){
 /* ============ offline support ============ */
 /* Registers a tiny service worker (built inline, no separate file needed) that
    caches this page so it keeps opening even with no internet connection. */
-function registerOfflineSupport(){
+async function registerOfflineSupport(){
   if(!('serviceWorker' in navigator)) return;
   try{
-    const swCode = `
-      const CACHE = 'daftari-v2';
-      self.addEventListener('install', e => {
-        e.waitUntil(caches.open(CACHE).then(c => c.add(self.registration.scope)));
-        self.skipWaiting();
-      });
-      self.addEventListener('activate', e => {
-        e.waitUntil(
-          caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
-        );
-        self.clients.claim();
-      });
-      self.addEventListener('fetch', e => {
-        if(e.request.method !== 'GET') return;
-        /* network-first: always serve the latest version when online, and only
-           fall back to the cached copy when there's no connection at all —
-           the previous cache-first strategy kept showing stale versions after
-           every update until a second reload. */
-        e.respondWith(
-          fetch(e.request).then(res => {
-            if(res && res.ok){ caches.open(CACHE).then(c => c.put(e.request, res.clone())); }
-            return res;
-          }).catch(() => caches.match(e.request))
-        );
-      });
-    `;
-    const blobUrl = URL.createObjectURL(new Blob([swCode], {type:'application/javascript'}));
-    navigator.serviceWorker.register(blobUrl).catch(()=>{ /* offline caching unavailable, app still works online */ });
+    /* one-time cleanup: earlier versions registered the worker from a blob: URL,
+       which iOS in particular seemed to get stuck on and never re-check for
+       updates. Drop it so the real sw.js file below takes over cleanly. */
+    const regs = await navigator.serviceWorker.getRegistrations();
+    for(const reg of regs){
+      const url = reg.active?.scriptURL || reg.installing?.scriptURL || reg.waiting?.scriptURL || '';
+      if(url.startsWith('blob:')) await reg.unregister();
+    }
+
+    const reg = await navigator.serviceWorker.register('sw.js');
+    reg.update().catch(()=>{});
+    /* mobile PWAs are usually resumed from the background rather than freshly
+       loaded, so also re-check whenever the app comes back into view */
+    document.addEventListener('visibilitychange', ()=>{
+      if(document.visibilityState==='visible') reg.update().catch(()=>{});
+    });
+
+    let reloadedForUpdate = false;
+    navigator.serviceWorker.addEventListener('controllerchange', ()=>{
+      if(reloadedForUpdate) return;
+      reloadedForUpdate = true;
+      location.reload();
+    });
   }catch(e){ /* ignore — offline caching is a bonus, not required */ }
 }
 registerOfflineSupport();
