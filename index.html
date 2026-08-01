@@ -729,7 +729,11 @@ function tasksPlannedForDate(dateStr){
       if(t.recurType==='monthly') return t.recurMonthDay === parseISO(dateStr).getDate();
       return false;
     }
-    return t.due === dateStr;
+    if(t.due) return t.due === dateStr;
+    /* no explicit due date: a task just tagged to a time-of-day slot (صباح/ظهر/مساء) is
+       still meant for today, same as how "جدول يومك" surfaces it by period */
+    if(!t.period || dateStr!==todayStr()) return false;
+    return t.done? t.doneAt===dateStr : true;
   });
 }
 function tasksDoneCountForDate(dateStr, planned){
