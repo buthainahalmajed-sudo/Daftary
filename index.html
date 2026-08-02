@@ -529,9 +529,10 @@ let storageReady = false;
 let inboxDraftText = '';
 let journalWorkDraft = '';
 let journalPersonalDraft = '';
-let journalViewOpen = false;
-let journalViewYear = null; /* set to the current year when the view opens */
+let journalViewYear = null; /* selected year on the يومياتي page; defaults to current year */
 let journalExportText = '';
+let journalEditingId = null; /* id of the one journal entry currently shown as an editable textarea */
+let journalEditDraft = '';
 let textScale = 1;
 let openSections = {}; /* sectionKey -> bool, remembers manually-toggled <details> panels across the re-renders that follow every click inside them */
 let voiceCardOpen = false;
@@ -836,7 +837,6 @@ function render(){
   if(taskDraft){ app.innerHTML = renderTaskDraft(); attachTaskDraftEvents(); return; }
   if(templateDraft){ app.innerHTML = renderTemplateDraft(); attachTemplateDraftEvents(); return; }
   if(pathQualifyDraft){ app.innerHTML = renderPathQualify(); attachPathQualifyEvents(); return; }
-  if(journalViewOpen){ app.innerHTML = renderJournalPage(); attachJournalPageEvents(); return; }
 
   let body = '';
   if(view==='home') body = renderHome();
@@ -844,6 +844,7 @@ function render(){
   else if(view==='goals') body = renderGoals();
   else if(view==='habits') body = renderHabitsPage();
   else if(view==='money') body = renderMoneyPage();
+  else if(view==='journal') body = renderJournalPage();
 
   app.innerHTML = `
     ${renderTopbar()}
@@ -1375,7 +1376,6 @@ function renderHome(){
 
   ${isToday? renderScheduleCard():''}
   ${isToday? renderSuggestionsCard():''}
-  ${isToday? renderJournalCard():''}
   ${renderReflectionCard(log)}
   ${top3Picker? renderTop3Picker():''}
   `;
@@ -1630,40 +1630,6 @@ function renderSuggestionsCard(){
   ${tipCard}`;
 }
 
-function renderJournalEntryRow(j){
-  return `<div class="inbox-row" data-journal-row="${j.id}">
-    <span class="dot"></span>
-    <span class="txt" style="flex:1;">${escapeHtml(j.text)}</span>
-    <button class="icon-btn" data-journal-del="${j.id}">✕</button>
-  </div>`;
-}
-function renderJournalCard(){
-  const today = todayStr();
-  const workToday = state.journal.filter(j=>j.date===today && j.category==='work');
-  const personalToday = state.journal.filter(j=>j.date===today && j.category==='personal');
-  return `
-  <div class="card">
-    <div class="card-title"><h3>📝 يومياتي</h3></div>
-    <p class="muted" style="margin-bottom:12px;">سجّلي إنجازاتك اليوم — تنلمّ لك بنهاية السنة بتقرير جاهز.</p>
-
-    <p style="font-weight:700;color:var(--petrol-dark);margin-bottom:4px;">💼 إنجازات العمل</p>
-    ${workToday.length? workToday.map(renderJournalEntryRow).join('') : `<p class="muted" style="margin-bottom:8px;">ما سجّلتِ إنجاز عمل اليوم بعد.</p>`}
-    <div style="display:flex;gap:8px;margin:10px 0 16px;">
-      <input type="text" id="journalWorkInput" placeholder="إنجاز عمل اليوم…" value="${escapeHtml(journalWorkDraft)}" style="flex:1;"/>
-      <button class="btn sm" id="journalWorkAdd">إضافة</button>
-    </div>
-
-    <p style="font-weight:700;color:var(--petrol-dark);margin-bottom:4px;">🌸 إنجازاتي الشخصية</p>
-    ${personalToday.length? personalToday.map(renderJournalEntryRow).join('') : `<p class="muted" style="margin-bottom:8px;">ما سجّلتِ إنجاز شخصي اليوم بعد.</p>`}
-    <div style="display:flex;gap:8px;margin:10px 0 4px;">
-      <input type="text" id="journalPersonalInput" placeholder="إنجاز شخصي اليوم…" value="${escapeHtml(journalPersonalDraft)}" style="flex:1;"/>
-      <button class="btn sm" id="journalPersonalAdd">إضافة</button>
-    </div>
-
-    <button class="btn ghost btn-block" style="margin-top:12px;" id="openJournalView">📖 عرض كل يومياتي واستخلاص السنة</button>
-  </div>`;
-}
-
 function journalYearsWithEntries(){
   const years = new Set(state.journal.map(j=> parseInt(j.date.slice(0,4),10)));
   years.add(parseInt(todayStr().slice(0,4),10));
@@ -1678,68 +1644,74 @@ function buildJournalExportText(year){
   text += personalEntries.length? personalEntries.map(j=>`- [${j.date}] ${j.text}`).join('\n') : '- لا يوجد';
   return text;
 }
+function renderJournalEntryRow(j){
+  if(journalEditingId===j.id){
+    return `<div class="inbox-row" data-journal-row="${j.id}" style="align-items:flex-start;">
+      <span class="dot" style="margin-top:12px;"></span>
+      <div style="flex:1;">
+        <span class="muted" style="font-size:11px;">${j.date}</span>
+        <div class="field" style="margin:4px 0 0;">
+          <textarea data-journal-edit-input="${j.id}" style="min-height:70px;">${escapeHtml(journalEditDraft)}</textarea>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:6px;">
+          <button type="button" class="btn sm" data-journal-save="${j.id}">حفظ</button>
+          <button type="button" class="btn ghost sm" data-journal-cancel-edit="1">إلغاء</button>
+        </div>
+      </div>
+    </div>`;
+  }
+  return `<div class="inbox-row" data-journal-row="${j.id}">
+    <span class="dot"></span>
+    <div style="flex:1;"><span class="muted" style="font-size:11px;">${j.date}</span><div class="txt">${escapeHtml(j.text)}</div></div>
+    <button class="icon-btn" data-journal-edit="${j.id}">✎</button>
+    <button class="icon-btn" data-journal-del="${j.id}">✕</button>
+  </div>`;
+}
 function renderJournalPage(){
   const year = journalViewYear || parseInt(todayStr().slice(0,4),10);
   const years = journalYearsWithEntries();
   const workEntries = state.journal.filter(j=>j.category==='work' && j.date.startsWith(String(year))).sort((a,b)=>b.date.localeCompare(a.date));
   const personalEntries = state.journal.filter(j=>j.category==='personal' && j.date.startsWith(String(year))).sort((a,b)=>b.date.localeCompare(a.date));
   return `
-  <div style="padding-top:10px;">
-    <div class="card">
-      <div class="card-title">
-        <h3 style="flex:1;">📖 يومياتي</h3>
-        <button class="icon-btn" id="closeJournalView">✕</button>
-      </div>
-      <div class="chip-row" style="margin-bottom:14px;">
-        ${years.map(y=>`<button type="button" class="chip ${year===y?'selected':''}" data-journal-year="${y}">${y}</button>`).join('')}
-      </div>
+  <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:4px;">📖 يومياتي</h2>
+  <p class="muted" style="margin-bottom:16px;">سجّلي إنجازاتك بحرية، عدّليها متى ما بغيتِ، واستخلصيها بنهاية السنة بضغطة وحدة.</p>
 
-      <p style="font-weight:700;color:var(--petrol-dark);margin-bottom:6px;">💼 إنجازات العمل (${workEntries.length})</p>
-      ${workEntries.length? workEntries.map(j=>`
-        <div class="inbox-row" data-journal-row="${j.id}">
-          <span class="dot"></span>
-          <div style="flex:1;"><span class="muted" style="font-size:11px;">${j.date}</span><div class="txt">${escapeHtml(j.text)}</div></div>
-          <button class="icon-btn" data-journal-del="${j.id}">✕</button>
-        </div>`).join('') : `<p class="muted" style="margin-bottom:10px;">ما فيه إنجازات عمل مسجّلة هالسنة.</p>`}
-
-      <p style="font-weight:700;color:var(--petrol-dark);margin:16px 0 6px;">🌸 إنجازاتي الشخصية (${personalEntries.length})</p>
-      ${personalEntries.length? personalEntries.map(j=>`
-        <div class="inbox-row" data-journal-row="${j.id}">
-          <span class="dot"></span>
-          <div style="flex:1;"><span class="muted" style="font-size:11px;">${j.date}</span><div class="txt">${escapeHtml(j.text)}</div></div>
-          <button class="icon-btn" data-journal-del="${j.id}">✕</button>
-        </div>`).join('') : `<p class="muted" style="margin-bottom:10px;">ما فيه إنجازات شخصية مسجّلة هالسنة.</p>`}
-
-      <button class="btn btn-block" style="margin-top:16px;" id="exportJournalYear">📋 انسخي إنجازات هالسنة (${year})</button>
-      ${journalExportText? `
-        <div class="field" style="margin-top:10px;">
-          <textarea id="journalExportBox" readonly style="min-height:160px;font-size:12.5px;">${escapeHtml(journalExportText)}</textarea>
-        </div>
-        <p class="muted">${navigator.clipboard? 'انتسخ تلقائياً للحافظة ✓ الصقيه بتقريرك.' : 'حددي النص أعلاه وانسخيه يدويًا.'}</p>
-      `:''}
+  <div class="card">
+    <div class="card-title"><h3>💼 إنجاز عمل جديد</h3></div>
+    <div class="field" style="margin-bottom:8px;">
+      <textarea id="journalWorkInput" placeholder="اكتبي بحرية…">${escapeHtml(journalWorkDraft)}</textarea>
     </div>
-  </div>`;
-}
-function attachJournalPageEvents(){
-  document.getElementById('closeJournalView').onclick = ()=>{ journalViewOpen=false; journalExportText=''; render(); };
-  document.querySelectorAll('[data-journal-year]').forEach(b=> b.onclick=()=>{
-    journalViewYear = parseInt(b.dataset.journalYear,10);
-    journalExportText = '';
-    render();
-  });
-  document.querySelectorAll('[data-journal-del]').forEach(b=> b.onclick=()=>{
-    const j = state.journal.find(x=>x.id===b.dataset.journalDel);
-    if(!confirm(`تحذفين "${j? j.text : ''}" من يومياتك؟`)) return;
-    state.journal = state.journal.filter(x=>x.id!==b.dataset.journalDel);
-    saveState(); render();
-  });
-  const exportBtn = document.getElementById('exportJournalYear');
-  if(exportBtn) exportBtn.onclick = ()=>{
-    const year = journalViewYear || parseInt(todayStr().slice(0,4),10);
-    journalExportText = buildJournalExportText(year);
-    if(navigator.clipboard) navigator.clipboard.writeText(journalExportText).catch(()=>{});
-    render();
-  };
+    <button class="btn btn-block" id="journalWorkAdd">إضافة</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><h3>🌸 إنجاز شخصي جديد</h3></div>
+    <div class="field" style="margin-bottom:8px;">
+      <textarea id="journalPersonalInput" placeholder="اكتبي بحرية…">${escapeHtml(journalPersonalDraft)}</textarea>
+    </div>
+    <button class="btn btn-block" id="journalPersonalAdd">إضافة</button>
+  </div>
+
+  <div class="card">
+    <div class="chip-row" style="margin-bottom:14px;">
+      ${years.map(y=>`<button type="button" class="chip ${year===y?'selected':''}" data-journal-year="${y}">${y}</button>`).join('')}
+    </div>
+
+    <p style="font-weight:700;color:var(--petrol-dark);margin-bottom:6px;">💼 إنجازات العمل (${workEntries.length})</p>
+    ${workEntries.length? workEntries.map(renderJournalEntryRow).join('') : `<p class="muted" style="margin-bottom:10px;">ما فيه إنجازات عمل مسجّلة هالسنة.</p>`}
+
+    <p style="font-weight:700;color:var(--petrol-dark);margin:16px 0 6px;">🌸 إنجازاتي الشخصية (${personalEntries.length})</p>
+    ${personalEntries.length? personalEntries.map(renderJournalEntryRow).join('') : `<p class="muted" style="margin-bottom:10px;">ما فيه إنجازات شخصية مسجّلة هالسنة.</p>`}
+
+    <button class="btn btn-block" style="margin-top:16px;" id="exportJournalYear">📋 انسخي إنجازات هالسنة (${year})</button>
+    ${journalExportText? `
+      <div class="field" style="margin-top:10px;">
+        <textarea id="journalExportBox" readonly style="min-height:160px;font-size:12.5px;">${escapeHtml(journalExportText)}</textarea>
+      </div>
+      <p class="muted">${navigator.clipboard? 'انتسخ تلقائياً للحافظة ✓ الصقيه بتقريرك.' : 'حددي النص أعلاه وانسخيه يدويًا.'}</p>
+    `:''}
+  </div>
+  `;
 }
 
 function renderReflectionCard(log){
@@ -4052,6 +4024,7 @@ function renderNav(){
     {id:'goals', label:'الأساس', icon:'<path d="M12 2v20M2 12h20"/><circle cx="12" cy="12" r="9"/>'},
     {id:'habits', label:'العادات', icon:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/>'},
     {id:'money', label:'المالية', icon:'<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5c0-1.4 1.1-2.5 2.5-2.5s2.5.8 2.5 2c0 1.5-2 2-2.5 2.2C11 11.4 9.5 12 9.5 13.5c0 1.2 1.1 2 2.5 2s2.5-1.1 2.5-2.5"/>'},
+    {id:'journal', label:'يومياتي', icon:'<path d="M4 19V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2Z"/><path d="M6 21a2 2 0 0 1 0-4h13"/><path d="M9 7h7M9 11h7"/>'},
   ];
   return `<div class="nav"><div class="nav-inner">
     ${items.map(i=>`<button type="button" class="nav-btn ${view===i.id?'active':''}" data-nav="${i.id}"><svg viewBox="0 0 24 24">${i.icon}</svg>${i.label}</button>`).join('')}
@@ -4517,16 +4490,43 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
     journalPersonalDraft = '';
     saveState(); render();
   };
+  document.querySelectorAll('[data-journal-year]').forEach(b=> b.onclick=()=>{
+    journalViewYear = parseInt(b.dataset.journalYear,10);
+    journalExportText = '';
+    render();
+  });
+  document.querySelectorAll('[data-journal-edit]').forEach(b=> b.onclick=()=>{
+    const j = state.journal.find(x=>x.id===b.dataset.journalEdit);
+    if(!j) return;
+    journalEditingId = j.id;
+    journalEditDraft = j.text;
+    render();
+  });
+  document.querySelectorAll('[data-journal-edit-input]').forEach(ta=>{
+    ta.oninput = ()=>{ journalEditDraft = ta.value; };
+  });
+  document.querySelectorAll('[data-journal-save]').forEach(b=> b.onclick=()=>{
+    const j = state.journal.find(x=>x.id===b.dataset.journalSave);
+    const text = journalEditDraft.trim();
+    if(j && text) j.text = text;
+    journalEditingId = null;
+    saveState(); render();
+  });
+  document.querySelectorAll('[data-journal-cancel-edit]').forEach(b=> b.onclick=()=>{
+    journalEditingId = null;
+    render();
+  });
   document.querySelectorAll('[data-journal-del]').forEach(b=> b.onclick=()=>{
     const j = state.journal.find(x=>x.id===b.dataset.journalDel);
     if(!confirm(`تحذفين "${j? j.text : ''}" من يومياتك؟`)) return;
     state.journal = state.journal.filter(x=>x.id!==b.dataset.journalDel);
     saveState(); render();
   });
-  const openJournalView = document.getElementById('openJournalView');
-  if(openJournalView) openJournalView.onclick = ()=>{
-    journalViewOpen = true;
-    journalViewYear = parseInt(todayStr().slice(0,4),10);
+  const exportJournalYear = document.getElementById('exportJournalYear');
+  if(exportJournalYear) exportJournalYear.onclick = ()=>{
+    const year = journalViewYear || parseInt(todayStr().slice(0,4),10);
+    journalExportText = buildJournalExportText(year);
+    if(navigator.clipboard) navigator.clipboard.writeText(journalExportText).catch(()=>{});
     render();
   };
 }
