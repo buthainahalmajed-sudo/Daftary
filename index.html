@@ -526,7 +526,6 @@ let syncImportText = '';
 let syncMsg = null; /* {ok:bool, text:string} */
 let appUpdateMsg = null; /* {ok:bool, text:string} — feedback for the manual "تحديث الآن" check in Settings */
 let storageReady = false;
-let inboxDraftText = '';
 let importPasteText = '';
 let importError = null;
 let aiPlan = null; /* array of {sourceId, text, category, priority, period, due, note, include} pending review, from the offline text-extraction flow */
@@ -3819,28 +3818,24 @@ function renderHabitsPage(){
 /* ============ INBOX (brain-dump) page ============ */
 function renderInboxBox(){
   return `
+  ${state.inbox.length? `
   <div class="card" style="border-color:var(--sage);margin-bottom:16px;">
-    <div class="card-title"><h3>📝 صندوق المهام</h3></div>
-    <p class="muted" style="margin-bottom:10px;">مكان مؤقت لأي فكرة أو مهمة غير منظمة، لين ترتبينها لمهمة كاملة.</p>
-    <div class="field" style="margin-bottom:8px;">
-      <textarea id="inboxNew" placeholder="دزّي فكرة بسرعة… (سطر لكل فكرة إذا أكثر من وحدة)" style="min-height:44px;">${escapeHtml(inboxDraftText)}</textarea>
-    </div>
-    <button class="btn btn-block" id="inboxAddBtn" style="margin-bottom:10px;">إضافة</button>
-    ${state.inbox.length===0? `<div class="empty">الصندوق فاضي.</div>` :
-      state.inbox.map(it=>`
-        <div class="inbox-row" data-inbox-row="${it.id}">
-          <span class="dot"></span>
-          <div style="flex:1;">
-            <div class="txt">${escapeHtml(it.text)}</div>
-            <span class="tag" style="margin-top:4px;display:inline-block;">${it.category? (tcatOf(it.category)?.icon+' '+tcatOf(it.category)?.label) : 'غير مصنّفة'}</span>
-          </div>
-          <button class="icon-btn" data-del-inbox="${it.id}">✕</button>
-        </div>`).join('')}
+    <div class="card-title"><h3>📥 أفكار سابقة غير معالجة</h3></div>
+    ${state.inbox.map(it=>`
+      <div class="inbox-row" data-inbox-row="${it.id}">
+        <span class="dot"></span>
+        <div style="flex:1;">
+          <div class="txt">${escapeHtml(it.text)}</div>
+          <span class="tag" style="margin-top:4px;display:inline-block;">${it.category? (tcatOf(it.category)?.icon+' '+tcatOf(it.category)?.label) : 'غير مصنّفة'}</span>
+        </div>
+        <button class="icon-btn" data-del-inbox="${it.id}">✕</button>
+      </div>`).join('')}
   </div>
+  `:''}
 
-  <details style="margin-bottom:16px;">
-    <summary class="muted" style="cursor:pointer;font-size:12.5px;">✨ استخلصي مهام من نص حر</summary>
-    <div class="card" style="margin-top:10px;border-color:var(--sage);">
+  <details class="card" data-sec="taskInbox" ${openSections.taskInbox?'open':''} style="border-color:var(--sage);margin-bottom:16px;">
+    <summary><h3>📝 صندوق المهام <span class="chev">▾</span></h3></summary>
+    <div class="details-body">
       <p class="muted" style="margin-bottom:8px;">الصقي أو اكتبي أي نص فيه مهمة أو أكثر — جملة عادية أو فقرة كاملة، ما تحتاجين تنسيق معيّن — وراح أفصلها وأستخرج منها الموعد والفترة والتصنيف تلقائيًا، بدون اتصال إنترنت. هذي الطريقة تشتغل دايم.</p>
       <div class="field" style="margin-bottom:8px;">
         <textarea id="importPaste" placeholder="مثال: اتصلي بالبنك بكرة الساعة 5، وجهزي فاتورة الكهرباء الأسبوع الجاي" style="min-height:90px;">${escapeHtml(importPasteText)}</textarea>
@@ -4496,15 +4491,6 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
     };
   }
 
-  /* inbox / brain-dump */
-  const inboxNew = document.getElementById('inboxNew');
-  if(inboxNew){
-    inboxNew.oninput = ()=>{ inboxDraftText = inboxNew.value; };
-    /* Enter just inserts a newline here (default textarea behavior) — no auto-submit */
-  }
-  const inboxAddBtn = document.getElementById('inboxAddBtn');
-  if(inboxAddBtn) inboxAddBtn.onclick = addInboxItem;
-
   const importPaste = document.getElementById('importPaste');
   if(importPaste) importPaste.oninput = ()=>{ importPasteText = importPaste.value; };
   const importBtn = document.getElementById('importBtn');
@@ -4597,16 +4583,6 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
     if(navigator.clipboard) navigator.clipboard.writeText(journalExportText).catch(()=>{});
     render();
   };
-}
-
-function addInboxItem(){
-  const inp = document.getElementById('inboxNew');
-  const raw = (inp?inp.value:inboxDraftText);
-  const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean);
-  if(lines.length===0) return;
-  lines.forEach(line=> state.inbox.push({id:uid(), text:line, category:null, addedAt:todayStr()}));
-  inboxDraftText = '';
-  saveState(); render();
 }
 
 /* ============ voice / smart quick-add ============ */
