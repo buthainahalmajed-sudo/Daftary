@@ -137,6 +137,14 @@ details.card > .details-body{padding:0 18px 18px;}
 }
 .check.done{background:var(--gold);border-color:var(--gold);}
 .check svg{width:14px;height:14px;stroke:#fff;stroke-width:3;fill:none;}
+.check-wrap{position:relative;flex-shrink:0;}
+.device-badge{position:absolute;bottom:-4px;right:-4px;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;padding:0;line-height:1;cursor:pointer;}
+.device-badge.none{background:var(--paper);border:1.5px dashed var(--line);}
+.device-badge.work{background:#1a1a1a;border:1.5px solid var(--paper);}
+.device-badge.home{background:#fff;border:1.5px solid #999;}
+.device-badge.laptop{background:var(--sage);border:1.5px solid var(--paper);}
+.device-badge.work span, .device-badge.laptop span{filter:brightness(0) invert(1);}
+.device-badge.home span{filter:brightness(0);}
 .task-title{flex:1;font-size:15.5px;}
 .task-title.done{text-decoration:line-through;color:#9aa6a4;}
 .tag{font-size:10.5px;background:rgba(46,92,90,.09);color:var(--petrol-dark);padding:2px 8px;border-radius:10px;font-weight:700;}
@@ -1486,13 +1494,19 @@ function recurLabel(t){
   return base + range;
 }
 
+const DEVICE_LABELS = {work:'كمبيوتر العمل (أسود)', home:'كمبيوتر المنزل (أبيض)', laptop:'لابتوب (متنقل)'};
+const DEVICE_ICONS = {work:'🖥️', home:'🖥️', laptop:'💻'};
 function taskRowHtml(t){
   const g = t.goalId? state.goals.find(x=>x.id===t.goalId): null;
   const done = taskDoneToday(t);
   const box = t.period? timeBoxOf(t.period) : null;
+  const device = t.device || null;
   return `
   <div class="task-row" data-task="${t.id}">
-    <button class="check ${done?'done':''}" data-toggle="${t.id}">${done?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
+    <div class="check-wrap">
+      <button class="check ${done?'done':''}" data-toggle="${t.id}">${done?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
+      <button type="button" class="device-badge ${device||'none'}" data-device-cycle="${t.id}" title="${device? 'الجهاز: '+DEVICE_LABELS[device] : 'حددي الجهاز اللي بتشتغلين عليه — اضغطي للتبديل'}">${device? `<span>${DEVICE_ICONS[device]}</span>` : ''}</button>
+    </div>
     <div style="flex:1;">
       <div class="task-title ${done?'done':''}">${escapeHtml(t.title)}</div>
       <div style="margin-top:3px;display:flex;gap:6px;flex-wrap:wrap;">
@@ -4186,6 +4200,16 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
     render();
   });
 
+  document.querySelectorAll('[data-device-cycle]').forEach(b=> b.onclick=(e)=>{
+    e.stopPropagation();
+    const t = state.tasks.find(x=>x.id===b.dataset.deviceCycle);
+    if(!t) return;
+    const order = [null,'work','home','laptop'];
+    const cur = order.indexOf(t.device||null);
+    t.device = order[(cur+1)%order.length];
+    saveState(); render();
+  });
+
   document.querySelectorAll('[data-edit-task]').forEach(b=> b.onclick=()=>{
     const t = state.tasks.find(x=>x.id===b.dataset.editTask);
     if(!t) return;
@@ -4391,8 +4415,9 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
 
   const addTip = document.getElementById('addTipTask');
   if(addTip) addTip.onclick = ()=>{
-    state.tasks.push({id:uid(), title:addTip.dataset.tip, goalId:addTip.dataset.goal, priority:'متوسطة', period:null, due:todayStr(), done:false, createdAt:todayStr()});
+    state.tasks.push({id:uid(), title:addTip.dataset.tip, goalId:addTip.dataset.goal, priority:'متوسطة', period:currentTimeBoxId(), due:todayStr(), done:false, createdAt:todayStr()});
     saveState(); render();
+    popStamp('أضفتها','بتلقينها في جدول يومك تحت صندوق وقتك الحالي');
   };
   const anotherTip = document.getElementById('anotherTip');
   if(anotherTip) anotherTip.onclick = ()=>{
