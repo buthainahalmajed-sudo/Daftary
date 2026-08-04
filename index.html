@@ -138,13 +138,14 @@ details.card > .details-body{padding:0 18px 18px;}
 .check.done{background:var(--gold);border-color:var(--gold);}
 .check svg{width:14px;height:14px;stroke:#fff;stroke-width:3;fill:none;}
 .check-wrap{position:relative;flex-shrink:0;}
-.device-badge{position:absolute;bottom:-4px;right:-4px;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;padding:0;line-height:1;cursor:pointer;}
-.device-badge.none{background:var(--paper);border:1.5px dashed var(--line);}
-.device-badge.work{background:#1a1a1a;border:1.5px solid var(--paper);}
-.device-badge.home{background:#fff;border:1.5px solid #999;}
-.device-badge.laptop{background:var(--sage);border:1.5px solid var(--paper);}
-.device-badge.work span, .device-badge.laptop span{filter:brightness(0) invert(1);}
-.device-badge.home span{filter:brightness(0);}
+.device-badge{position:absolute;bottom:-4px;right:-4px;width:18px;height:18px;border-radius:50%;background:var(--paper);border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;}
+.device-badge.none{border-style:dashed;}
+.device-badge svg{width:11px;height:11px;display:block;}
+.device-menu{position:absolute;top:50%;transform:translateY(-50%);left:34px;background:var(--paper);border:1.5px solid var(--line);border-radius:10px;padding:6px;z-index:30;box-shadow:0 4px 14px rgba(31,58,61,.18);display:flex;flex-direction:column;gap:2px;min-width:170px;}
+.device-menu button{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;background:none;font-size:13px;color:var(--ink);text-align:right;}
+.device-menu button:hover{background:var(--parchment);}
+.device-menu button svg{flex-shrink:0;width:15px;height:15px;}
+.device-menu button.remove{color:var(--rose-dark);}
 .task-title{flex:1;font-size:15.5px;}
 .task-title.done{text-decoration:line-through;color:#9aa6a4;}
 .tag{font-size:10.5px;background:rgba(46,92,90,.09);color:var(--petrol-dark);padding:2px 8px;border-radius:10px;font-weight:700;}
@@ -525,6 +526,7 @@ let pendingTipAdd = null; /* {methodId, tipText, due, period} while choosing a d
 let pendingStageTaskAdd = null; /* {stageId, taskId, due, period} while choosing a due date/period for a stage task */
 let pathQualifyDraft = null; /* {methodId, skillLevel, timeline, successCriteria, tools:{label:bool}} while qualifying a new method */
 let goalWizard = null;
+let deviceMenuFor = null; /* id of the task whose device-picker popover is open */
 let taskDraft = null;
 let taskDraftRecurOpen = false;
 let templateDraft = null;
@@ -1495,7 +1497,12 @@ function recurLabel(t){
 }
 
 const DEVICE_LABELS = {work:'كمبيوتر العمل (أسود)', home:'كمبيوتر المنزل (أبيض)', laptop:'لابتوب (متنقل)'};
-const DEVICE_ICONS = {work:'🖥️', home:'🖥️', laptop:'💻'};
+function deviceIconSvg(kind){
+  if(kind==='work') return `<svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="13" rx="2" fill="#000"/><rect x="9" y="18" width="6" height="2" fill="#000"/><rect x="6" y="21" width="12" height="1.6" rx="0.8" fill="#000"/></svg>`;
+  if(kind==='home') return `<svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="13" rx="2" fill="#fff" stroke="#2c2c2a" stroke-width="1.6"/><rect x="9" y="18" width="6" height="2" fill="#2c2c2a"/><rect x="6" y="21" width="12" height="1.6" rx="0.8" fill="#2c2c2a"/></svg>`;
+  if(kind==='laptop') return `<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="10" rx="1.4" fill="#2E5C5A"/><path d="M2 18h20l-2.2 2.2H4.2z" fill="#2E5C5A"/></svg>`;
+  return '';
+}
 function taskRowHtml(t){
   const g = t.goalId? state.goals.find(x=>x.id===t.goalId): null;
   const done = taskDoneToday(t);
@@ -1505,7 +1512,14 @@ function taskRowHtml(t){
   <div class="task-row" data-task="${t.id}">
     <div class="check-wrap">
       <button class="check ${done?'done':''}" data-toggle="${t.id}">${done?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
-      <button type="button" class="device-badge ${device||'none'}" data-device-cycle="${t.id}" title="${device? 'الجهاز: '+DEVICE_LABELS[device] : 'حددي الجهاز اللي بتشتغلين عليه — اضغطي للتبديل'}">${device? `<span>${DEVICE_ICONS[device]}</span>` : ''}</button>
+      <button type="button" class="device-badge ${device||'none'}" data-device-badge="${t.id}" title="${device? 'الجهاز: '+DEVICE_LABELS[device] : 'حددي الجهاز اللي بتشتغلين عليه لهالمهمة'}">${deviceIconSvg(device)}</button>
+      ${deviceMenuFor===t.id? `
+      <div class="device-menu" data-device-menu="${t.id}">
+        <button type="button" data-device-pick="${t.id}" data-pick="work">${deviceIconSvg('work')}<span>كمبيوتر العمل (أسود)</span></button>
+        <button type="button" data-device-pick="${t.id}" data-pick="home">${deviceIconSvg('home')}<span>كمبيوتر المنزل (أبيض)</span></button>
+        <button type="button" data-device-pick="${t.id}" data-pick="laptop">${deviceIconSvg('laptop')}<span>لابتوب (متنقل)</span></button>
+        ${device? `<button type="button" class="remove" data-device-pick="${t.id}" data-pick="">✕ إزالة</button>`:''}
+      </div>`:''}
     </div>
     <div style="flex:1;">
       <div class="task-title ${done?'done':''}">${escapeHtml(t.title)}</div>
@@ -1811,6 +1825,29 @@ function renderTasksByGoalSection(){
   const pool = q? state.tasks.filter(t=> t.title.toLowerCase().includes(q)) : state.tasks;
   return renderGroupedTaskBlocks(pool, taskRowHtml, q? 'ما فيه مهام مطابقة لبحثك.' : 'ما عندك مهام بعد.');
 }
+/* groups tasks by the day they were actually completed (doneAt for one-off
+   tasks, lastDoneDate for recurring ones — recurring tasks only remember
+   their most recent completion, not full history) */
+function renderCompletedByDay(){
+  const byDay = {};
+  state.tasks.forEach(t=>{
+    const d = t.recurType? t.lastDoneDate : (t.done? t.doneAt : null);
+    if(!d) return;
+    (byDay[d] = byDay[d] || []).push(t);
+  });
+  const days = Object.keys(byDay).sort((a,b)=> b.localeCompare(a));
+  return `
+  <details class="card" data-sec="doneByDay" ${openSections.doneByDay?'open':''} style="margin-bottom:14px;">
+    <summary><h3>✅ المهام المنجزة حسب اليوم <span class="chev">▾</span></h3></summary>
+    <div class="details-body">
+      ${days.length===0? `<div class="empty">ما فيه مهام منجزة بعد.</div>` : days.map(d=>`
+        <div style="margin-bottom:14px;">
+          <h4 style="font-size:14px;color:var(--petrol-dark);margin-bottom:4px;border-top:1px dashed var(--line);padding-top:10px;">${DOW_NAMES[dowOf(d)]}، ${formatDateAr(d)} <span class="muted" style="font-size:11.5px;font-weight:400;">(${byDay[d].length})</span></h4>
+          ${byDay[d].map(t=>taskRowHtml(t)).join('')}
+        </div>`).join('')}
+    </div>
+  </details>`;
+}
 function renderTasks(){
   return `
   <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:14px;">مهامي</h2>
@@ -1821,7 +1858,8 @@ function renderTasks(){
   <button class="btn btn-block" id="goAddTask2" style="margin-bottom:16px;">+ إضافة مهمة جديدة</button>
   <div id="taskListCard">
     ${renderTasksByGoalSection()}
-  </div>`;
+  </div>
+  ${renderCompletedByDay()}`;
 }
 
 /* ============ GOALS page ============ */
@@ -4200,15 +4238,23 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
     render();
   });
 
-  document.querySelectorAll('[data-device-cycle]').forEach(b=> b.onclick=(e)=>{
+  document.querySelectorAll('[data-device-badge]').forEach(b=> b.onclick=(e)=>{
     e.stopPropagation();
-    const t = state.tasks.find(x=>x.id===b.dataset.deviceCycle);
-    if(!t) return;
-    const order = [null,'work','home','laptop'];
-    const cur = order.indexOf(t.device||null);
-    t.device = order[(cur+1)%order.length];
+    const id = b.dataset.deviceBadge;
+    deviceMenuFor = deviceMenuFor===id? null : id;
+    render();
+  });
+  document.querySelectorAll('[data-device-pick]').forEach(b=> b.onclick=(e)=>{
+    e.stopPropagation();
+    const t = state.tasks.find(x=>x.id===b.dataset.devicePick);
+    if(t) t.device = b.dataset.pick || null;
+    deviceMenuFor = null;
     saveState(); render();
   });
+  if(!window.__deviceMenuOutsideBound){
+    window.__deviceMenuOutsideBound = true;
+    document.addEventListener('click', ()=>{ if(deviceMenuFor){ deviceMenuFor = null; render(); } });
+  }
 
   document.querySelectorAll('[data-edit-task]').forEach(b=> b.onclick=()=>{
     const t = state.tasks.find(x=>x.id===b.dataset.editTask);
