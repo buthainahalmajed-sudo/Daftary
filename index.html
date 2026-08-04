@@ -137,15 +137,8 @@ details.card > .details-body{padding:0 18px 18px;}
 }
 .check.done{background:var(--gold);border-color:var(--gold);}
 .check svg{width:14px;height:14px;stroke:#fff;stroke-width:3;fill:none;}
-.check-wrap{position:relative;flex-shrink:0;}
-.device-badge{position:absolute;bottom:-4px;right:-4px;width:18px;height:18px;border-radius:50%;background:var(--paper);border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;}
-.device-badge.none{border-style:dashed;}
-.device-badge svg{width:11px;height:11px;display:block;}
-.device-menu{position:absolute;top:50%;transform:translateY(-50%);left:34px;background:var(--paper);border:1.5px solid var(--line);border-radius:10px;padding:6px;z-index:30;box-shadow:0 4px 14px rgba(31,58,61,.18);display:flex;flex-direction:column;gap:2px;min-width:170px;}
-.device-menu button{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;background:none;font-size:13px;color:var(--ink);text-align:right;}
-.device-menu button:hover{background:var(--parchment);}
-.device-menu button svg{flex-shrink:0;width:15px;height:15px;}
-.device-menu button.remove{color:var(--rose-dark);}
+.tag svg{vertical-align:-2px;margin-left:2px;}
+.chip svg{vertical-align:-3px;margin-left:4px;}
 .task-title{flex:1;font-size:15.5px;}
 .task-title.done{text-decoration:line-through;color:#9aa6a4;}
 .tag{font-size:10.5px;background:rgba(46,92,90,.09);color:var(--petrol-dark);padding:2px 8px;border-radius:10px;font-weight:700;}
@@ -526,7 +519,6 @@ let pendingTipAdd = null; /* {methodId, tipText, due, period} while choosing a d
 let pendingStageTaskAdd = null; /* {stageId, taskId, due, period} while choosing a due date/period for a stage task */
 let pathQualifyDraft = null; /* {methodId, skillLevel, timeline, successCriteria, tools:{label:bool}} while qualifying a new method */
 let goalWizard = null;
-let deviceMenuFor = null; /* id of the task whose device-picker popover is open */
 let taskDraft = null;
 let taskDraftRecurOpen = false;
 let templateDraft = null;
@@ -1497,10 +1489,13 @@ function recurLabel(t){
 }
 
 const DEVICE_LABELS = {work:'كمبيوتر العمل (أسود)', home:'كمبيوتر المنزل (أبيض)', laptop:'لابتوب (متنقل)'};
-function deviceIconSvg(kind){
-  if(kind==='work') return `<svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="13" rx="2" fill="#000"/><rect x="9" y="18" width="6" height="2" fill="#000"/><rect x="6" y="21" width="12" height="1.6" rx="0.8" fill="#000"/></svg>`;
-  if(kind==='home') return `<svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="13" rx="2" fill="#fff" stroke="#2c2c2a" stroke-width="1.6"/><rect x="9" y="18" width="6" height="2" fill="#2c2c2a"/><rect x="6" y="21" width="12" height="1.6" rx="0.8" fill="#2c2c2a"/></svg>`;
-  if(kind==='laptop') return `<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="10" rx="1.4" fill="#2E5C5A"/><path d="M2 18h20l-2.2 2.2H4.2z" fill="#2E5C5A"/></svg>`;
+const DEVICE_LABELS_SHORT = {work:'كمبيوتر العمل', home:'كمبيوتر المنزل', laptop:'لابتوب'};
+function deviceIconSvg(kind, size){
+  size = size || 14;
+  const s = `width="${size}" height="${size}"`;
+  if(kind==='work') return `<svg ${s} viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="13" rx="2" fill="#000"/><rect x="9" y="18" width="6" height="2" fill="#000"/><rect x="6" y="21" width="12" height="1.6" rx="0.8" fill="#000"/></svg>`;
+  if(kind==='home') return `<svg ${s} viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="13" rx="2" fill="#fff" stroke="#2c2c2a" stroke-width="1.6"/><rect x="9" y="18" width="6" height="2" fill="#2c2c2a"/><rect x="6" y="21" width="12" height="1.6" rx="0.8" fill="#2c2c2a"/></svg>`;
+  if(kind==='laptop') return `<svg ${s} viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="10" rx="1.4" fill="#2E5C5A"/><path d="M2 18h20l-2.2 2.2H4.2z" fill="#2E5C5A"/></svg>`;
   return '';
 }
 function taskRowHtml(t, opts){
@@ -1511,17 +1506,7 @@ function taskRowHtml(t, opts){
   const device = t.device || null;
   return `
   <div class="task-row" data-task="${t.id}">
-    <div class="check-wrap">
-      <button class="check ${done?'done':''}" data-toggle="${t.id}">${done?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
-      <button type="button" class="device-badge ${device||'none'}" data-device-badge="${t.id}" title="${device? 'الجهاز: '+DEVICE_LABELS[device] : 'حددي الجهاز اللي بتشتغلين عليه لهالمهمة'}">${deviceIconSvg(device)}</button>
-      ${deviceMenuFor===t.id? `
-      <div class="device-menu" data-device-menu="${t.id}">
-        <button type="button" data-device-pick="${t.id}" data-pick="work">${deviceIconSvg('work')}<span>كمبيوتر العمل (أسود)</span></button>
-        <button type="button" data-device-pick="${t.id}" data-pick="home">${deviceIconSvg('home')}<span>كمبيوتر المنزل (أبيض)</span></button>
-        <button type="button" data-device-pick="${t.id}" data-pick="laptop">${deviceIconSvg('laptop')}<span>لابتوب (متنقل)</span></button>
-        ${device? `<button type="button" class="remove" data-device-pick="${t.id}" data-pick="">✕ إزالة</button>`:''}
-      </div>`:''}
-    </div>
+    <button class="check ${done?'done':''}" data-toggle="${t.id}">${done?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
     <div style="flex:1;">
       <div class="task-title ${done?'done':''}">${escapeHtml(t.title)}</div>
       <div style="margin-top:3px;display:flex;gap:6px;flex-wrap:wrap;">
@@ -1529,6 +1514,7 @@ function taskRowHtml(t, opts){
         ${t.category? `<span class="tag">${tcatOf(t.category)?.icon||''} ${tcatOf(t.category)?.label||''}</span>`:''}
         ${g? `<span class="tag">${CAT_MAP[g.cat]?.icon||''} ${escapeHtml(g.title)}</span>`:''}
         ${t.period? `<span class="tag" ${timeBoxTagStyle(box)}>${box? escapeHtml(box.label) : escapeHtml(t.period)}</span>`:''}
+        ${device? `<span class="tag">${deviceIconSvg(device)} ${DEVICE_LABELS_SHORT[device]}</span>`:''}
         ${t.due? `<span class="tag">🗓️ ${t.due}</span>`:''}
         ${t.recurType? `<span class="tag">🔁 ${recurLabel(t)}</span>`:''}
         ${t.link? `<a href="${escapeHtml(t.link)}" target="_blank" rel="noopener" class="tag" style="text-decoration:none;">🔗 رابط مساعد</a>`:''}
@@ -3973,6 +3959,14 @@ function renderTaskDraft(){
         </div>
       </div>
       <div class="field">
+        <label>على أي جهاز؟ (اختياري)</label>
+        <div class="chip-row">
+          <button type="button" class="chip ${d.device==='work'?'selected':''}" data-dev="work">${deviceIconSvg('work',16)} كمبيوتر العمل</button>
+          <button type="button" class="chip ${d.device==='home'?'selected':''}" data-dev="home">${deviceIconSvg('home',16)} كمبيوتر المنزل</button>
+          <button type="button" class="chip ${d.device==='laptop'?'selected':''}" data-dev="laptop">${deviceIconSvg('laptop',16)} لابتوب</button>
+        </div>
+      </div>
+      <div class="field">
         <details id="tdRecurDetails" ${taskDraftRecurOpen? 'open':''}>
           <summary style="cursor:pointer;font-weight:600;color:var(--petrol-dark);">🔁 تكرار المهمة (اختياري)</summary>
           <div style="margin-top:10px;">
@@ -4033,6 +4027,7 @@ function attachTaskDraftEvents(){
   };
   document.querySelectorAll('[data-pri]').forEach(b=> b.onclick=()=>{ syncDraft(); taskDraft.priority=b.dataset.pri; render(); });
   document.querySelectorAll('[data-per]').forEach(b=> b.onclick=()=>{ syncDraft(); taskDraft.period = (taskDraft.period===b.dataset.per? null : b.dataset.per); render(); });
+  document.querySelectorAll('[data-dev]').forEach(b=> b.onclick=()=>{ syncDraft(); taskDraft.device = (taskDraft.device===b.dataset.dev? null : b.dataset.dev); render(); });
   const recurDetails = document.getElementById('tdRecurDetails');
   if(recurDetails) recurDetails.ontoggle = ()=>{ taskDraftRecurOpen = recurDetails.open; };
   document.querySelectorAll('[data-recur-type]').forEach(b=> b.onclick=()=>{
@@ -4074,6 +4069,7 @@ function attachTaskDraftEvents(){
         t.period = taskDraft.period||null;
         t.due = taskDraft.due||null;
         t.link = taskDraft.link||null;
+        t.device = taskDraft.device||null;
         t.recurType = recurType;
         t.recur = recur;
         t.recurMonthDay = recurMonthDay;
@@ -4089,6 +4085,7 @@ function attachTaskDraftEvents(){
       state.tasks.push({
         id:uid(), title:taskDraft.title.trim(), goalId:taskDraft.goalId||null, category:taskDraft.category||null,
         priority:taskDraft.priority, period:taskDraft.period||null, due:taskDraft.due||null, link:taskDraft.link||null,
+        device:taskDraft.device||null,
         recurType, recur, recurMonthDay, recurStart, recurEnd, lastDoneDate:null, done:false, createdAt:todayStr()
       });
     }
@@ -4244,31 +4241,14 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
     render();
   });
 
-  document.querySelectorAll('[data-device-badge]').forEach(b=> b.onclick=(e)=>{
-    e.stopPropagation();
-    const id = b.dataset.deviceBadge;
-    deviceMenuFor = deviceMenuFor===id? null : id;
-    render();
-  });
-  document.querySelectorAll('[data-device-pick]').forEach(b=> b.onclick=(e)=>{
-    e.stopPropagation();
-    const t = state.tasks.find(x=>x.id===b.dataset.devicePick);
-    if(t) t.device = b.dataset.pick || null;
-    deviceMenuFor = null;
-    saveState(); render();
-  });
-  if(!window.__deviceMenuOutsideBound){
-    window.__deviceMenuOutsideBound = true;
-    document.addEventListener('click', ()=>{ if(deviceMenuFor){ deviceMenuFor = null; render(); } });
-  }
-
   document.querySelectorAll('[data-edit-task]').forEach(b=> b.onclick=()=>{
     const t = state.tasks.find(x=>x.id===b.dataset.editTask);
     if(!t) return;
     taskDraft = {
       id:t.id, title:t.title, goalId:t.goalId||'', category:t.category||'',
       priority:t.priority, period:t.period||null, due:t.due||'', link:t.link||'', recurType:t.recurType||null,
-      recur:(t.recur||[]).slice(), recurMonthDay:t.recurMonthDay||'', recurStart:t.recurStart||'', recurEnd:t.recurEnd||''
+      recur:(t.recur||[]).slice(), recurMonthDay:t.recurMonthDay||'', recurStart:t.recurStart||'', recurEnd:t.recurEnd||'',
+      device:t.device||null
     };
     taskDraftRecurOpen = !!t.recurType;
     render();
