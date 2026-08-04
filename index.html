@@ -1304,7 +1304,7 @@ function renderDateNav(){
     <button type="button" class="arrow" id="nextDay">›</button>
     ${!isToday? `<button type="button" class="today-btn" id="jumpToday">اليوم</button>`:''}
   </div>
-  ${!isToday? `<span class="browsing-badge">${selectedDate > todayStr() ? '📅 تخطيط ليوم قادم' : '📖 تصفح يوم سابق'}</span>`:''}
+  ${!isToday? `<span class="browsing-badge">${selectedDate > todayStr() ? '🗓️ تخطيط ليوم قادم' : '📖 تصفح يوم سابق'}</span>`:''}
   `;
 }
 
@@ -1529,7 +1529,7 @@ function taskRowHtml(t, opts){
         ${t.category? `<span class="tag">${tcatOf(t.category)?.icon||''} ${tcatOf(t.category)?.label||''}</span>`:''}
         ${g? `<span class="tag">${CAT_MAP[g.cat]?.icon||''} ${escapeHtml(g.title)}</span>`:''}
         ${t.period? `<span class="tag" ${timeBoxTagStyle(box)}>${box? escapeHtml(box.label) : escapeHtml(t.period)}</span>`:''}
-        ${t.due? `<span class="tag">📅 ${t.due}</span>`:''}
+        ${t.due? `<span class="tag">🗓️ ${t.due}</span>`:''}
         ${t.recurType? `<span class="tag">🔁 ${recurLabel(t)}</span>`:''}
         ${t.link? `<a href="${escapeHtml(t.link)}" target="_blank" rel="noopener" class="tag" style="text-decoration:none;">🔗 رابط مساعد</a>`:''}
       </div>
@@ -3113,7 +3113,7 @@ function renderSafetyPage(){
       <div class="card-title" style="justify-content:center;"><h3>وش الخطوة الجاية؟</h3></div>
       <p class="muted" style="margin-bottom:14px;">خذي وضعك المالي لمرحلة جديدة مع سما النخبة للتدريب</p>
       <a class="btn rose btn-block" style="margin-bottom:10px;box-sizing:border-box;text-decoration:none;" href="https://samantc.com/wWazwPj" target="_blank" rel="noopener">🏁 سجّلي في ماراثون أول 100 ألف ريال سعودي</a>
-      <a class="btn ghost btn-block" style="box-sizing:border-box;text-decoration:none;" href="https://samantc.com/ZqGeWqb" target="_blank" rel="noopener">📅 طلب استشارة</a>
+      <a class="btn ghost btn-block" style="box-sizing:border-box;text-decoration:none;" href="https://samantc.com/ZqGeWqb" target="_blank" rel="noopener">🗓️ طلب استشارة</a>
     </div>
   </div>`;
 }
@@ -3562,7 +3562,7 @@ function renderExpensesPage(){
       <div class="card-title" style="justify-content:center;"><h3>وش الخطوة الجاية؟</h3></div>
       <p class="muted" style="margin-bottom:14px;">خذي وضعك المالي لمرحلة جديدة مع سما النخبة للتدريب</p>
       <a class="btn rose btn-block" style="margin-bottom:10px;box-sizing:border-box;text-decoration:none;" href="https://samantc.com/wAdxWKw" target="_blank" rel="noopener">🔥 ابدئي كورس نهاية الفوضى المالية</a>
-      <a class="btn ghost btn-block" style="box-sizing:border-box;text-decoration:none;" href="https://samantc.com/ZqGeWqb" target="_blank" rel="noopener">📅 اطلبي استشارة مالية مبدئية</a>
+      <a class="btn ghost btn-block" style="box-sizing:border-box;text-decoration:none;" href="https://samantc.com/ZqGeWqb" target="_blank" rel="noopener">🗓️ اطلبي استشارة مالية مبدئية</a>
     </div>
   </div>`;
 }
@@ -3922,7 +3922,7 @@ function renderAiPlanReview(){
           ${p.category? `<span class="tag">${tcatOf(p.category)?.icon||''} ${tcatOf(p.category)?.label||p.category}</span>`:''}
           <span class="tag p-${p.priority}">${p.priority}</span>
           ${p.period? `<span class="tag">${p.period}</span>`:''}
-          ${p.due? `<span class="tag">📅 ${p.due}</span>`:''}
+          ${p.due? `<span class="tag">🗓️ ${p.due}</span>`:''}
         </div>
         ${p.note? `<div class="pnote">${escapeHtml(p.note)}</div>`:''}
       </div>
@@ -4796,7 +4796,7 @@ function renderVoicePlanReview(){
           <span class="tag p-${p.priority}">${p.priority}</span>
           ${p.category? `<span class="tag">${tcatOf(p.category)?.icon||''} ${tcatOf(p.category)?.label||''}</span>`:''}
           ${p.period? `<span class="tag">${p.period}</span>`:''}
-          ${p.due? `<span class="tag">📅 ${p.due}</span>`:''}
+          ${p.due? `<span class="tag">🗓️ ${p.due}</span>`:''}
         </div>
       </div>
     `).join('')}
