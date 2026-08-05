@@ -526,6 +526,7 @@ let settingsOpen = false;
 let syncExportCode = '';
 let syncImportText = '';
 let syncMsg = null; /* {ok:bool, text:string} */
+let showLinkInfo = false; /* whether the Gist ID/Token of the already-linked device are revealed, for copying to a new device */
 let appUpdateMsg = null; /* {ok:bool, text:string} — feedback for the manual "تحديث الآن" check in Settings */
 let storageReady = false;
 let importPasteText = '';
@@ -1162,6 +1163,25 @@ function renderSettings(){
           <button class="btn btn-block" id="syncNow">مزامنة الآن</button>
           <button class="btn ghost" id="unlinkCloud">إلغاء الربط</button>
         </div>
+        <button class="btn ghost btn-block" id="toggleLinkInfo" style="margin-top:10px;">${showLinkInfo? '🙈 إخفاء بيانات الربط':'👁️ إظهار بيانات الربط (لجهاز ثالث)'}</button>
+        ${showLinkInfo? `
+        <div style="margin-top:10px;">
+          <div class="field">
+            <label>Gist ID</label>
+            <div style="display:flex;gap:8px;">
+              <input type="text" id="linkInfoGistId" readonly value="${escapeHtml(cloud.gistId)}" style="direction:ltr;text-align:left;flex:1;"/>
+              <button type="button" class="icon-btn" data-copy-link="gistId">نسخ</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>Personal Access Token</label>
+            <div style="display:flex;gap:8px;">
+              <input type="text" id="linkInfoToken" readonly value="${escapeHtml(cloud.token)}" style="direction:ltr;text-align:left;flex:1;"/>
+              <button type="button" class="icon-btn" data-copy-link="token">نسخ</button>
+            </div>
+          </div>
+          <p class="muted">انسخي الاثنين وحطيهم بنفس الحقول بأي جهاز ثاني، واضغطي فيه "اسحبي بيانات موجودة من جهاز مرتبط فعليًا".</p>
+        </div>`:''}
       `}
     </div>
 
@@ -1196,7 +1216,7 @@ function renderSettings(){
   </div>`;
 }
 function attachSettingsEvents(){
-  document.getElementById('closeSettings').onclick = ()=>{ settingsOpen=false; syncExportCode=''; syncMsg=null; render(); };
+  document.getElementById('closeSettings').onclick = ()=>{ settingsOpen=false; syncExportCode=''; syncMsg=null; showLinkInfo=false; render(); };
 
   const checkAppUpdate = document.getElementById('checkAppUpdate');
   if(checkAppUpdate) checkAppUpdate.onclick = async ()=>{
@@ -1254,6 +1274,12 @@ function attachSettingsEvents(){
     cloudStatus='idle'; cloudStatusMsg='';
     render();
   };
+  const toggleLinkInfo = document.getElementById('toggleLinkInfo');
+  if(toggleLinkInfo) toggleLinkInfo.onclick = ()=>{ showLinkInfo = !showLinkInfo; render(); };
+  document.querySelectorAll('[data-copy-link]').forEach(b=> b.onclick = async ()=>{
+    const val = b.dataset.copyLink==='gistId'? cloud.gistId : cloud.token;
+    try{ if(navigator.clipboard) await navigator.clipboard.writeText(val); }catch(e){}
+  });
 
   document.getElementById('genCode').onclick = async ()=>{
     syncExportCode = encodeState();
