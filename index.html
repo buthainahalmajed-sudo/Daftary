@@ -678,6 +678,23 @@ async function cloudPush(){
   }
 }
 
+/* cloudPull only ever ran on initial app load or a manual tap — a second device's
+   edits never showed up on this one until it was closed and reopened. This polls
+   in the background (and on resume-from-background) so linked devices stay in
+   sync while both are actually open, without yanking focus away from a field
+   the user is mid-typing in. */
+function startAutoCloudSync(){
+  if(window.__autoCloudSyncBound) return;
+  window.__autoCloudSyncBound = true;
+  const tick = ()=>{
+    if(!cloud.linked || document.visibilityState!=='visible') return;
+    const active = document.activeElement;
+    const typing = active && (active.tagName==='INPUT' || active.tagName==='TEXTAREA');
+    cloudPull().then(()=>{ if(!typing) render(); });
+  };
+  setInterval(tick, 60000);
+  document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') tick(); });
+}
 async function loadState(){
   loadCloudCfg();
   let usedCloud = false;
@@ -692,6 +709,7 @@ async function loadState(){
   selectedDate = todayStr();
   weekRef = todayStr();
   render();
+  startAutoCloudSync();
 }
 async function saveState(){
   try{
@@ -1133,10 +1151,9 @@ function renderSettings(){
           <label>Personal Access Token</label>
           <input type="text" id="cfgToken" placeholder="ghp_..." value="${escapeHtml(cloud.token)}" style="direction:ltr;text-align:left;"/>
         </div>
-        <div style="display:flex;gap:10px;">
-          <button class="btn btn-block" id="linkPush">🔼 ارفعي بيانات هذا الجهاز (أول مرة)</button>
-        </div>
-        <button class="btn ghost btn-block" id="linkPull" style="margin-top:10px;">🔽 اسحبي بيانات موجودة من جهاز ثاني</button>
+        <button class="btn btn-block" id="linkPull">🔽 اسحبي بيانات موجودة من جهاز مرتبط فعليًا</button>
+        <p class="muted" style="margin:8px 0 4px;">هذا هو الزر المناسب لأي جهاز ثاني أو ثالث — يجيب البيانات الموجودة بالسحاب بدل ما يمسحها.</p>
+        <button class="btn ghost btn-block" id="linkPush" style="margin-top:6px;">🔼 ارفعي بيانات هذا الجهاز (بس لو هذا أول جهاز على الإطلاق)</button>
       `:`
         <p class="muted" style="margin-bottom:8px;">مرتبط بنجاح ✓ ${cloudLastSync? 'آخر تزامن: '+cloudLastSync.toLocaleTimeString('ar'):''}</p>
         ${statusLabel? `<p class="muted" style="margin-bottom:10px;">${statusLabel}</p>`:''}
@@ -1155,27 +1172,27 @@ function renderSettings(){
       <button class="btn ghost btn-block" id="checkAppUpdate">🔄 تحديث الآن</button>
     </div>
 
-    <div class="card">
-      <div class="card-title"><h3>نسخ بياناتي يدوياً (بديل بدون إنترنت دائم)</h3></div>
-      <p class="muted" style="margin-bottom:12px;">إذا ما تبين تربطين السحاب، تقدرين تنسخين كود بياناتك وتلصقينه بجهاز ثاني يدوياً.</p>
-      <button class="btn ghost btn-block" id="genCode" style="margin-bottom:10px;">انسخي كود بياناتي</button>
-      ${syncExportCode? `
-        <div class="field">
-          <textarea id="exportBox" readonly style="min-height:90px;font-size:11px;direction:ltr;text-align:left;">${syncExportCode}</textarea>
+    <details class="card" data-sec="manualSync" ${openSections.manualSync?'open':''}>
+      <summary><h3>📋 نسخ يدوي (بديل بدون إنترنت دائم) <span class="chev">▾</span></h3></summary>
+      <div class="details-body">
+        <p class="muted" style="margin-bottom:12px;">إذا ما تبين تربطين السحاب، أو السحاب متعطل مؤقتًا، تقدرين تنسخين كود بياناتك وتلصقينه بجهاز ثاني يدويًا.</p>
+        <button class="btn ghost btn-block" id="genCode" style="margin-bottom:10px;">انسخي كود بياناتي</button>
+        ${syncExportCode? `
+          <div class="field">
+            <textarea id="exportBox" readonly style="min-height:90px;font-size:11px;direction:ltr;text-align:left;">${syncExportCode}</textarea>
+          </div>
+          <p class="muted" style="margin-bottom:16px;">${navigator.clipboard? 'انتسخ تلقائياً للحافظة ✓ الصقيه أي مكان (واتساب، ملاحظات) ووديه للجهاز الثاني.' : 'حددي كل النص أعلاه وانسخيه يدوياً.'}</p>
+        `:''}
+        <div style="border-top:1px dashed var(--line);padding-top:14px;">
+          <p class="muted" style="margin-bottom:10px;">أو الصقي هنا كود نسختيه من جهاز ثاني — تنبيه: هذا بيستبدل كل بيانات هذا الجهاز الحالية.</p>
+          <div class="field">
+            <textarea id="importBox" placeholder="الصقي الكود هنا…" style="min-height:90px;font-size:11px;direction:ltr;text-align:left;">${escapeHtml(syncImportText)}</textarea>
+          </div>
+          ${syncMsg? `<p class="muted" style="color:${syncMsg.ok?'var(--sage)':'var(--rose-dark)'};margin-bottom:10px;">${escapeHtml(syncMsg.text)}</p>`:''}
+          <button class="btn rose btn-block" id="doImport">استوردي واستبدلي بيانات هذا الجهاز</button>
         </div>
-        <p class="muted">${navigator.clipboard? 'انتسخ تلقائياً للحافظة ✓ الصقيه أي مكان (واتساب، ملاحظات) ووديه للجهاز الثاني.' : 'حددي كل النص أعلاه وانسخيه يدوياً.'}</p>
-      `:''}
-    </div>
-
-    <div class="card">
-      <div class="card-title"><h3>استيراد بيانات من جهاز ثاني</h3></div>
-      <p class="muted" style="margin-bottom:10px;">الصقي هنا الكود اللي نسختيه من الجهاز الثاني. تنبيه: هذا بيستبدل كل بيانات هذا الجهاز الحالية.</p>
-      <div class="field">
-        <textarea id="importBox" placeholder="الصقي الكود هنا…" style="min-height:90px;font-size:11px;direction:ltr;text-align:left;">${escapeHtml(syncImportText)}</textarea>
       </div>
-      ${syncMsg? `<p class="muted" style="color:${syncMsg.ok?'var(--sage)':'var(--rose-dark)'};margin-bottom:10px;">${escapeHtml(syncMsg.text)}</p>`:''}
-      <button class="btn rose btn-block" id="doImport">استوردي واستبدلي بيانات هذا الجهاز</button>
-    </div>
+    </details>
   </div>`;
 }
 function attachSettingsEvents(){
@@ -1213,6 +1230,7 @@ function attachSettingsEvents(){
   if(linkPush) linkPush.onclick = async ()=>{
     syncCfgFields();
     if(!cloud.gistId || !cloud.token){ cloudStatus='error'; cloudStatusMsg='عبي Gist ID وToken أول.'; render(); return; }
+    if(!confirm('تنبيه: إذا فيه بيانات محفوظة بالسحاب من جهاز ثاني، بتنمسح وتنستبدل ببيانات هذا الجهاز. متأكدة إنك تبين ترفعين؟')) return;
     cloud.linked = true; saveCloudCfg();
     const ok = await cloudPush();
     if(!ok) cloud.linked = false;
