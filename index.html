@@ -1152,9 +1152,11 @@ function renderSettings(){
           <label>Personal Access Token</label>
           <input type="text" id="cfgToken" placeholder="ghp_..." value="${escapeHtml(cloud.token)}" style="direction:ltr;text-align:left;"/>
         </div>
-        <button class="btn btn-block" id="linkPull">🔽 اسحبي بيانات موجودة من جهاز مرتبط فعليًا</button>
+        ${statusLabel? `<p class="muted" style="margin-bottom:10px;">${statusLabel}</p>`:''}
+        ${cloudStatus==='error'&&cloudStatusMsg? `<p class="muted" style="color:var(--rose-dark);margin-bottom:10px;">⚠️ ${escapeHtml(cloudStatusMsg)}</p>`:''}
+        <button class="btn btn-block" id="linkPull" ${cloudStatus==='syncing'?'disabled':''}>${cloudStatus==='syncing'?'⏳ يسحب…':'🔽 اسحبي بيانات موجودة من جهاز مرتبط فعليًا'}</button>
         <p class="muted" style="margin:8px 0 4px;">هذا هو الزر المناسب لأي جهاز ثاني أو ثالث — يجيب البيانات الموجودة بالسحاب بدل ما يمسحها.</p>
-        <button class="btn ghost btn-block" id="linkPush" style="margin-top:6px;">🔼 ارفعي بيانات هذا الجهاز (بس لو هذا أول جهاز على الإطلاق)</button>
+        <button class="btn ghost btn-block" id="linkPush" style="margin-top:6px;" ${cloudStatus==='syncing'?'disabled':''}>🔼 ارفعي بيانات هذا الجهاز (بس لو هذا أول جهاز على الإطلاق)</button>
       `:`
         <p class="muted" style="margin-bottom:8px;">مرتبط بنجاح ✓ ${cloudLastSync? 'آخر تزامن: '+cloudLastSync.toLocaleTimeString('ar'):''}</p>
         ${statusLabel? `<p class="muted" style="margin-bottom:10px;">${statusLabel}</p>`:''}
@@ -1251,6 +1253,7 @@ function attachSettingsEvents(){
     syncCfgFields();
     if(!cloud.gistId || !cloud.token){ cloudStatus='error'; cloudStatusMsg='عبي Gist ID وToken أول.'; render(); return; }
     if(!confirm('تنبيه: إذا فيه بيانات محفوظة بالسحاب من جهاز ثاني، بتنمسح وتنستبدل ببيانات هذا الجهاز. متأكدة إنك تبين ترفعين؟')) return;
+    cloudStatus='syncing'; cloudStatusMsg=''; render();
     cloud.linked = true; saveCloudCfg();
     const ok = await cloudPush();
     if(!ok) cloud.linked = false;
@@ -1260,6 +1263,7 @@ function attachSettingsEvents(){
   if(linkPull) linkPull.onclick = async ()=>{
     syncCfgFields();
     if(!cloud.gistId || !cloud.token){ cloudStatus='error'; cloudStatusMsg='عبي Gist ID وToken أول.'; render(); return; }
+    cloudStatus='syncing'; cloudStatusMsg=''; render();
     cloud.linked = true; saveCloudCfg();
     const ok = await cloudPull();
     if(!ok) cloud.linked = false;
