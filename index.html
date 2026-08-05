@@ -1489,7 +1489,6 @@ function recurLabel(t){
 }
 
 const DEVICE_LABELS = {work:'كمبيوتر العمل (أسود)', home:'كمبيوتر المنزل (أبيض)', laptop:'لابتوب (متنقل)'};
-const DEVICE_LABELS_SHORT = {work:'كمبيوتر العمل', home:'كمبيوتر المنزل', laptop:'لابتوب'};
 function deviceIconSvg(kind, size){
   size = size || 14;
   const s = `width="${size}" height="${size}"`;
@@ -1508,13 +1507,15 @@ function taskRowHtml(t, opts){
   <div class="task-row" data-task="${t.id}">
     <button class="check ${done?'done':''}" data-toggle="${t.id}">${done?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
     <div style="flex:1;">
-      <div class="task-title ${done?'done':''}">${escapeHtml(t.title)}</div>
+      <div class="task-title ${done?'done':''}" style="display:flex;align-items:center;gap:6px;">
+        ${device? `<span style="flex-shrink:0;" title="${DEVICE_LABELS[device]}">${deviceIconSvg(device,15)}</span>`:''}
+        <span>${escapeHtml(t.title)}</span>
+      </div>
       <div style="margin-top:3px;display:flex;gap:6px;flex-wrap:wrap;">
         <span class="tag p-${t.priority}">${t.priority}</span>
         ${t.category? `<span class="tag">${tcatOf(t.category)?.icon||''} ${tcatOf(t.category)?.label||''}</span>`:''}
         ${g? `<span class="tag">${CAT_MAP[g.cat]?.icon||''} ${escapeHtml(g.title)}</span>`:''}
         ${t.period? `<span class="tag" ${timeBoxTagStyle(box)}>${box? escapeHtml(box.label) : escapeHtml(t.period)}</span>`:''}
-        ${device? `<span class="tag">${deviceIconSvg(device)} ${DEVICE_LABELS_SHORT[device]}</span>`:''}
         ${t.due? `<span class="tag">🗓️ ${t.due}</span>`:''}
         ${t.recurType? `<span class="tag">🔁 ${recurLabel(t)}</span>`:''}
         ${t.link? `<a href="${escapeHtml(t.link)}" target="_blank" rel="noopener" class="tag" style="text-decoration:none;">🔗 رابط مساعد</a>`:''}
