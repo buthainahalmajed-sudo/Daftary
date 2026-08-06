@@ -4743,11 +4743,21 @@ function vqParseDateTime(text){
   return {due, period};
 }
 function vqParseCategory(text){
-  if(/مالي|فلوس|فاتورة|بنك|ادخار|مصروف|قرض|راتب/.test(text)) return 'business';
-  if(/مشروع/.test(text)) return 'project';
-  if(/عائل|أطفال|بيت/.test(text)) return 'family';
-  if(/شخصي/.test(text)) return 'personal';
-  return null;
+  /* primary: match her actual current category labels directly, so saying
+     the category's real name in the text always works — including custom
+     categories she renamed or added, not just the handful of legacy
+     keywords below */
+  const byLabel = state.taskCategories.find(c=> c.label && text.includes(c.label));
+  if(byLabel) return byLabel.id;
+  /* fallback: legacy keyword synonyms, only if that category id still
+     exists (she may have renamed/deleted a default category) */
+  let legacy = null;
+  if(/مالي|فلوس|فاتورة|بنك|ادخار|مصروف|قرض|راتب/.test(text)) legacy = 'business';
+  else if(/مشروع/.test(text)) legacy = 'project';
+  else if(/عائل|أطفال|بيت/.test(text)) legacy = 'family';
+  else if(/شخصي/.test(text)) legacy = 'personal';
+  else if(/عمل|شغل|دوام/.test(text)) legacy = 'work';
+  return (legacy && tcatOf(legacy))? legacy : null;
 }
 function vqParsePriority(text){
   if(/مهم جدا|ضروري|عاجل/.test(text)) return 'عالية';
