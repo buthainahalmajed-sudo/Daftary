@@ -3953,11 +3953,14 @@ function renderAiPlanReview(){
           <span class="ptxt">${escapeHtml(p.text)}</span>
           <button type="button" class="plan-check ${p.include?'on':''}" data-plan-toggle="${i}">${p.include?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
         </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          ${p.category? `<span class="tag">${tcatOf(p.category)?.icon||''} ${tcatOf(p.category)?.label||p.category}</span>`:''}
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+          <select data-plan-cat="${i}" style="font-size:12px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--line);background:var(--parchment);color:var(--ink);">
+            <option value="">🗂️ غير مصنّفة</option>
+            ${state.taskCategories.map(c=>`<option value="${c.id}" ${p.category===c.id?'selected':''}>${c.icon} ${c.label}</option>`).join('')}
+          </select>
+          <input type="date" data-plan-due="${i}" value="${p.due||''}" style="font-size:12px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--line);background:var(--parchment);color:var(--ink);"/>
           <span class="tag p-${p.priority}">${p.priority}</span>
           ${p.period? `<span class="tag">${p.period}</span>`:''}
-          ${p.due? `<span class="tag">🗓️ ${p.due}</span>`:''}
         </div>
         ${p.note? `<div class="pnote">${escapeHtml(p.note)}</div>`:''}
       </div>
@@ -4621,6 +4624,14 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
     const i = parseInt(b.dataset.planToggle,10);
     aiPlan[i].include = !aiPlan[i].include;
     render();
+  });
+  document.querySelectorAll('[data-plan-cat]').forEach(sel=> sel.onchange=()=>{
+    const i = parseInt(sel.dataset.planCat,10);
+    aiPlan[i].category = sel.value || null;
+  });
+  document.querySelectorAll('[data-plan-due]').forEach(inp=> inp.onchange=()=>{
+    const i = parseInt(inp.dataset.planDue,10);
+    aiPlan[i].due = inp.value || null;
   });
   const acceptPlan = document.getElementById('acceptPlan');
   if(acceptPlan) acceptPlan.onclick = ()=>{
