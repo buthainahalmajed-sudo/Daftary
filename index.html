@@ -2164,21 +2164,17 @@ function renderGoals(){
     if(ids.length){ ids.forEach(id=> (byPillar[id] = byPillar[id]||[]).push(g)); }
     else noPillar.push(g);
   });
-  const hasAnyPillarGroup = state.goalPillars.some(p=> byPillar[p.id] && byPillar[p.id].length);
-  const groupedGoalsHtml = state.goalPillars.map(p=>{
-    const goals = byPillar[p.id];
+  const goalGroupHtml = (key, icon, label, goals)=>{
     if(!goals || !goals.length) return '';
-    const key = 'pillarGroup:'+p.id;
     const collapsed = state.collapsed[key];
     return `
     <div style="margin-bottom:14px;">
-      <h4 style="cursor:pointer;font-size:15px;color:var(--petrol-dark);margin-bottom:8px;" data-toggle-collapse="${key}">${collapsed?'▸':'▾'} ${p.icon} ${escapeHtml(p.label)} <span class="muted" style="font-size:12px;font-weight:400;">(${goals.length})</span></h4>
+      <h4 style="cursor:pointer;font-size:15px;color:var(--petrol-dark);margin-bottom:8px;" data-toggle-collapse="${key}">${collapsed?'▸':'▾'} ${icon} ${escapeHtml(label)} <span class="muted" style="font-size:12px;font-weight:400;">(${goals.length})</span></h4>
       ${collapsed? '' : goals.map(renderGoalCard).join('')}
     </div>`;
-  }).join('') + (noPillar.length? `
-    <div style="margin-bottom:14px;">
-      ${hasAnyPillarGroup? (()=>{ const key='pillarGroup:__none__'; const collapsed=state.collapsed[key]; return `<h4 style="cursor:pointer;font-size:15px;color:var(--petrol-dark);margin-bottom:8px;" data-toggle-collapse="${key}">${collapsed?'▸':'▾'} 🗂️ بدون بند <span class="muted" style="font-size:12px;font-weight:400;">(${noPillar.length})</span></h4>${collapsed? '' : noPillar.map(renderGoalCard).join('')}`; })() : noPillar.map(renderGoalCard).join('')}
-    </div>` : '');
+  };
+  const groupedGoalsHtml = state.goalPillars.map(p=> goalGroupHtml('pillarGroup:'+p.id, p.icon, p.label, byPillar[p.id])).join('')
+    + goalGroupHtml('pillarGroup:__none__', '🗂️', 'بدون بند', noPillar);
   return `
   <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:4px;">الأساس</h2>
   <p class="muted" style="margin-bottom:16px;">أهدافك السنوية، صناديق الزمن، والتصنيفات اللي تُبنى عليها مهامك — كل شي أساسي بمكان واحد.</p>
