@@ -545,6 +545,9 @@ let settingsOpen = false;
 let syncExportCode = '';
 let syncImportText = '';
 let syncMsg = null; /* {ok:bool, text:string} */
+let attachError = null; /* error message shown under the goal-attachment file picker */
+let visionWizard = null; /* {step:'questions'|'review', answers:[], draftText:''} while building/redoing the life vision */
+let visionEditing = false; /* whether the confirmed life-vision text is currently shown as an editable textarea */
 let showLinkInfo = false; /* whether the Gist ID/Token of the already-linked device are revealed, for copying to a new device */
 let appUpdateMsg = null; /* {ok:bool, text:string} — feedback for the manual "تحديث الآن" check in Settings */
 let storageReady = false;
@@ -602,7 +605,10 @@ function hydrateState(parsed){
     if(g.pillarId && !g.pillarIds){ g.pillarIds = [g.pillarId]; delete g.pillarId; }
     if(!g.pillarIds) g.pillarIds = [];
     if(!g.customPillars) g.customPillars = [];
+    if(g.notes===undefined) g.notes = '';
+    if(!g.attachments) g.attachments = [];
   });
+  if(!state.lifeVision) state.lifeVision = {text:''};
   if(!state.dailyLogs) state.dailyLogs = {};
   if(!state.inbox) state.inbox = [];
   if(!state.journal) state.journal = [];
@@ -1000,6 +1006,7 @@ function attachOnboardingEvents(){
     state.onboarded = true;
     saveState();
     goalWizard = {title:'', cat:'health', answers:['','']};
+    attachError = null;
     render();
   };
   document.getElementById('onImport').onclick = ()=>{ settingsOpen=true; syncExportCode=''; syncMsg=null; render(); };
@@ -1045,6 +1052,26 @@ function renderGoalWizard(){
           <label>${q}</label>
           <textarea id="gwAns${i}" placeholder="اكتبي إجابتك هنا…">${escapeHtml(goalWizard.answers[i]||'')}</textarea>
         </div>`).join('')}
+      <hr style="border:none;border-top:1px dashed var(--line);margin:16px 0;">
+      <div class="field">
+        <label>ملاحظات وتفاصيل إضافية (اختياري)</label>
+        <textarea id="gwNotes" placeholder="اكتبي أي تفاصيل، خطة، أو أفكار تخص هالهدف بحرية…" style="min-height:140px;">${escapeHtml(goalWizard.notes||'')}</textarea>
+      </div>
+      <div class="field">
+        <label>📎 مرفقات (اختياري)</label>
+        ${(goalWizard.attachments||[]).length? `
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">
+          ${goalWizard.attachments.map((a,i)=>`
+            <div class="inbox-row" data-attach-row="${i}" style="align-items:center;">
+              <span class="dot"></span>
+              <a href="${a.dataUrl}" download="${escapeHtml(a.name)}" style="flex:1;color:var(--petrol-dark);font-size:14px;text-decoration:none;">📄 ${escapeHtml(a.name)} <span class="muted" style="font-size:11.5px;">(${Math.round(a.size/1024)} كيلوبايت)</span></a>
+              <button type="button" class="icon-btn" data-attach-del="${i}">✕</button>
+            </div>`).join('')}
+        </div>`:''}
+        <input type="file" id="gwAttachInput" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.heic,.txt" style="width:100%;padding:10px;border:1.5px dashed var(--line);border-radius:10px;background:var(--parchment);font-size:13px;"/>
+        ${attachError? `<p class="muted" style="color:var(--rose-dark);margin-top:6px;">${escapeHtml(attachError)}</p>`:''}
+        <p class="muted" style="margin-top:6px;">حجم أقصى ٨٠٠ كيلوبايت لكل ملف (تخزين محلي بالجهاز).</p>
+      </div>
       <div style="display:flex;gap:10px;margin-top:8px;">
         <button class="btn btn-block" id="gwSave">${isEdit? 'حفظ التعديلات' : 'حفظ الهدف'}</button>
         <button class="btn ghost" id="gwCancel">${isEdit || state.goals.length || state.tasks.length? 'إلغاء':'تخطي الآن'}</button>
@@ -1088,6 +1115,38 @@ function attachGoalWizardEvents(){
       render();
     };
   });
+  const gwAttachInput = document.getElementById('gwAttachInput');
+  if(gwAttachInput) gwAttachInput.onchange = ()=>{
+    goalWizard.title = document.getElementById('gwTitle').value;
+    goalWizard.notes = document.getElementById('gwNotes').value;
+    const file = gwAttachInput.files && gwAttachInput.files[0];
+    if(!file) return;
+    if(file.size > 800*1024){
+      attachError = `الملف "${file.name}" حجمه أكبر من ٨٠٠ كيلوبايت — اختاري ملف أصغر.`;
+      render();
+      return;
+    }
+    attachError = null;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      goalWizard.attachments = goalWizard.attachments || [];
+      goalWizard.attachments.push({id:uid(), name:file.name, size:file.size, dataUrl:reader.result});
+      render();
+    };
+    reader.onerror = ()=>{
+      attachError = 'ما قدرت أقرأ الملف، جربي ملف ثاني.';
+      render();
+    };
+    reader.readAsDataURL(file);
+  };
+  document.querySelectorAll('[data-attach-del]').forEach(b=>{
+    b.onclick = ()=>{
+      goalWizard.title = document.getElementById('gwTitle').value;
+      goalWizard.notes = document.getElementById('gwNotes').value;
+      goalWizard.attachments.splice(parseInt(b.dataset.attachDel,10),1);
+      render();
+    };
+  });
   document.getElementById('gwSave').onclick = ()=>{
     const title = document.getElementById('gwTitle').value.trim();
     if(!title){ document.getElementById('gwTitle').focus(); return; }
@@ -1095,18 +1154,22 @@ function attachGoalWizardEvents(){
     const answers = qs.map((_,i)=> (document.getElementById('gwAns'+i)?.value||'').trim());
     const pillarIds = (goalWizard.pillarIds||[]).slice();
     const customPillars = (goalWizard.customPillars||[]).slice();
+    const notes = document.getElementById('gwNotes').value.trim();
+    const attachments = (goalWizard.attachments||[]).slice();
     if(goalWizard.id){
       const g = state.goals.find(x=>x.id===goalWizard.id);
-      if(g){ g.title = title; g.cat = goalWizard.cat; g.answers = answers; g.pillarIds = pillarIds; g.customPillars = customPillars; }
+      if(g){ g.title = title; g.cat = goalWizard.cat; g.answers = answers; g.pillarIds = pillarIds; g.customPillars = customPillars; g.notes = notes; g.attachments = attachments; }
     }else{
-      state.goals.push({id:uid(), title, cat:goalWizard.cat, pillarIds, customPillars, answers, createdAt:todayStr()});
+      state.goals.push({id:uid(), title, cat:goalWizard.cat, pillarIds, customPillars, notes, attachments, answers, createdAt:todayStr()});
     }
+    attachError = null;
     saveState();
     goalWizard = null;
     view = 'goals';
     render();
   };
   document.getElementById('gwCancel').onclick = ()=>{
+    attachError = null;
     goalWizard = null;
     view = state.goals.length?'goals':'home';
     render();
@@ -1988,6 +2051,82 @@ function renderTasks(){
   ${renderCompletedByDay()}`;
 }
 
+/* ============ LIFE VISION (top of الأساس page) ============ */
+const VISION_QUESTIONS = [
+  'لو تخيلتِ حياتك المثالية بعد ٥ سنوات، وش أهم شي فيها؟',
+  'وش القيم اللي ما تتنازلين عنها مهما صار؟',
+  'كيف تبين تكونين على المستوى الصحي والمالي والعاطفي؟',
+  'وش الأثر اللي تبين تسوينه بحياة اللي حولك؟',
+  'لو وصف حد حياتك بجملة وحدة بعد سنوات، وش يقول؟',
+];
+function composeVisionText(answers){
+  const parts = [];
+  if(answers[0]) parts.push(answers[0]);
+  if(answers[1]) parts.push('القيم اللي أتمسك فيها:\n'+answers[1]);
+  if(answers[2]) parts.push('على المستوى الصحي والمالي والعاطفي:\n'+answers[2]);
+  if(answers[3]) parts.push('الأثر اللي أبي أتركه:\n'+answers[3]);
+  if(answers[4]) parts.push('بجملة وحدة:\n"'+answers[4]+'"');
+  return parts.join('\n\n');
+}
+function renderLifeVisionSection(){
+  if(visionWizard && visionWizard.step==='questions'){
+    return `
+    <div class="card" style="margin-bottom:14px;border-color:var(--gold);">
+      <div class="card-title"><h3>🧭 رؤيتي — أسئلة توجهك</h3></div>
+      <p class="muted" style="margin-bottom:14px;">جاوبي بصراحة وبإيجاز، وأنا أجمعهم لك بصياغة تقدرين تعدلين عليها بعدين.</p>
+      ${VISION_QUESTIONS.map((q,i)=>`
+        <div class="field">
+          <label>${q}</label>
+          <textarea id="visionQ${i}" placeholder="اكتبي إجابتك…">${escapeHtml(visionWizard.answers[i]||'')}</textarea>
+        </div>`).join('')}
+      <div style="display:flex;gap:10px;margin-top:8px;">
+        <button class="btn btn-block" id="visionCompose">✨ اصيغي لي الرؤية</button>
+        <button class="btn ghost" id="visionCancel">إلغاء</button>
+      </div>
+    </div>`;
+  }
+  if(visionWizard && visionWizard.step==='review'){
+    return `
+    <div class="card" style="margin-bottom:14px;border-color:var(--gold);">
+      <div class="card-title"><h3>🧭 هذي رؤيتك — وش رأيك؟</h3></div>
+      <p class="muted" style="margin-bottom:10px;">جمعتها من إجاباتك، عدّلي فيها لين توصل لصيغة تريحك.</p>
+      <div class="field">
+        <textarea id="visionDraftText" style="min-height:220px;">${escapeHtml(visionWizard.draftText)}</textarea>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:8px;">
+        <button class="btn btn-block" id="visionApprove">✓ موافقة، هذي رؤيتي</button>
+        <button class="btn ghost" id="visionBackToQuestions">↺ رجوع للأسئلة</button>
+      </div>
+    </div>`;
+  }
+  if(state.lifeVision.text){
+    return `
+    <div class="card" style="margin-bottom:14px;border-color:var(--gold);">
+      <div class="card-title"><h3>🧭 رؤيتي</h3>
+        <button class="icon-btn" id="visionEditToggle">${visionEditing?'✕':'✎'}</button>
+      </div>
+      ${visionEditing? `
+        <div class="field">
+          <textarea id="visionEditText" style="min-height:200px;">${escapeHtml(state.lifeVision.text)}</textarea>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-block" id="visionSaveEdit">حفظ</button>
+          <button class="btn ghost" id="visionCancelEdit">إلغاء</button>
+        </div>
+      ` : `
+        <div class="quote-box"><p style="white-space:pre-wrap;margin:0;">${escapeHtml(state.lifeVision.text)}</p></div>
+        <button class="btn ghost sm" id="visionRestart" style="margin-top:8px;">🔄 إعادة الصياغة من البداية</button>
+      `}
+    </div>`;
+  }
+  return `
+  <div class="card" style="margin-bottom:14px;text-align:center;border-color:var(--gold);">
+    <div class="card-title" style="justify-content:center;"><h3>🧭 رؤيتي</h3></div>
+    <p class="muted" style="margin-bottom:14px;">قبل الأهداف التفصيلية، خلينا نحدد الصورة الكبيرة — وين تبين توصلين بحياتك عمومًا. أسألك كم سؤال بسيط وأساعدك تصيغين رؤيتك.</p>
+    <button class="btn btn-block" id="visionStart">✨ ابدئي رحلة صياغة رؤيتك</button>
+  </div>`;
+}
+
 /* ============ GOALS page ============ */
 function renderGoalCard(g){
   const i = state.goals.indexOf(g);
@@ -2008,6 +2147,11 @@ function renderGoalCard(g){
       <div style="margin-top:6px;">
         ${QUESTIONS[g.cat].map((q,i)=> g.answers[i]? `<p class="muted" style="margin-bottom:6px;"><b style="color:var(--petrol-dark);">${q}</b><br>${escapeHtml(g.answers[i])}</p>`:'').join('')}
       </div>`:''}
+    ${g.notes? `<p style="margin-top:8px;white-space:pre-wrap;font-size:14px;line-height:1.7;">${escapeHtml(g.notes)}</p>`:''}
+    ${(g.attachments||[]).length? `
+      <div style="display:flex;flex-direction:column;gap:4px;margin-top:8px;">
+        ${g.attachments.map(a=>`<a href="${a.dataUrl}" download="${escapeHtml(a.name)}" style="font-size:13px;color:var(--petrol-dark);text-decoration:none;">📄 ${escapeHtml(a.name)}</a>`).join('')}
+      </div>`:''}
     <button class="btn ghost sm" data-addtaskfor="${g.id}" style="margin-top:8px;">+ إضافة مهمة لهالهدف</button>
     ${g.cat==='finance'? renderFinanceGoalLink() : ''}
   </div>`;
@@ -2024,19 +2168,22 @@ function renderGoals(){
   const groupedGoalsHtml = state.goalPillars.map(p=>{
     const goals = byPillar[p.id];
     if(!goals || !goals.length) return '';
+    const key = 'pillarGroup:'+p.id;
+    const collapsed = state.collapsed[key];
     return `
     <div style="margin-bottom:14px;">
-      <h4 style="font-size:15px;color:var(--petrol-dark);margin-bottom:8px;">${p.icon} ${escapeHtml(p.label)}</h4>
-      ${goals.map(renderGoalCard).join('')}
+      <h4 style="cursor:pointer;font-size:15px;color:var(--petrol-dark);margin-bottom:8px;" data-toggle-collapse="${key}">${collapsed?'▸':'▾'} ${p.icon} ${escapeHtml(p.label)} <span class="muted" style="font-size:12px;font-weight:400;">(${goals.length})</span></h4>
+      ${collapsed? '' : goals.map(renderGoalCard).join('')}
     </div>`;
   }).join('') + (noPillar.length? `
     <div style="margin-bottom:14px;">
-      ${hasAnyPillarGroup? `<h4 style="font-size:15px;color:var(--petrol-dark);margin-bottom:8px;">🗂️ بدون بند</h4>`:''}
-      ${noPillar.map(renderGoalCard).join('')}
+      ${hasAnyPillarGroup? (()=>{ const key='pillarGroup:__none__'; const collapsed=state.collapsed[key]; return `<h4 style="cursor:pointer;font-size:15px;color:var(--petrol-dark);margin-bottom:8px;" data-toggle-collapse="${key}">${collapsed?'▸':'▾'} 🗂️ بدون بند <span class="muted" style="font-size:12px;font-weight:400;">(${noPillar.length})</span></h4>${collapsed? '' : noPillar.map(renderGoalCard).join('')}`; })() : noPillar.map(renderGoalCard).join('')}
     </div>` : '');
   return `
   <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:4px;">الأساس</h2>
   <p class="muted" style="margin-bottom:16px;">أهدافك السنوية، صناديق الزمن، والتصنيفات اللي تُبنى عليها مهامك — كل شي أساسي بمكان واحد.</p>
+
+  ${renderLifeVisionSection()}
 
   <details class="card" data-sec="goals" ${openSections.goals===false?'':'open'} style="margin-bottom:14px;">
     <summary><h3>🎯 الأهداف السنوية <span class="chev">▾</span></h3></summary>
@@ -4450,7 +4597,8 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
   document.querySelectorAll('[data-edit-goal]').forEach(b=> b.onclick=()=>{
     const g = state.goals.find(x=>x.id===b.dataset.editGoal);
     if(!g) return;
-    goalWizard = {id:g.id, title:g.title, cat:g.cat, pillarIds:(g.pillarIds||[]).slice(), customPillars:(g.customPillars||[]).slice(), answers:(g.answers||[]).slice()};
+    goalWizard = {id:g.id, title:g.title, cat:g.cat, pillarIds:(g.pillarIds||[]).slice(), customPillars:(g.customPillars||[]).slice(), answers:(g.answers||[]).slice(), notes:g.notes||'', attachments:(g.attachments||[]).slice()};
+    attachError = null;
     render();
   });
   document.querySelectorAll('[data-goal-up]').forEach(b=> b.onclick=()=>{
@@ -4544,7 +4692,7 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
   });
 
   const addGoal = document.getElementById('goAddGoal') || document.getElementById('goAddGoal2');
-  if(addGoal) addGoal.onclick = ()=>{ goalWizard={title:'',cat:'health',answers:['','']}; render(); };
+  if(addGoal) addGoal.onclick = ()=>{ goalWizard={title:'',cat:'health',answers:['','']}; attachError=null; render(); };
 
   document.querySelectorAll('[data-goto-money]').forEach(b=> b.onclick=()=>{
     view = 'money'; moneySubView = 'finance'; render();
@@ -4648,6 +4796,44 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
   if(pillarAddNew) pillarAddNew.onclick = ()=>{
     state.goalPillars.push({ id:uid(), label:'بند جديد', icon:'✨' });
     saveState(); render();
+  };
+
+  const visionStart = document.getElementById('visionStart');
+  if(visionStart) visionStart.onclick = ()=>{ visionWizard = {step:'questions', answers:[]}; render(); };
+  const visionCancel = document.getElementById('visionCancel');
+  if(visionCancel) visionCancel.onclick = ()=>{ visionWizard = null; render(); };
+  const visionCompose = document.getElementById('visionCompose');
+  if(visionCompose) visionCompose.onclick = ()=>{
+    const answers = VISION_QUESTIONS.map((_,i)=> (document.getElementById('visionQ'+i)?.value||'').trim());
+    visionWizard = {step:'review', answers, draftText: composeVisionText(answers)};
+    render();
+  };
+  const visionBackToQuestions = document.getElementById('visionBackToQuestions');
+  if(visionBackToQuestions) visionBackToQuestions.onclick = ()=>{
+    visionWizard = {step:'questions', answers:visionWizard.answers};
+    render();
+  };
+  const visionApprove = document.getElementById('visionApprove');
+  if(visionApprove) visionApprove.onclick = ()=>{
+    state.lifeVision.text = document.getElementById('visionDraftText').value.trim();
+    visionWizard = null;
+    saveState(); render();
+  };
+  const visionEditToggle = document.getElementById('visionEditToggle');
+  if(visionEditToggle) visionEditToggle.onclick = ()=>{ visionEditing = !visionEditing; render(); };
+  const visionSaveEdit = document.getElementById('visionSaveEdit');
+  if(visionSaveEdit) visionSaveEdit.onclick = ()=>{
+    state.lifeVision.text = document.getElementById('visionEditText').value.trim();
+    visionEditing = false;
+    saveState(); render();
+  };
+  const visionCancelEdit = document.getElementById('visionCancelEdit');
+  if(visionCancelEdit) visionCancelEdit.onclick = ()=>{ visionEditing = false; render(); };
+  const visionRestart = document.getElementById('visionRestart');
+  if(visionRestart) visionRestart.onclick = ()=>{
+    if(!confirm('تبين تبدين رؤيتك من جديد؟ الرؤية الحالية بتنمسح.')) return;
+    visionWizard = {step:'questions', answers:[]};
+    render();
   };
 
   const addTip = document.getElementById('addTipTask');
