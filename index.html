@@ -618,6 +618,24 @@ function hydrateState(parsed){
     if(!g.attachments) g.attachments = [];
   });
   if(!state.lifeVision) state.lifeVision = {text:''};
+  /* one-time rename so already-saved rows follow SC_EXPENSE_GROUPS/
+     ED_CATEGORY_GROUPS's unified item names instead of showing as an
+     unmatched blank selection in their dropdown */
+  const SC_ITEM_RENAMES = {
+    "فواتير كهرباء":"كهرباء", "فواتير الماء":"ماء", "فواتير اتصالات":"إنترنت والجوال",
+    "إيجارات سكن":"إيجار", "المدارس للأطفال":"مدارس", "مصروفات الأطفال":"مصروف الأبناء",
+    "أقساط / ديون":"قروض / ديون / أقساط", "الاشتراكات الشهرية":"اشتراكات ترفيه",
+    "طعام المطاعم":"مطاعم", "الرحلات":"سفر", "الهدايا":"هدايا",
+  };
+  if(state.safety && state.safety.expenses){
+    state.safety.expenses.forEach(r=>{ if(SC_ITEM_RENAMES[r.item]) r.item = SC_ITEM_RENAMES[r.item]; });
+  }
+  const ED_ITEM_RENAMES = { "سوبرماركت":"بقالة / لحوم" };
+  if(state.expenseDiag){
+    Object.values(state.expenseDiag).forEach(m=>{
+      (m.rows||[]).forEach(r=>{ if(ED_ITEM_RENAMES[r.item]) r.item = ED_ITEM_RENAMES[r.item]; });
+    });
+  }
   if(!state.dailyLogs) state.dailyLogs = {};
   if(!state.inbox) state.inbox = [];
   if(!state.journal) state.journal = [];
@@ -3322,9 +3340,15 @@ const SC_ASSET_TAG_META = {
   slow:  {label:"سيولة طويلة المدى — يُحسب", emoji:"🐢"},
   fixed: {label:"أصل ثابت — لا يُحسب", emoji:"🏠"},
 };
+/* item names kept aligned with ED_CATEGORY_GROUPS below (the expense
+   diagnosis page) wherever the same real-world expense appears in both —
+   e.g. "بقالة / لحوم" here matches "بقالة / لحوم" there, not a differently
+   worded "سوبرماركت" — so the same purchase reads the same way on both
+   calculators. See edMigrateItemNames()/scMigrateItemNames() for the
+   one-time rename of any already-saved rows using the old wording. */
 const SC_EXPENSE_GROUPS = [
-  {label:"🟢 أساسي", tag:"essential", items:["فواتير كهرباء","فواتير الماء","فواتير اتصالات","سيارة ومواصلات / تأمين","إيجارات سكن","بقالة / لحوم","المدارس للأطفال","مصروفات الأطفال","أقساط / ديون","إصلاح أعطال","الصحة والرياضة","ملابس"]},
-  {label:"🔴 غير أساسي", tag:"nonessential", items:["الاشتراكات الشهرية","طعام المطاعم","الترفيه و الرغبات","الرحلات","الهدايا","هوايات","حيوانات أليفة","تطوير ذات / دورات / كتب"]},
+  {label:"🟢 أساسي", tag:"essential", items:["كهرباء","ماء","إنترنت والجوال","سيارة ومواصلات / تأمين","إيجار","بقالة / لحوم","مدارس","مصروف الأبناء","قروض / ديون / أقساط","إصلاح أعطال","الصحة والرياضة","ملابس"]},
+  {label:"🔴 غير أساسي", tag:"nonessential", items:["اشتراكات ترفيه","مطاعم","الترفيه و الرغبات","سفر","هدايا","هوايات","حيوانات أليفة","تطوير ذات / دورات / كتب"]},
 ];
 const SC_EXPENSE_TAG_MAP = {};
 SC_EXPENSE_GROUPS.forEach(g => g.items.forEach(it => SC_EXPENSE_TAG_MAP[it] = g.tag));
@@ -3774,7 +3798,7 @@ const ED_CATEGORY_GROUPS = [
     {name:"إنترنت", tag:"necessary"},{name:"جوال", tag:"necessary"},
   ]},
   {group:"🍽 الطعام والمواد الاستهلاكية", items:[
-    {name:"سوبرماركت", tag:"necessary"},{name:"مطاعم", tag:"reducible"},{name:"قهوة", tag:"reducible"},
+    {name:"بقالة / لحوم", tag:"necessary"},{name:"مطاعم", tag:"reducible"},{name:"قهوة", tag:"reducible"},
     {name:"طلبات توصيل", tag:"reducible"},{name:"مستلزمات منزلية", tag:"necessary"},{name:"منظفات", tag:"necessary"},
   ]},
   {group:"🚗 النقل", items:[
