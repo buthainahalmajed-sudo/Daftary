@@ -191,7 +191,9 @@ details.card > .details-body{padding:0 18px 18px;}
 .safety-calc .item-card select, .safety-calc .item-card input{background:var(--parchment);border:1.5px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13.5px;font-family:inherit;color:var(--ink);width:100%;box-sizing:border-box;}
 .safety-calc .item-card .del-row{background:none;border:none;color:#b9ad96;cursor:pointer;font-size:15px;padding:6px;flex-shrink:0;}
 .safety-calc .item-card .del-row:hover{color:var(--rose);}
-.safety-calc .item-card .card-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.safety-calc .item-card .card-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;}
+.safety-calc .item-card .card-grid select, .safety-calc .item-card .card-grid input{min-width:0;text-overflow:ellipsis;}
+.safety-calc .item-card .card-grid select{padding-left:6px;}
 .safety-calc .item-card label{font-size:10.5px;color:#6b7a78;display:block;margin-bottom:3px;}
 .safety-calc .total-line{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);}
 .safety-calc .total-line .lbl{font-size:12.5px;color:#6b7a78;}
