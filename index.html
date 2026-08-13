@@ -185,16 +185,17 @@ details.card > .details-body{padding:0 18px 18px;}
 .safety-calc .item-row .inp-amt{flex:1;min-width:75px;}
 .safety-calc .item-row .del-row{background:none;border:none;color:#b9ad96;cursor:pointer;font-size:15px;padding:6px;}
 .safety-calc .item-row .del-row:hover{color:var(--rose);}
-.safety-calc .item-card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;}
-.safety-calc .item-card .card-top{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
-.safety-calc .item-card .card-top select, .safety-calc .item-card .card-top input{flex:1;min-width:0;}
-.safety-calc .item-card select, .safety-calc .item-card input{background:var(--parchment);border:1.5px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13.5px;font-family:inherit;color:var(--ink);width:100%;box-sizing:border-box;}
-.safety-calc .item-card .del-row{background:none;border:none;color:#b9ad96;cursor:pointer;font-size:15px;padding:6px;flex-shrink:0;}
-.safety-calc .item-card .del-row:hover{color:var(--rose);}
-.safety-calc .item-card .card-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;}
-.safety-calc .item-card .card-grid select, .safety-calc .item-card .card-grid input{min-width:0;text-overflow:ellipsis;}
-.safety-calc .item-card .card-grid select{padding-left:6px;}
-.safety-calc .item-card label{font-size:10.5px;color:#6b7a78;display:block;margin-bottom:3px;}
+.safety-calc .item-card, .expense-diag .item-card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;}
+.safety-calc .item-card .card-top, .expense-diag .item-card .card-top{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.safety-calc .item-card .card-top select, .safety-calc .item-card .card-top input, .expense-diag .item-card .card-top select, .expense-diag .item-card .card-top input{flex:1;min-width:0;}
+.safety-calc .item-card select, .safety-calc .item-card input, .expense-diag .item-card select, .expense-diag .item-card input{background:var(--parchment);border:1.5px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13.5px;font-family:inherit;color:var(--ink);width:100%;box-sizing:border-box;}
+.safety-calc .item-card .del-row, .expense-diag .item-card .del-row{background:none;border:none;color:#b9ad96;cursor:pointer;font-size:15px;padding:6px;flex-shrink:0;}
+.safety-calc .item-card .del-row:hover, .expense-diag .item-card .del-row:hover{color:var(--rose);}
+.safety-calc .item-card .card-grid, .expense-diag .item-card .card-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;}
+.safety-calc .item-card .card-grid select, .safety-calc .item-card .card-grid input, .expense-diag .item-card .card-grid select, .expense-diag .item-card .card-grid input{min-width:0;text-overflow:ellipsis;}
+.safety-calc .item-card .card-grid select, .expense-diag .item-card .card-grid select{padding-left:6px;}
+.safety-calc .item-card label, .expense-diag .item-card label{font-size:10.5px;color:#6b7a78;display:block;margin-bottom:3px;}
+.expense-diag .inbox-row{padding:8px 4px;}
 .safety-calc .total-line{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);}
 .safety-calc .total-line .lbl{font-size:12.5px;color:#6b7a78;}
 .safety-calc .total-line .val{font-size:17px;font-weight:800;color:var(--petrol-dark);}
@@ -217,15 +218,6 @@ details.card > .details-body{padding:0 18px 18px;}
 
 /* ---------- monthly expense diagnosis ---------- */
 .expense-diag .month-badge{display:inline-block;margin-top:4px;background:#e8effb;color:#274a8f;font-size:11.5px;font-weight:700;padding:4px 12px;border-radius:99px;}
-.expense-diag .exp-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;padding:9px 0;border-bottom:1px dashed var(--line);}
-.expense-diag .exp-row:last-of-type{border-bottom:none;}
-.expense-diag .exp-row select, .expense-diag .exp-row input{background:var(--parchment);border:1.5px solid var(--line);border-radius:10px;padding:8px 9px;font-size:12.5px;font-family:inherit;color:var(--ink);}
-.expense-diag .exp-row .sel-item{flex:2;min-width:130px;}
-.expense-diag .exp-row .sel-custom{flex:2;min-width:110px;}
-.expense-diag .exp-row .sel-tag{flex:1.3;min-width:100px;}
-.expense-diag .exp-row .inp-amt{flex:1;min-width:75px;}
-.expense-diag .exp-row .del-row{background:none;border:none;color:#b9ad96;cursor:pointer;font-size:15px;padding:6px;}
-.expense-diag .exp-row .del-row:hover{color:var(--rose);}
 .expense-diag .alert{border-radius:12px;padding:10px 12px;font-size:12.5px;margin-bottom:12px;font-weight:600;}
 .expense-diag .alert.bad{background:rgba(178,76,99,.13);color:var(--rose-dark);}
 .expense-diag .alert.ok{background:#e7f7ef;color:#1e6b4a;}
@@ -568,6 +560,7 @@ let attachError = null; /* error message shown under the goal-attachment file pi
 let scAssetEditingId = null; /* id of the one safety-calc asset row currently shown as an editable card; others show as a clean summary line */
 let scIncomeEditingId = null; /* same, for income-source rows */
 let scExpenseEditingId = null; /* same, for the safety calculator's own monthly expense rows */
+let edEditingId = null; /* same idea, for one transaction row on the تشخيص المصاريف page */
 let visionWizard = null; /* {step:'questions'|'review', answers:[], draftText:''} while building/redoing the life vision */
 let visionEditing = false; /* whether the confirmed life-vision text is currently shown as an editable textarea */
 let showLinkInfo = false; /* whether the Gist ID/Token of the already-linked device are revealed, for copying to a new device */
@@ -4026,25 +4019,51 @@ function renderExpensesPage(){
 
 /* one editable transaction row — used both for freshly-added (uncategorized)
    rows and for rows nested inside an expanded category group */
-function edRowEditorHtml(r){
+function edRowDisplayName(r){ return r.item===ED_CUSTOM_VALUE ? (r.custom||'').trim() : r.item; }
+function edRowHasData(r){ return !!edRowDisplayName(r) && (parseFloat(r.amount)||0) > 0; }
+/* same idea as the safety calculator: a filled-in transaction collapses to
+   a one-line summary (name is already the group header above it, so this
+   just shows date + amount) instead of always showing the full 5-field
+   form. Incomplete rows, or ones explicitly reopened via ✎, stay editable. */
+function edRowHtml(r){
+  const editing = edEditingId===r.id || !edRowHasData(r);
+  if(!editing){
+    return `
+    <div class="inbox-row" data-id="${r.id}">
+      <span class="dot"></span>
+      <div style="flex:1;">
+        <div style="font-size:13.5px;color:var(--ink);">🗓️ ${r.date||todayStr()}</div>
+        <div class="muted" style="font-size:12px;">${edFmt(parseFloat(r.amount)||0)} ريال</div>
+      </div>
+      <button type="button" class="icon-btn" data-ed-edit="${r.id}">✎</button>
+      <button type="button" class="icon-btn del-row" aria-label="حذف">✕</button>
+    </div>`;
+  }
   const isCustom = r.item === ED_CUSTOM_VALUE;
   return `
-  <div class="exp-row" data-id="${r.id}">
-    <select class="sel-item">${edBuildItemOptions(r.item)}</select>
-    ${isCustom ? `<input class="sel-custom" type="text" placeholder="اكتبي اسم البند" value="${escapeHtml(r.custom||'')}" />` : ''}
-    ${isCustom ? `<select class="sel-tag">${edBuildTagOptions(r.tag)}</select>` : ''}
-    <input class="inp-amt" type="number" min="0" step="0.01" placeholder="المبلغ" value="${r.amount||''}" />
-    <input class="inp-date" type="date" value="${r.date||todayStr()}" style="max-width:132px;"/>
-    <button type="button" class="del-row" aria-label="حذف">✕</button>
+  <div class="item-card" data-id="${r.id}">
+    <div class="card-top">
+      <select class="sel-item">${edBuildItemOptions(r.item)}</select>
+      ${isCustom ? `<input class="sel-custom" type="text" placeholder="اكتبي اسم البند" value="${escapeHtml(r.custom||'')}" />` : ''}
+      <button type="button" class="del-row" aria-label="حذف">✕</button>
+    </div>
+    ${isCustom ? `<div class="card-grid" style="margin-bottom:8px;"><div><label>التصنيف</label><select class="sel-tag">${edBuildTagOptions(r.tag)}</select></div></div>` : ''}
+    <div class="card-grid">
+      <div><label>المبلغ</label><input class="inp-amt" type="number" min="0" step="0.01" placeholder="المبلغ" value="${r.amount||''}" /></div>
+      <div><label>التاريخ</label><input class="inp-date" type="date" value="${r.date||todayStr()}" /></div>
+    </div>
+    ${edRowHasData(r)? `<button type="button" class="btn ghost sm" style="margin-top:10px;" data-ed-done="${r.id}">✓ تم</button>`:''}
   </div>`;
 }
 function edAttachRowHandlers(container, m){
-  container.querySelectorAll('.exp-row').forEach(rowEl=>{
+  container.querySelectorAll('[data-ed-edit]').forEach(b=> b.onclick=()=>{ edEditingId = b.dataset.edEdit; edRenderRows(); });
+  container.querySelectorAll('[data-ed-done]').forEach(b=> b.onclick=()=>{ edEditingId = null; saveState(); edRenderRows(); });
+  container.querySelectorAll('[data-id]').forEach(rowEl=>{
     const id = rowEl.getAttribute('data-id');
     const row = m.rows.find(r=>String(r.id)===id);
     if(!row) return;
     const selItem = rowEl.querySelector('.sel-item');
-    selItem.onchange = ()=>{
+    if(selItem) selItem.onchange = ()=>{
       row.item = selItem.value;
       if(row.item !== ED_CUSTOM_VALUE){ row.tag = ED_ITEM_TAG_MAP[row.item] || 'reducible'; row.custom=''; }
       saveState(); edRenderRows(); edUpdateSummary();
@@ -4053,8 +4072,13 @@ function edAttachRowHandlers(container, m){
     if(selCustom) selCustom.oninput = ()=>{ row.custom = selCustom.value; saveState(); edUpdateSummary(); };
     const selTag = rowEl.querySelector('.sel-tag');
     if(selTag) selTag.onchange = ()=>{ row.tag = selTag.value; saveState(); edUpdateSummary(); };
-    rowEl.querySelector('.inp-amt').oninput = (e)=>{ row.amount = e.target.value; saveState(); edUpdateSummary(); };
-    rowEl.querySelector('.inp-date').onchange = (e)=>{ row.date = e.target.value; saveState(); };
+    const amtInput = rowEl.querySelector('.inp-amt');
+    if(amtInput){
+      amtInput.oninput = (e)=>{ row.amount = e.target.value; saveState(); edUpdateSummary(); };
+      amtInput.onchange = ()=> edRenderRows();
+    }
+    const dateInput = rowEl.querySelector('.inp-date');
+    if(dateInput) dateInput.onchange = (e)=>{ row.date = e.target.value; saveState(); edRenderRows(); };
     rowEl.querySelector('.del-row').onclick = ()=>{
       m.rows = m.rows.filter(x=>x!==row);
       if(m.rows.length===0) m.rows.push({id:uid(), item:"", custom:"", tag:"reducible", amount:"", date:todayStr()});
@@ -4093,11 +4117,11 @@ function edRenderRows(){
         <span>${collapsed?'▸':'▾'} ${escapeHtml(name)} <span class="muted" style="font-weight:400;">(${g.rows.length})</span></span>
         <b>${edFmt(g.total)} ريال</b>
       </button>
-      ${collapsed? '' : g.rows.map(edRowEditorHtml).join('')}
+      ${collapsed? '' : g.rows.map(edRowHtml).join('')}
     </div>`;
   }).join('');
 
-  container.innerHTML = groupsHtml + incomplete.map(edRowEditorHtml).join('');
+  container.innerHTML = groupsHtml + incomplete.map(edRowHtml).join('');
   edAttachRowHandlers(container, m);
   /* this container is rebuilt independently of the full-page render() cycle,
      so the global data-toggle-collapse delegation (bound once per full
