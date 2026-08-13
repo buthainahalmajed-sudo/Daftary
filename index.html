@@ -185,6 +185,14 @@ details.card > .details-body{padding:0 18px 18px;}
 .safety-calc .item-row .inp-amt{flex:1;min-width:75px;}
 .safety-calc .item-row .del-row{background:none;border:none;color:#b9ad96;cursor:pointer;font-size:15px;padding:6px;}
 .safety-calc .item-row .del-row:hover{color:var(--rose);}
+.safety-calc .item-card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;}
+.safety-calc .item-card .card-top{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.safety-calc .item-card .card-top select, .safety-calc .item-card .card-top input{flex:1;min-width:0;}
+.safety-calc .item-card select, .safety-calc .item-card input{background:var(--parchment);border:1.5px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13.5px;font-family:inherit;color:var(--ink);width:100%;box-sizing:border-box;}
+.safety-calc .item-card .del-row{background:none;border:none;color:#b9ad96;cursor:pointer;font-size:15px;padding:6px;flex-shrink:0;}
+.safety-calc .item-card .del-row:hover{color:var(--rose);}
+.safety-calc .item-card .card-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.safety-calc .item-card label{font-size:10.5px;color:#6b7a78;display:block;margin-bottom:3px;}
 .safety-calc .total-line{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);}
 .safety-calc .total-line .lbl{font-size:12.5px;color:#6b7a78;}
 .safety-calc .total-line .val{font-size:17px;font-weight:800;color:var(--petrol-dark);}
@@ -3484,15 +3492,19 @@ function scRenderAssetRows(){
     const isCustom = r.item === SC_CUSTOM_VALUE;
     const tag = r.tag || 'fast';
     return `
-    <div class="item-row" data-id="${r.id}">
-      <select class="sel-item">${scBuildSimpleOptions(SC_ASSET_OPTIONS, r.item)}</select>
-      ${isCustom ? `<input class="sel-custom" type="text" placeholder="اكتبي اسم الأصل" value="${escapeHtml(r.custom||'')}" />` : ''}
-      <select class="sel-tag">${scBuildAssetTagOptions(tag)}</select>
-      <input class="inp-amt" type="number" min="0" step="0.01" placeholder="المبلغ" value="${r.amount||''}" />
-      <button type="button" class="del-row" aria-label="حذف">✕</button>
+    <div class="item-card" data-id="${r.id}">
+      <div class="card-top">
+        <select class="sel-item">${scBuildSimpleOptions(SC_ASSET_OPTIONS, r.item)}</select>
+        ${isCustom ? `<input class="sel-custom" type="text" placeholder="اكتبي اسم الأصل" value="${escapeHtml(r.custom||'')}" />` : ''}
+        <button type="button" class="del-row" aria-label="حذف">✕</button>
+      </div>
+      <div class="card-grid">
+        <div><label>المبلغ</label><input class="inp-amt" type="number" min="0" step="0.01" placeholder="المبلغ" value="${r.amount||''}" /></div>
+        <div><label>نوع السيولة</label><select class="sel-tag">${scBuildAssetTagOptions(tag)}</select></div>
+      </div>
     </div>`;
   }).join('');
-  container.querySelectorAll('.item-row').forEach(rowEl=>{
+  container.querySelectorAll('.item-card').forEach(rowEl=>{
     const id = rowEl.getAttribute('data-id');
     const row = sc.assets.find(r=>String(r.id)===id);
     const selItem = rowEl.querySelector('.sel-item');
@@ -3529,15 +3541,17 @@ function scRenderIncomeRows(){
     const amt = parseFloat(r.amount)||0;
     const showContribute = fgForContribute && fgForContribute.configured && amt>0;
     return `
-    <div class="item-row" data-id="${r.id}">
-      <select class="sel-item">${scBuildSimpleOptions(SC_INCOME_OPTIONS, r.item)}</select>
-      ${isCustom ? `<input class="sel-custom" type="text" placeholder="اكتبي مصدر الدخل" value="${escapeHtml(r.custom||'')}" />` : ''}
-      <input class="inp-amt" type="number" min="0" step="0.01" placeholder="المبلغ" value="${r.amount||''}" />
-      <button type="button" class="del-row" aria-label="حذف">✕</button>
+    <div class="item-card" data-id="${r.id}">
+      <div class="card-top">
+        <select class="sel-item">${scBuildSimpleOptions(SC_INCOME_OPTIONS, r.item)}</select>
+        ${isCustom ? `<input class="sel-custom" type="text" placeholder="اكتبي مصدر الدخل" value="${escapeHtml(r.custom||'')}" />` : ''}
+        <button type="button" class="del-row" aria-label="حذف">✕</button>
+      </div>
+      <div><label>المبلغ الشهري</label><input class="inp-amt" type="number" min="0" step="0.01" placeholder="المبلغ" value="${r.amount||''}" /></div>
     </div>
-    ${showContribute? `<div style="text-align:left;margin:-6px 0 10px;"><button type="button" class="btn ghost sm" data-sc-contribute="${r.id}">💰 أضيفي ${scFmt(amt)} ريال لهدفك المالي</button></div>`:''}`;
+    ${showContribute? `<div style="text-align:left;margin:-4px 0 10px;"><button type="button" class="btn ghost sm" data-sc-contribute="${r.id}">💰 أضيفي ${scFmt(amt)} ريال لهدفك المالي</button></div>`:''}`;
   }).join('');
-  container.querySelectorAll('.item-row').forEach(rowEl=>{
+  container.querySelectorAll('.item-card').forEach(rowEl=>{
     const id = rowEl.getAttribute('data-id');
     const row = sc.income.find(r=>String(r.id)===id);
     const selItem = rowEl.querySelector('.sel-item');
