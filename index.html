@@ -567,6 +567,7 @@ let syncMsg = null; /* {ok:bool, text:string} */
 let attachError = null; /* error message shown under the goal-attachment file picker */
 let scAssetEditingId = null; /* id of the one safety-calc asset row currently shown as an editable card; others show as a clean summary line */
 let scIncomeEditingId = null; /* same, for income-source rows */
+let scExpenseEditingId = null; /* same, for the safety calculator's own monthly expense rows */
 let visionWizard = null; /* {step:'questions'|'review', answers:[], draftText:''} while building/redoing the life vision */
 let visionEditing = false; /* whether the confirmed life-vision text is currently shown as an editable textarea */
 let showLinkInfo = false; /* whether the Gist ID/Token of the already-linked device are revealed, for copying to a new device */
@@ -3672,20 +3673,45 @@ function scRenderExpenseRows(){
   if(!container) return;
   container.innerHTML = sc.expenses.map(r=>{
     const isCustom = r.item === SC_CUSTOM_VALUE;
+    const tag = r.tag || 'essential';
+    const editing = scExpenseEditingId===r.id || !scRowHasData(r);
+    if(!editing){
+      const meta = SC_TAG_META[tag] || {};
+      const emoji = tag==='essential' ? '🟢' : '🔴';
+      return `
+      <div class="inbox-row" data-id="${r.id}">
+        <span class="dot"></span>
+        <div style="flex:1;">
+          <div style="font-size:14px;color:var(--ink);">${escapeHtml(scRowDisplayName(r))}</div>
+          <div class="muted" style="font-size:12px;">${emoji} ${meta.label||''} · ${scFmt(parseFloat(r.amount)||0)} ريال</div>
+        </div>
+        <button type="button" class="icon-btn" data-sc-expense-edit="${r.id}">✎</button>
+        <button type="button" class="icon-btn del-row" aria-label="حذف">✕</button>
+      </div>`;
+    }
     return `
-    <div class="item-row" data-id="${r.id}">
-      <select class="sel-item">${scBuildExpenseOptions(r.item)}</select>
-      ${isCustom ? `<input class="sel-custom" type="text" placeholder="اكتبي اسم البند" value="${escapeHtml(r.custom||'')}" />` : ''}
-      ${isCustom ? `<select class="sel-tag">${scBuildTagOptions(r.tag)}</select>` : ''}
-      <input class="inp-amt" type="number" min="0" step="0.01" placeholder="المبلغ" value="${r.amount||''}" />
-      <button type="button" class="del-row" aria-label="حذف">✕</button>
+    <div class="item-card" data-id="${r.id}">
+      <div class="card-top">
+        <select class="sel-item">${scBuildExpenseOptions(r.item)}</select>
+        ${isCustom ? `<input class="sel-custom" type="text" placeholder="اكتبي اسم البند" value="${escapeHtml(r.custom||'')}" />` : ''}
+        <button type="button" class="del-row" aria-label="حذف">✕</button>
+      </div>
+      ${isCustom ? `
+      <div class="card-grid">
+        <div><label>المبلغ</label><input class="inp-amt" type="number" min="0" step="0.01" placeholder="المبلغ" value="${r.amount||''}" /></div>
+        <div><label>التصنيف</label><select class="sel-tag">${scBuildTagOptions(tag)}</select></div>
+      </div>` : `
+      <div><label>المبلغ</label><input class="inp-amt" type="number" min="0" step="0.01" placeholder="المبلغ" value="${r.amount||''}" /></div>`}
+      ${scRowHasData(r)? `<button type="button" class="btn ghost sm" style="margin-top:10px;" data-sc-expense-done="${r.id}">✓ تم</button>`:''}
     </div>`;
   }).join('');
-  container.querySelectorAll('.item-row').forEach(rowEl=>{
+  container.querySelectorAll('[data-sc-expense-edit]').forEach(b=> b.onclick=()=>{ scExpenseEditingId = b.dataset.scExpenseEdit; scRenderExpenseRows(); });
+  container.querySelectorAll('[data-sc-expense-done]').forEach(b=> b.onclick=()=>{ scExpenseEditingId = null; saveState(); scRenderExpenseRows(); });
+  container.querySelectorAll('[data-id]').forEach(rowEl=>{
     const id = rowEl.getAttribute('data-id');
     const row = sc.expenses.find(r=>String(r.id)===id);
     const selItem = rowEl.querySelector('.sel-item');
-    selItem.onchange = ()=>{
+    if(selItem) selItem.onchange = ()=>{
       row.item = selItem.value;
       if(row.item !== SC_CUSTOM_VALUE){ row.tag = SC_EXPENSE_TAG_MAP[row.item] || 'essential'; row.custom=''; }
       saveState(); scRenderExpenseRows(); scUpdateSummary();
@@ -3694,7 +3720,11 @@ function scRenderExpenseRows(){
     if(selCustom) selCustom.oninput = ()=>{ row.custom = selCustom.value; saveState(); scUpdateSummary(); };
     const selTag = rowEl.querySelector('.sel-tag');
     if(selTag) selTag.onchange = ()=>{ row.tag = selTag.value; saveState(); scUpdateSummary(); };
-    rowEl.querySelector('.inp-amt').oninput = (e)=>{ row.amount = e.target.value; saveState(); scUpdateSummary(); };
+    const amtInput = rowEl.querySelector('.inp-amt');
+    if(amtInput){
+      amtInput.oninput = (e)=>{ row.amount = e.target.value; saveState(); scUpdateSummary(); };
+      amtInput.onchange = ()=> scRenderExpenseRows();
+    }
     rowEl.querySelector('.del-row').onclick = ()=>{
       sc.expenses = sc.expenses.filter(x=>x!==row);
       if(sc.expenses.length===0) sc.expenses.push({id:uid(), item:"", custom:"", tag:"essential", amount:""});
