@@ -371,6 +371,13 @@ const MOODS = [
   {id:'مرتاحة',e:'☁️'},{id:'متحمسة',e:'✨'},{id:'ممتنة',e:'🌸'},
 ];
 const PRIORITIES = ['عالية','متوسطة','منخفضة'];
+/* the physical/mental "verb" a task actually requires — separate from its
+   category or priority, so a quick glance at the list shows what kind of
+   effort each task takes, not just what it's about */
+const ACTION_TYPES = [
+  'اتصال','حركة','تذكير','قرار','تفكير','دفع','متابعة','اجتماع','إيميل',
+  'بحث','كتابة','قراءة','تخطيط','مراجعة','حجز','إرسال','تسوق','زيارة','تعلم','تنظيم',
+];
 /* shown instead of the top-3 task list when nothing's pending today — picks a
    different one each day (stable all day, not re-rolled on every render) */
 const RELAXATION_MESSAGES = [
@@ -1561,6 +1568,7 @@ function taskRowHtml(t, opts){
       </div>
       <div style="margin-top:3px;display:flex;gap:6px;flex-wrap:wrap;">
         <span class="tag p-${t.priority}">${t.priority}</span>
+        ${t.actionType? `<span class="tag">🔸 ${escapeHtml(t.actionType)}</span>`:''}
         ${t.category? `<span class="tag">${tcatOf(t.category)?.icon||''} ${tcatOf(t.category)?.label||''}</span>`:''}
         ${g? `<span class="tag">${CAT_MAP[g.cat]?.icon||''} ${escapeHtml(g.title)}</span>`:''}
         ${t.period? `<span class="tag" ${timeBoxTagStyle(box)}>${box? escapeHtml(box.label) : escapeHtml(t.period)}</span>`:''}
@@ -3985,6 +3993,13 @@ function renderTaskDraft(){
         <input type="text" id="tdTitle" value="${escapeHtml(d.title)}" placeholder="مثال: اتصال بالبنك"/>
       </div>
       <div class="field">
+        <label>نوع الفعل المطلوب (اختياري)</label>
+        <select id="tdAction">
+          <option value="">بدون تحديد</option>
+          ${ACTION_TYPES.map(a=>`<option value="${a}" ${d.actionType===a?'selected':''}>${a}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field">
         <label>مرتبطة بهدف؟ (اختياري)</label>
         <select id="tdGoal">
           <option value="">بدون هدف محدد</option>
@@ -4122,6 +4137,7 @@ function attachTaskDraftEvents(){
         t.due = taskDraft.due||null;
         t.link = taskDraft.link||null;
         t.device = taskDraft.device||null;
+        t.actionType = taskDraft.actionType||null;
         t.recurType = recurType;
         t.recur = recur;
         t.recurMonthDay = recurMonthDay;
@@ -4137,7 +4153,7 @@ function attachTaskDraftEvents(){
       state.tasks.push({
         id:uid(), title:taskDraft.title.trim(), goalId:taskDraft.goalId||null, category:taskDraft.category||null,
         priority:taskDraft.priority, period:taskDraft.period||null, due:taskDraft.due||null, link:taskDraft.link||null,
-        device:taskDraft.device||null,
+        device:taskDraft.device||null, actionType:taskDraft.actionType||null,
         recurType, recur, recurMonthDay, recurStart, recurEnd, lastDoneDate:null, done:false, createdAt:todayStr()
       });
     }
@@ -4151,6 +4167,7 @@ function syncDraft(){
   taskDraft.title = document.getElementById('tdTitle').value;
   taskDraft.goalId = document.getElementById('tdGoal').value;
   taskDraft.category = document.getElementById('tdCat').value;
+  taskDraft.actionType = document.getElementById('tdAction').value;
   taskDraft.due = document.getElementById('tdDue').value;
   taskDraft.link = document.getElementById('tdLink').value;
   const rs = document.getElementById('tdRecurStart');
@@ -4300,7 +4317,7 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
       id:t.id, title:t.title, goalId:t.goalId||'', category:t.category||'',
       priority:t.priority, period:t.period||null, due:t.due||'', link:t.link||'', recurType:t.recurType||null,
       recur:(t.recur||[]).slice(), recurMonthDay:t.recurMonthDay||'', recurStart:t.recurStart||'', recurEnd:t.recurEnd||'',
-      device:t.device||null
+      device:t.device||null, actionType:t.actionType||''
     };
     taskDraftRecurOpen = !!t.recurType;
     render();
