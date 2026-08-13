@@ -329,6 +329,18 @@ const CATS = [
 ];
 const CAT_MAP = Object.fromEntries(CATS.map(c=>[c.id,c]));
 
+/* the big identity-statement pillars her yearly goals get grouped under
+   ("أنا سعيدة", "أنا ثرية"...) — separate from CATS (the goal's domain),
+   this is a higher-level, fully user-editable grouping, lives in
+   state.goalPillars */
+function defaultGoalPillars(){
+  return [
+    {id:'happy', label:'أنا سعيدة', icon:'😊'},
+    {id:'wealthy', label:'أنا ثرية', icon:'💰'},
+  ];
+}
+function pillarOf(id){ return (state.goalPillars||[]).find(p=>p.id===id) || null; }
+
 /* categories used to classify raw inbox tasks (business/personal/etc.) — user-editable, lives in state.taskCategories */
 function defaultTaskCategories(){
   return [
@@ -585,6 +597,7 @@ function hydrateState(parsed){
   if(!state.timeBoxes || !state.timeBoxes.length) state.timeBoxes = defaultTimeBoxes();
   state.timeBoxes.forEach(b=>{ if(!Array.isArray(b.categoryIds)) b.categoryIds = []; });
   if(!state.taskCategories || !state.taskCategories.length) state.taskCategories = defaultTaskCategories();
+  if(!state.goalPillars || !state.goalPillars.length) state.goalPillars = defaultGoalPillars();
   if(!state.dailyLogs) state.dailyLogs = {};
   if(!state.inbox) state.inbox = [];
   if(!state.journal) state.journal = [];
@@ -1001,6 +1014,13 @@ function renderGoalWizard(){
         <input type="text" id="gwTitle" placeholder="مثال: تحسين صحة شعري" value="${escapeHtml(goalWizard.title)}"/>
       </div>
       <div class="field">
+        <label>تحت أي بند رئيسي من هويتك؟ (اختياري)</label>
+        <div class="chip-row" id="gwPillars">
+          <button type="button" class="chip ${!goalWizard.pillarId?'selected':''}" data-pillar="">بدون بند</button>
+          ${state.goalPillars.map(p=>`<button type="button" class="chip ${goalWizard.pillarId===p.id?'selected':''}" data-pillar="${p.id}">${p.icon} ${p.label}</button>`).join('')}
+        </div>
+      </div>
+      <div class="field">
         <label>يندرج تحت</label>
         <div class="chip-row" id="gwCats">
           ${CATS.map(c=>`<button type="button" class="chip cat ${goalWizard.cat===c.id?'selected':''}" data-cat="${c.id}">${c.icon} ${c.label}</button>`).join('')}
@@ -1029,6 +1049,13 @@ function attachGoalWizardEvents(){
       render();
     };
   });
+  document.querySelectorAll('#gwPillars .chip').forEach(b=>{
+    b.onclick = ()=>{
+      goalWizard.title = document.getElementById('gwTitle').value;
+      goalWizard.pillarId = b.dataset.pillar || null;
+      render();
+    };
+  });
   document.getElementById('gwSave').onclick = ()=>{
     const title = document.getElementById('gwTitle').value.trim();
     if(!title){ document.getElementById('gwTitle').focus(); return; }
@@ -1036,9 +1063,9 @@ function attachGoalWizardEvents(){
     const answers = qs.map((_,i)=> (document.getElementById('gwAns'+i)?.value||'').trim());
     if(goalWizard.id){
       const g = state.goals.find(x=>x.id===goalWizard.id);
-      if(g){ g.title = title; g.cat = goalWizard.cat; g.answers = answers; }
+      if(g){ g.title = title; g.cat = goalWizard.cat; g.answers = answers; g.pillarId = goalWizard.pillarId||null; }
     }else{
-      state.goals.push({id:uid(), title, cat:goalWizard.cat, answers, createdAt:todayStr()});
+      state.goals.push({id:uid(), title, cat:goalWizard.cat, pillarId:goalWizard.pillarId||null, answers, createdAt:todayStr()});
     }
     saveState();
     goalWizard = null;
@@ -1636,6 +1663,22 @@ function renderTimeBoxManager(){
   </details>`;
 }
 
+function renderGoalPillarManager(){
+  return `
+  <details class="card" data-sec="pillars" ${openSections.pillars?'open':''} style="margin-bottom:14px;">
+    <summary><h3>🧱 بنود الهوية الرئيسية <span class="chev">▾</span></h3></summary>
+    <div class="details-body">
+      <p class="muted" style="margin-bottom:10px;">البنود اللي تتصنف تحتها أهدافك السنوية (مثل "أنا سعيدة"، "أنا ثرية")— سميها بما يمثلك، وضيفي وحذفي حسب ما يناسبك.</p>
+      ${state.goalPillars.map(p=>`
+        <div class="tcat-row" data-pillar-row="${p.id}">
+          <input type="text" data-pillar-icon="${p.id}" value="${escapeHtml(p.icon)}" placeholder="✨" style="width:52px;text-align:center;flex-shrink:0;"/>
+          <input type="text" data-pillar-label="${p.id}" value="${escapeHtml(p.label)}" placeholder="اسم البند" style="flex:1;"/>
+          <button type="button" class="icon-btn" data-pillar-del="${p.id}">✕</button>
+        </div>`).join('')}
+      <button type="button" class="btn ghost btn-block" style="margin-top:10px;" id="pillarAddNew">+ إضافة بند جديد</button>
+    </div>
+  </details>`;
+}
 function renderTaskCategoryManager(){
   return `
   <details class="card" data-sec="tcats" ${openSections.tcats?'open':''} style="margin-bottom:14px;">
@@ -1912,7 +1955,48 @@ function renderTasks(){
 }
 
 /* ============ GOALS page ============ */
+function renderGoalCard(g){
+  const i = state.goals.indexOf(g);
+  return `
+  <div class="card goal-card">
+    <div class="card-title" style="justify-content:space-between;">
+      <h3>${CAT_MAP[g.cat]?.icon||''} ${escapeHtml(g.title)}</h3>
+      <div style="display:flex;gap:2px;">
+        <button class="icon-btn" data-goal-up="${i}" ${i===0?'disabled':''}>▲</button>
+        <button class="icon-btn" data-goal-down="${i}" ${i===state.goals.length-1?'disabled':''}>▼</button>
+        <button class="icon-btn" data-edit-goal="${g.id}">✎</button>
+        <button class="icon-btn" data-delgoal="${g.id}">✕</button>
+      </div>
+    </div>
+    ${g.answers && g.answers.some(a=>a) ? `
+      <div style="margin-top:6px;">
+        ${QUESTIONS[g.cat].map((q,i)=> g.answers[i]? `<p class="muted" style="margin-bottom:6px;"><b style="color:var(--petrol-dark);">${q}</b><br>${escapeHtml(g.answers[i])}</p>`:'').join('')}
+      </div>`:''}
+    <button class="btn ghost sm" data-addtaskfor="${g.id}" style="margin-top:8px;">+ إضافة مهمة لهالهدف</button>
+    ${g.cat==='finance'? renderFinanceGoalLink() : ''}
+  </div>`;
+}
 function renderGoals(){
+  const byPillar = {};
+  const noPillar = [];
+  state.goals.forEach(g=>{
+    if(g.pillarId && pillarOf(g.pillarId)) (byPillar[g.pillarId] = byPillar[g.pillarId]||[]).push(g);
+    else noPillar.push(g);
+  });
+  const hasAnyPillarGroup = state.goalPillars.some(p=> byPillar[p.id] && byPillar[p.id].length);
+  const groupedGoalsHtml = state.goalPillars.map(p=>{
+    const goals = byPillar[p.id];
+    if(!goals || !goals.length) return '';
+    return `
+    <div style="margin-bottom:14px;">
+      <h4 style="font-size:15px;color:var(--petrol-dark);margin-bottom:8px;">${p.icon} ${escapeHtml(p.label)}</h4>
+      ${goals.map(renderGoalCard).join('')}
+    </div>`;
+  }).join('') + (noPillar.length? `
+    <div style="margin-bottom:14px;">
+      ${hasAnyPillarGroup? `<h4 style="font-size:15px;color:var(--petrol-dark);margin-bottom:8px;">🗂️ بدون بند</h4>`:''}
+      ${noPillar.map(renderGoalCard).join('')}
+    </div>` : '');
   return `
   <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:4px;">الأساس</h2>
   <p class="muted" style="margin-bottom:16px;">أهدافك السنوية، صناديق الزمن، والتصنيفات اللي تُبنى عليها مهامك — كل شي أساسي بمكان واحد.</p>
@@ -1921,29 +2005,11 @@ function renderGoals(){
     <summary><h3>🎯 الأهداف السنوية <span class="chev">▾</span></h3></summary>
     <div class="details-body">
       <button class="btn btn-block" id="goAddGoal2" style="margin-bottom:16px;">+ إضافة هدف جديد</button>
-      ${state.goals.length===0? `<div class="empty">لسا ما أضفتي أهداف. ابدئي بأول هدف يمثلك هالسنة.</div>` :
-        state.goals.map((g,i)=>`
-        <div class="card goal-card">
-          <div class="card-title" style="justify-content:space-between;">
-            <h3>${CAT_MAP[g.cat]?.icon||''} ${escapeHtml(g.title)}</h3>
-            <div style="display:flex;gap:2px;">
-              <button class="icon-btn" data-goal-up="${i}" ${i===0?'disabled':''}>▲</button>
-              <button class="icon-btn" data-goal-down="${i}" ${i===state.goals.length-1?'disabled':''}>▼</button>
-              <button class="icon-btn" data-edit-goal="${g.id}">✎</button>
-              <button class="icon-btn" data-delgoal="${g.id}">✕</button>
-            </div>
-          </div>
-          ${g.answers && g.answers.some(a=>a) ? `
-            <div style="margin-top:6px;">
-              ${QUESTIONS[g.cat].map((q,i)=> g.answers[i]? `<p class="muted" style="margin-bottom:6px;"><b style="color:var(--petrol-dark);">${q}</b><br>${escapeHtml(g.answers[i])}</p>`:'').join('')}
-            </div>`:''}
-          <button class="btn ghost sm" data-addtaskfor="${g.id}" style="margin-top:8px;">+ إضافة مهمة لهالهدف</button>
-          ${g.cat==='finance'? renderFinanceGoalLink() : ''}
-        </div>
-      `).join('')}
+      ${state.goals.length===0? `<div class="empty">لسا ما أضفتي أهداف. ابدئي بأول هدف يمثلك هالسنة.</div>` : groupedGoalsHtml}
     </div>
   </details>
 
+  ${renderGoalPillarManager()}
   ${renderTimeBoxManager()}
   ${renderTaskCategoryManager()}
   `;
@@ -4347,7 +4413,7 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
   document.querySelectorAll('[data-edit-goal]').forEach(b=> b.onclick=()=>{
     const g = state.goals.find(x=>x.id===b.dataset.editGoal);
     if(!g) return;
-    goalWizard = {id:g.id, title:g.title, cat:g.cat, answers:(g.answers||[]).slice()};
+    goalWizard = {id:g.id, title:g.title, cat:g.cat, pillarId:g.pillarId||null, answers:(g.answers||[]).slice()};
     render();
   });
   document.querySelectorAll('[data-goal-up]').forEach(b=> b.onclick=()=>{
@@ -4519,6 +4585,31 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
   const tcatAddNew = document.getElementById('tcatAddNew');
   if(tcatAddNew) tcatAddNew.onclick = ()=>{
     state.taskCategories.push({ id:uid(), label:'تصنيف جديد', icon:'🏷️' });
+    saveState(); render();
+  };
+
+  document.querySelectorAll('[data-pillar-label]').forEach(inp=>{
+    inp.onchange = ()=>{
+      const p = pillarOf(inp.dataset.pillarLabel);
+      if(p){ p.label = inp.value.trim() || p.label; saveState(); render(); }
+    };
+  });
+  document.querySelectorAll('[data-pillar-icon]').forEach(inp=>{
+    inp.onchange = ()=>{
+      const p = pillarOf(inp.dataset.pillarIcon);
+      if(p){ p.icon = inp.value.trim() || p.icon; saveState(); render(); }
+    };
+  });
+  document.querySelectorAll('[data-pillar-del]').forEach(btn=> btn.onclick=()=>{
+    const p = pillarOf(btn.dataset.pillarDel);
+    if(!confirm(`تحذفين بند "${p? p.label : ''}"؟ الأهداف تحته بترجع "بدون بند".`)) return;
+    state.goalPillars = state.goalPillars.filter(x=>x.id!==btn.dataset.pillarDel);
+    state.goals.forEach(g=>{ if(g.pillarId===btn.dataset.pillarDel) g.pillarId = null; });
+    saveState(); render();
+  });
+  const pillarAddNew = document.getElementById('pillarAddNew');
+  if(pillarAddNew) pillarAddNew.onclick = ()=>{
+    state.goalPillars.push({ id:uid(), label:'بند جديد', icon:'✨' });
     saveState(); render();
   };
 
