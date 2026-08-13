@@ -565,6 +565,8 @@ let syncExportCode = '';
 let syncImportText = '';
 let syncMsg = null; /* {ok:bool, text:string} */
 let attachError = null; /* error message shown under the goal-attachment file picker */
+let scAssetEditingId = null; /* id of the one safety-calc asset row currently shown as an editable card; others show as a clean summary line */
+let scIncomeEditingId = null; /* same, for income-source rows */
 let visionWizard = null; /* {step:'questions'|'review', answers:[], draftText:''} while building/redoing the life vision */
 let visionEditing = false; /* whether the confirmed life-vision text is currently shown as an editable textarea */
 let showLinkInfo = false; /* whether the Gist ID/Token of the already-linked device are revealed, for copying to a new device */
@@ -3486,31 +3488,57 @@ function renderSafetyPage(){
   </div>`;
 }
 
+function scRowDisplayName(r){ return r.item===SC_CUSTOM_VALUE ? (r.custom||'').trim() : r.item; }
+/* a fully filled-in row (name + a real amount) shows as a clean one-line
+   summary once she's not actively editing it — like every other list in
+   this app (tasks, goals) — instead of staying an open form forever. An
+   incomplete row, or one she explicitly tapped ✎ on, stays as a card. */
+function scRowHasData(r){ return !!scRowDisplayName(r) && (parseFloat(r.amount)||0) > 0; }
+function scAssetRowHtml(r, isEditing){
+  const isCustom = r.item === SC_CUSTOM_VALUE;
+  const tag = r.tag || 'fast';
+  if(!isEditing){
+    const meta = SC_ASSET_TAG_META[tag] || {};
+    return `
+    <div class="inbox-row" data-id="${r.id}">
+      <span class="dot"></span>
+      <div style="flex:1;">
+        <div style="font-size:14px;color:var(--ink);">${escapeHtml(scRowDisplayName(r))}</div>
+        <div class="muted" style="font-size:12px;">${meta.emoji||''} ${meta.label||''} · ${scFmt(parseFloat(r.amount)||0)} ريال</div>
+      </div>
+      <button type="button" class="icon-btn" data-sc-asset-edit="${r.id}">✎</button>
+      <button type="button" class="icon-btn del-row" aria-label="حذف">✕</button>
+    </div>`;
+  }
+  return `
+  <div class="item-card" data-id="${r.id}">
+    <div class="card-top">
+      <select class="sel-item">${scBuildSimpleOptions(SC_ASSET_OPTIONS, r.item)}</select>
+      ${isCustom ? `<input class="sel-custom" type="text" placeholder="اكتبي اسم الأصل" value="${escapeHtml(r.custom||'')}" />` : ''}
+      <button type="button" class="del-row" aria-label="حذف">✕</button>
+    </div>
+    <div class="card-grid">
+      <div><label>المبلغ</label><input class="inp-amt" type="number" min="0" step="0.01" placeholder="المبلغ" value="${r.amount||''}" /></div>
+      <div><label>نوع السيولة</label><select class="sel-tag">${scBuildAssetTagOptions(tag)}</select></div>
+    </div>
+    ${scRowHasData(r)? `<button type="button" class="btn ghost sm" style="margin-top:10px;" data-sc-asset-done="${r.id}">✓ تم</button>`:''}
+  </div>`;
+}
 function scRenderAssetRows(){
   const sc = state.safety;
   const container = document.getElementById('scAssetRows');
   if(!container) return;
   container.innerHTML = sc.assets.map(r=>{
-    const isCustom = r.item === SC_CUSTOM_VALUE;
-    const tag = r.tag || 'fast';
-    return `
-    <div class="item-card" data-id="${r.id}">
-      <div class="card-top">
-        <select class="sel-item">${scBuildSimpleOptions(SC_ASSET_OPTIONS, r.item)}</select>
-        ${isCustom ? `<input class="sel-custom" type="text" placeholder="اكتبي اسم الأصل" value="${escapeHtml(r.custom||'')}" />` : ''}
-        <button type="button" class="del-row" aria-label="حذف">✕</button>
-      </div>
-      <div class="card-grid">
-        <div><label>المبلغ</label><input class="inp-amt" type="number" min="0" step="0.01" placeholder="المبلغ" value="${r.amount||''}" /></div>
-        <div><label>نوع السيولة</label><select class="sel-tag">${scBuildAssetTagOptions(tag)}</select></div>
-      </div>
-    </div>`;
+    const editing = scAssetEditingId===r.id || !scRowHasData(r);
+    return scAssetRowHtml(r, editing);
   }).join('');
-  container.querySelectorAll('.item-card').forEach(rowEl=>{
+  container.querySelectorAll('[data-sc-asset-edit]').forEach(b=> b.onclick=()=>{ scAssetEditingId = b.dataset.scAssetEdit; scRenderAssetRows(); });
+  container.querySelectorAll('[data-sc-asset-done]').forEach(b=> b.onclick=()=>{ scAssetEditingId = null; saveState(); scRenderAssetRows(); });
+  container.querySelectorAll('[data-id]').forEach(rowEl=>{
     const id = rowEl.getAttribute('data-id');
     const row = sc.assets.find(r=>String(r.id)===id);
     const selItem = rowEl.querySelector('.sel-item');
-    selItem.onchange = ()=>{
+    if(selItem) selItem.onchange = ()=>{
       row.item = selItem.value; if(row.item!==SC_CUSTOM_VALUE) row.custom='';
       row.tag = SC_ASSET_TAG_MAP[row.item] || 'fast';
       saveState(); scRenderAssetRows(); scUpdateSummary();
@@ -3519,7 +3547,11 @@ function scRenderAssetRows(){
     if(selCustom) selCustom.oninput = ()=>{ row.custom = selCustom.value; saveState(); scUpdateSummary(); };
     const selTag = rowEl.querySelector('.sel-tag');
     if(selTag) selTag.onchange = ()=>{ row.tag = selTag.value; saveState(); scUpdateSummary(); };
-    rowEl.querySelector('.inp-amt').oninput = (e)=>{ row.amount = e.target.value; saveState(); scUpdateSummary(); };
+    const amtInput = rowEl.querySelector('.inp-amt');
+    if(amtInput){
+      amtInput.oninput = (e)=>{ row.amount = e.target.value; saveState(); scUpdateSummary(); };
+      amtInput.onchange = ()=> scRenderAssetRows();
+    }
     rowEl.querySelector('.del-row').onclick = ()=>{
       sc.assets = sc.assets.filter(x=>x!==row);
       if(sc.assets.length===0) sc.assets.push({id:uid(), item:"", custom:"", tag:"fast", amount:""});
@@ -3542,7 +3574,8 @@ function scRenderIncomeRows(){
     const isCustom = r.item === SC_CUSTOM_VALUE;
     const amt = parseFloat(r.amount)||0;
     const showContribute = fgForContribute && fgForContribute.configured && amt>0;
-    return `
+    const editing = scIncomeEditingId===r.id || !scRowHasData(r);
+    const body = editing? `
     <div class="item-card" data-id="${r.id}">
       <div class="card-top">
         <select class="sel-item">${scBuildSimpleOptions(SC_INCOME_OPTIONS, r.item)}</select>
@@ -3550,26 +3583,40 @@ function scRenderIncomeRows(){
         <button type="button" class="del-row" aria-label="حذف">✕</button>
       </div>
       <div><label>المبلغ الشهري</label><input class="inp-amt" type="number" min="0" step="0.01" placeholder="المبلغ" value="${r.amount||''}" /></div>
-    </div>
-    ${showContribute? `<div style="text-align:left;margin:-4px 0 10px;"><button type="button" class="btn ghost sm" data-sc-contribute="${r.id}">💰 أضيفي ${scFmt(amt)} ريال لهدفك المالي</button></div>`:''}`;
+      ${scRowHasData(r)? `<button type="button" class="btn ghost sm" style="margin-top:10px;" data-sc-income-done="${r.id}">✓ تم</button>`:''}
+    </div>` : `
+    <div class="inbox-row" data-id="${r.id}">
+      <span class="dot"></span>
+      <div style="flex:1;">
+        <div style="font-size:14px;color:var(--ink);">${escapeHtml(scRowDisplayName(r))}</div>
+        <div class="muted" style="font-size:12px;">${scFmt(amt)} ريال شهريًا</div>
+      </div>
+      <button type="button" class="icon-btn" data-sc-income-edit="${r.id}">✎</button>
+      <button type="button" class="icon-btn del-row" aria-label="حذف">✕</button>
+    </div>`;
+    return body + (showContribute? `<div style="text-align:left;margin:-4px 0 10px;"><button type="button" class="btn ghost sm" data-sc-contribute="${r.id}">💰 أضيفي ${scFmt(amt)} ريال لهدفك المالي</button></div>`:'');
   }).join('');
-  container.querySelectorAll('.item-card').forEach(rowEl=>{
+  container.querySelectorAll('[data-sc-income-edit]').forEach(b=> b.onclick=()=>{ scIncomeEditingId = b.dataset.scIncomeEdit; scRenderIncomeRows(); });
+  container.querySelectorAll('[data-sc-income-done]').forEach(b=> b.onclick=()=>{ scIncomeEditingId = null; saveState(); scRenderIncomeRows(); });
+  container.querySelectorAll('[data-id]').forEach(rowEl=>{
     const id = rowEl.getAttribute('data-id');
     const row = sc.income.find(r=>String(r.id)===id);
     const selItem = rowEl.querySelector('.sel-item');
-    selItem.onchange = ()=>{
+    if(selItem) selItem.onchange = ()=>{
       row.item = selItem.value; if(row.item!==SC_CUSTOM_VALUE) row.custom='';
       saveState(); scRenderIncomeRows(); scUpdateSummary();
     };
     const selCustom = rowEl.querySelector('.sel-custom');
     if(selCustom) selCustom.oninput = ()=>{ row.custom = selCustom.value; saveState(); scUpdateSummary(); };
     const amtInput = rowEl.querySelector('.inp-amt');
-    amtInput.oninput = (e)=>{
-      row.amount = e.target.value;
-      if(row.item==='راتب شهري') state.sharedIncome = row.amount;
-      saveState(); scUpdateSummary();
-    };
-    amtInput.onchange = ()=> scRenderIncomeRows();
+    if(amtInput){
+      amtInput.oninput = (e)=>{
+        row.amount = e.target.value;
+        if(row.item==='راتب شهري') state.sharedIncome = row.amount;
+        saveState(); scUpdateSummary();
+      };
+      amtInput.onchange = ()=> scRenderIncomeRows();
+    }
     rowEl.querySelector('.del-row').onclick = ()=>{
       sc.income = sc.income.filter(x=>x!==row);
       if(sc.income.length===0) sc.income.push({id:uid(), item:"", custom:"", amount:""});
