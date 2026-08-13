@@ -3158,8 +3158,9 @@ function renderFinanceDashboard(){
   ${renderFinancePathsCard(fg)}
 
   ${nextStage? `
-  <div class="card ai-box">
-    <div class="card-title"><h3>🎯 ركّزي على هذي بس</h3></div>
+  <details class="card ai-box" data-sec="finFocus" ${openSections.finFocus!==false?'open':''}>
+    <summary><h3>🎯 ركّزي على هذي بس <span class="chev">▾</span></h3></summary>
+    <div class="details-body">
     <p style="font-size:16px;font-weight:700;color:var(--petrol-dark);margin-bottom:4px;">${escapeHtml(nextStage.title)}</p>
     <p class="muted" style="margin-bottom:10px;">هدف المرحلة: ${nextStage.targetAmount.toLocaleString('ar')} ريال</p>
     ${nextStage.tasks.map(t=>`
@@ -3194,7 +3195,8 @@ function renderFinanceDashboard(){
       <button class="btn sm" id="stageTaskAdd" data-stage="${nextStage.id}">إضافة</button>
     </div>
     <button class="btn btn-block" style="margin-top:12px;" id="stageDone" data-stage="${nextStage.id}">✓ خلّصت هالمرحلة</button>
-  </div>`: `
+    </div>
+  </details>`: `
   <div class="card ai-box"><p style="text-align:center;font-size:16px;">🎉 خلّصتي كل مراحل هدفك، ماشاءالله!</p></div>`}
 
   ${upcoming.length? `
