@@ -185,16 +185,16 @@ details.card > .details-body{padding:0 18px 18px;}
 .safety-calc .item-row .inp-amt{flex:1;min-width:75px;}
 .safety-calc .item-row .del-row{background:none;border:none;color:#b9ad96;cursor:pointer;font-size:15px;padding:6px;}
 .safety-calc .item-row .del-row:hover{color:var(--rose);}
-.safety-calc .item-card, .expense-diag .item-card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;}
-.safety-calc .item-card .card-top, .expense-diag .item-card .card-top{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
-.safety-calc .item-card .card-top select, .safety-calc .item-card .card-top input, .expense-diag .item-card .card-top select, .expense-diag .item-card .card-top input{flex:1;min-width:0;}
-.safety-calc .item-card select, .safety-calc .item-card input, .expense-diag .item-card select, .expense-diag .item-card input{background:var(--parchment);border:1.5px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13.5px;font-family:inherit;color:var(--ink);width:100%;box-sizing:border-box;}
-.safety-calc .item-card .del-row, .expense-diag .item-card .del-row{background:none;border:none;color:#b9ad96;cursor:pointer;font-size:15px;padding:6px;flex-shrink:0;}
-.safety-calc .item-card .del-row:hover, .expense-diag .item-card .del-row:hover{color:var(--rose);}
-.safety-calc .item-card .card-grid, .expense-diag .item-card .card-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;}
-.safety-calc .item-card .card-grid select, .safety-calc .item-card .card-grid input, .expense-diag .item-card .card-grid select, .expense-diag .item-card .card-grid input{min-width:0;text-overflow:ellipsis;}
-.safety-calc .item-card .card-grid select, .expense-diag .item-card .card-grid select{padding-left:6px;}
-.safety-calc .item-card label, .expense-diag .item-card label{font-size:10.5px;color:#6b7a78;display:block;margin-bottom:3px;}
+.item-card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;}
+.item-card .card-top{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.item-card .card-top select, .item-card .card-top input{flex:1;min-width:0;}
+.item-card select, .item-card input{background:var(--parchment);border:1.5px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13.5px;font-family:inherit;color:var(--ink);width:100%;box-sizing:border-box;}
+.item-card .del-row{background:none;border:none;color:#b9ad96;cursor:pointer;font-size:15px;padding:6px;flex-shrink:0;}
+.item-card .del-row:hover{color:var(--rose);}
+.item-card .card-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;}
+.item-card .card-grid select, .item-card .card-grid input{min-width:0;text-overflow:ellipsis;}
+.item-card .card-grid select{padding-left:6px;}
+.item-card label{font-size:10.5px;color:#6b7a78;display:block;margin-bottom:3px;}
 .expense-diag .inbox-row{padding:8px 4px;}
 .safety-calc .total-line{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);}
 .safety-calc .total-line .lbl{font-size:12.5px;color:#6b7a78;}
@@ -561,6 +561,7 @@ let scAssetEditingId = null; /* id of the one safety-calc asset row currently sh
 let scIncomeEditingId = null; /* same, for income-source rows */
 let scExpenseEditingId = null; /* same, for the safety calculator's own monthly expense rows */
 let edEditingId = null; /* same idea, for one transaction row on the تشخيص المصاريف page */
+let plEditingId = null; /* same idea, for one row in the project financial ledger */
 let visionWizard = null; /* {step:'questions'|'review', answers:[], draftText:''} while building/redoing the life vision */
 let visionEditing = false; /* whether the confirmed life-vision text is currently shown as an editable textarea */
 let showLinkInfo = false; /* whether the Gist ID/Token of the already-linked device are revealed, for copying to a new device */
@@ -624,6 +625,7 @@ function hydrateState(parsed){
     if(!g.attachments) g.attachments = [];
   });
   if(!state.lifeVision) state.lifeVision = {text:''};
+  if(!state.projectLedger) state.projectLedger = [];
   /* one-time rename so already-saved rows follow SC_EXPENSE_GROUPS/
      ED_CATEGORY_GROUPS's unified item names instead of showing as an
      unmatched blank selection in their dropdown */
@@ -3019,6 +3021,113 @@ function renderFinanceSetup(){
     </div>
   </div>`;
 }
+/* ============ project financial ledger (على صفحة الهدف المالي) ============ */
+const PL_INCOME_CATS = ['مبيعات','استشارات','منتج','مشروع','أخرى'];
+const PL_EXPENSE_CATS = ['تسويق','أدوات وبرمجيات','شحن وتغليف','عمولات منصة','مواد خام','أخرى'];
+function plFmt(n){ return Number(n||0).toLocaleString('ar-SA', {maximumFractionDigits:2}); }
+function plRowHasData(r){ return !!(r.desc||'').trim() && (parseFloat(r.amount)||0) > 0; }
+/* same pattern as everywhere else on the money pages: a filled-in entry
+   (description + a real amount) collapses to a clean summary line once
+   she's not actively editing it, instead of staying an open form forever. */
+function plRowHtml(r){
+  const editing = plEditingId===r.id || !plRowHasData(r);
+  const isIncome = r.type!=='expense';
+  if(!editing){
+    return `
+    <div class="inbox-row" data-id="${r.id}">
+      <span class="dot" style="background:${isIncome?'#2f9e6e':'var(--rose)'};"></span>
+      <div style="flex:1;">
+        <div style="font-size:14px;color:var(--ink);">${escapeHtml(r.desc)}</div>
+        <div class="muted" style="font-size:12px;">${isIncome?'🟢':'🔴'} ${escapeHtml(r.category||'')} · ${r.date||''} · ${plFmt(parseFloat(r.amount)||0)} ريال</div>
+      </div>
+      <button type="button" class="icon-btn" data-pl-edit="${r.id}">✎</button>
+      <button type="button" class="icon-btn del-row" aria-label="حذف">✕</button>
+    </div>`;
+  }
+  const cats = isIncome? PL_INCOME_CATS : PL_EXPENSE_CATS;
+  return `
+  <div class="item-card fin-ledger-card" data-id="${r.id}">
+    <div class="card-top">
+      <div class="chip-row" style="flex:1;">
+        <button type="button" class="chip ${isIncome?'selected':''}" data-pl-type="income">🟢 دخل</button>
+        <button type="button" class="chip ${!isIncome?'selected':''}" data-pl-type="expense">🔴 مصروف</button>
+      </div>
+      <button type="button" class="del-row" aria-label="حذف">✕</button>
+    </div>
+    <div style="margin-bottom:8px;"><label>الوصف</label><input class="inp-desc" type="text" placeholder="مثال: تصميم لوقو لعميل" value="${escapeHtml(r.desc||'')}"/></div>
+    <div class="card-grid">
+      <div><label>المبلغ</label><input class="inp-amt" type="number" min="0" step="0.01" value="${r.amount||''}"/></div>
+      <div><label>التاريخ</label><input class="inp-date" type="date" value="${r.date||todayStr()}"/></div>
+    </div>
+    <div style="margin-top:8px;"><label>التصنيف</label><select class="sel-cat">${cats.map(c=>`<option value="${escapeHtml(c)}" ${r.category===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select></div>
+    ${plRowHasData(r)? `<button type="button" class="btn ghost sm" style="margin-top:10px;" data-pl-done="${r.id}">✓ تم</button>`:''}
+  </div>`;
+}
+function plRenderRows(){
+  const container = document.getElementById('plRows');
+  if(!container) return;
+  container.innerHTML = state.projectLedger.length? state.projectLedger.map(plRowHtml).join('') : `<div class="empty">ما فيه عمليات مسجلة بعد.</div>`;
+  container.querySelectorAll('[data-pl-edit]').forEach(b=> b.onclick=()=>{ plEditingId = b.dataset.plEdit; plRenderRows(); });
+  container.querySelectorAll('[data-pl-done]').forEach(b=> b.onclick=()=>{ plEditingId = null; saveState(); plRenderRows(); plUpdateStats(); });
+  container.querySelectorAll('[data-pl-type]').forEach(b=> b.onclick=()=>{
+    const rowEl = b.closest('[data-id]');
+    const row = state.projectLedger.find(r=>r.id===rowEl.dataset.id);
+    if(!row) return;
+    row.type = b.dataset.plType;
+    const cats = row.type==='expense'? PL_EXPENSE_CATS : PL_INCOME_CATS;
+    if(!cats.includes(row.category)) row.category = cats[0];
+    saveState(); plRenderRows(); plUpdateStats();
+  });
+  container.querySelectorAll('[data-id]').forEach(rowEl=>{
+    const id = rowEl.getAttribute('data-id');
+    const row = state.projectLedger.find(r=>r.id===id);
+    if(!row) return;
+    const descInp = rowEl.querySelector('.inp-desc');
+    if(descInp){
+      descInp.oninput = (e)=>{ row.desc = e.target.value; saveState(); };
+      descInp.onchange = ()=> plRenderRows();
+    }
+    const amtInp = rowEl.querySelector('.inp-amt');
+    if(amtInp){
+      amtInp.oninput = (e)=>{ row.amount = e.target.value; saveState(); plUpdateStats(); };
+      amtInp.onchange = ()=> plRenderRows();
+    }
+    const dateInp = rowEl.querySelector('.inp-date');
+    if(dateInp) dateInp.onchange = (e)=>{ row.date = e.target.value; saveState(); };
+    const catSel = rowEl.querySelector('.sel-cat');
+    if(catSel) catSel.onchange = (e)=>{ row.category = e.target.value; saveState(); };
+    rowEl.querySelector('.del-row').onclick = ()=>{
+      if(!confirm('تحذفين هذي العملية؟')) return;
+      state.projectLedger = state.projectLedger.filter(x=>x!==row);
+      saveState(); plRenderRows(); plUpdateStats();
+    };
+  });
+}
+function plUpdateStats(){
+  const el = id=>document.getElementById(id);
+  if(!el('plIncomeVal')) return;
+  const income = state.projectLedger.filter(r=>r.type!=='expense').reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
+  const expense = state.projectLedger.filter(r=>r.type==='expense').reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
+  el('plIncomeVal').textContent = plFmt(income)+' ريال';
+  el('plExpenseVal').textContent = plFmt(expense)+' ريال';
+  const net = income-expense;
+  const netEl = el('plNetVal');
+  netEl.textContent = plFmt(Math.abs(net))+' ريال'+(net<0?' (خسارة)':'');
+  netEl.style.color = net<0? 'var(--rose-dark)' : '#2f9e6e';
+}
+function renderProjectLedgerCard(){
+  return `
+  <div class="card fin-ledger">
+    <div class="card-title"><h3>📒 تتبع مشروعي المالي</h3></div>
+    <div class="stats-grid" style="margin-bottom:14px;">
+      <div class="stat-box" style="background:#e7f7ef;"><div class="p" style="color:#2f9e6e;" id="plIncomeVal">0 ريال</div><div class="l" style="color:#2f9e6e;">إجمالي العائدات</div></div>
+      <div class="stat-box" style="background:rgba(178,76,99,.13);"><div class="p" style="color:var(--rose-dark);" id="plExpenseVal">0 ريال</div><div class="l" style="color:var(--rose-dark);">إجمالي المصروفات</div></div>
+      <div class="stat-box" style="background:var(--parchment); grid-column:1 / -1; text-align:center;"><div class="p" id="plNetVal" style="font-size:19px;">0 ريال</div><div class="l">صافي الدخل</div></div>
+    </div>
+    <div id="plRows"></div>
+    <button class="btn ghost btn-block" id="plAddRowBtn" style="margin-top:10px;">+ إضافة عملية جديدة</button>
+  </div>`;
+}
 function renderFinanceDashboard(){
   const fg = state.financialGoal;
   const pct = fg.targetAmount? Math.min(100, Math.round((fg.currentAmount/fg.targetAmount)*100)) : 0;
@@ -3043,6 +3152,8 @@ function renderFinanceDashboard(){
     </div>
     <button class="btn ghost sm" id="financeEdit" style="margin-top:10px;">تعديل الهدف أو الموعد</button>
   </div>
+
+  ${renderProjectLedgerCard()}
 
   ${renderFinancePathsCard(fg)}
 
@@ -3114,6 +3225,13 @@ function renderFinanceDashboard(){
   `;
 }
 function attachFinanceEvents(){
+  plRenderRows(); plUpdateStats();
+  const plAddRowBtn = document.getElementById('plAddRowBtn');
+  if(plAddRowBtn) plAddRowBtn.onclick = ()=>{
+    const newRow = {id:uid(), type:'income', desc:'', category:PL_INCOME_CATS[0], amount:'', date:todayStr()};
+    state.projectLedger.push(newRow);
+    saveState(); plRenderRows();
+  };
   const fsSave = document.getElementById('fsSave');
   if(fsSave) fsSave.onclick = ()=>{
     const title = document.getElementById('fsTitle').value.trim() || `الهدف المالي ${new Date().getFullYear()}`;
