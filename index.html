@@ -2052,32 +2052,43 @@ function renderTasks(){
 }
 
 /* ============ LIFE VISION (top of الأساس page) ============ */
+/* short, specific fill-in-the-blank prompts (not open essay questions) — each
+   answer is meant to be a short phrase that slots directly into a neutral
+   template sentence in composeVisionText, since the app has no real AI to
+   freely compose prose from long-form answers */
 const VISION_QUESTIONS = [
-  'لو تخيلتِ حياتك المثالية بعد ٥ سنوات، وش أهم شي فيها؟',
-  'وش القيم اللي ما تتنازلين عنها مهما صار؟',
-  'كيف تبين تكونين على المستوى الصحي والمالي والعاطفي؟',
-  'وش الأثر اللي تبين تسوينه بحياة اللي حولك؟',
-  'لو وصف حد حياتك بجملة وحدة بعد سنوات، وش يقول؟',
+  {q:'بجملة قصيرة: أهم شي يميز حياتك بعد ٥ سنوات؟', ph:'مثال: الاستقرار والسلام الداخلي'},
+  {q:'القيمة الوحيدة اللي ما تتنازلين عنها؟', ph:'مثال: الصدق'},
+  {q:'صحيًا، وش تبين تكونين؟', ph:'مثال: نشيطة ومتوازنة'},
+  {q:'ماليًا، وش تبين تكونين؟', ph:'مثال: مستقلة وموفرة'},
+  {q:'عاطفيًا، وش تبين تكونين؟', ph:'مثال: مطمئنة ومحاطة بمن أحب'},
+  {q:'وش الأثر اللي تبين تسوينه بحياة اللي حولك؟', ph:'مثال: أكون مصدر دعم وإلهام'},
+  {q:'لو وصف حد حياتك بجملة وحدة بعد سنوات، وش يقول؟', ph:'مثال: عاشت حياة صادقة ومؤثرة'},
 ];
 function composeVisionText(answers){
-  const parts = [];
-  if(answers[0]) parts.push(answers[0]);
-  if(answers[1]) parts.push('القيم اللي أتمسك فيها:\n'+answers[1]);
-  if(answers[2]) parts.push('على المستوى الصحي والمالي والعاطفي:\n'+answers[2]);
-  if(answers[3]) parts.push('الأثر اللي أبي أتركه:\n'+answers[3]);
-  if(answers[4]) parts.push('بجملة وحدة:\n"'+answers[4]+'"');
-  return parts.join('\n\n');
+  const a = answers.map(x=>(x||'').trim());
+  const sentences = [];
+  if(a[0]) sentences.push(`أعيش حياة محورها ${a[0]}`);
+  if(a[1]) sentences.push(`أتمسك بقيمة ${a[1]} فوق أي شي`);
+  const wellbeing = [];
+  if(a[2]) wellbeing.push(`صحيًا أنا ${a[2]}`);
+  if(a[3]) wellbeing.push(`ماليًا أنا ${a[3]}`);
+  if(a[4]) wellbeing.push(`عاطفيًا أنا ${a[4]}`);
+  if(wellbeing.length) sentences.push(wellbeing.join('، '));
+  if(a[5]) sentences.push(`أترك أثري بحياة من حولي من خلال أن ${a[5]}`);
+  if(a[6]) sentences.push(`ولو وُصفت حياتي بجملة بعد سنوات، بيُقال: "${a[6]}"`);
+  return sentences.length? sentences.join('. ')+'.' : '';
 }
 function renderLifeVisionSection(){
   if(visionWizard && visionWizard.step==='questions'){
     return `
     <div class="card" style="margin-bottom:14px;border-color:var(--gold);">
       <div class="card-title"><h3>🧭 رؤيتي — أسئلة توجهك</h3></div>
-      <p class="muted" style="margin-bottom:14px;">جاوبي بصراحة وبإيجاز، وأنا أجمعهم لك بصياغة تقدرين تعدلين عليها بعدين.</p>
-      ${VISION_QUESTIONS.map((q,i)=>`
+      <p class="muted" style="margin-bottom:14px;">جاوبي بكلمة أو جملة قصيرة لكل سؤال — أستخدمها أعبّي بها فراغات جملة رؤيتك، وتقدرين تعدلين عليها بعدين.</p>
+      ${VISION_QUESTIONS.map((item,i)=>`
         <div class="field">
-          <label>${q}</label>
-          <textarea id="visionQ${i}" placeholder="اكتبي إجابتك…">${escapeHtml(visionWizard.answers[i]||'')}</textarea>
+          <label>${item.q}</label>
+          <input type="text" id="visionQ${i}" placeholder="${escapeHtml(item.ph)}" value="${escapeHtml(visionWizard.answers[i]||'')}"/>
         </div>`).join('')}
       <div style="display:flex;gap:10px;margin-top:8px;">
         <button class="btn btn-block" id="visionCompose">✨ اصيغي لي الرؤية</button>
