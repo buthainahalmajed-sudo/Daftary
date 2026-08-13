@@ -139,6 +139,15 @@ details.card > .details-body{padding:0 18px 18px;}
 .check svg{width:14px;height:14px;stroke:#fff;stroke-width:3;fill:none;}
 .tag svg{vertical-align:-2px;margin-left:2px;}
 .chip svg{vertical-align:-3px;margin-left:4px;}
+
+/* ---------- simple rich-text editor (bold/italic/lists via execCommand) ---------- */
+.rte-toolbar{display:flex;gap:6px;margin-bottom:6px;}
+.rte-toolbar button{width:34px;height:34px;border-radius:8px;border:1.5px solid var(--line);background:var(--parchment);color:var(--ink);font-size:14px;}
+.rte-toolbar button:active{background:var(--sage);color:#fff;}
+.rte-toolbar button.rte-italic{font-style:italic;}
+.rte-editable{min-height:120px;border:1.5px solid var(--line);border-radius:10px;padding:12px 13px;background:var(--parchment);font-size:16px;color:var(--ink);line-height:1.7;}
+.rte-editable:focus{outline:2px solid var(--sage);outline-offset:1px;}
+.rte-editable ul, .rte-editable ol{margin:0;padding-inline-start:22px;}
 .task-title{flex:1;font-size:15.5px;}
 .task-title.done{text-decoration:line-through;color:#9aa6a4;}
 .tag{font-size:10.5px;background:rgba(46,92,90,.09);color:var(--petrol-dark);padding:2px 8px;border-radius:10px;font-weight:700;}
@@ -648,6 +657,8 @@ function hydrateState(parsed){
   state.habits.forEach(h=>{ if(!Array.isArray(h.days)) h.days = []; if(h.link===undefined) h.link = null; });
   (state.tasks||[]).forEach(t=>{
     if(t.recur && t.recur.length && !t.recurType) t.recurType = 'weekly';
+    if(t.longNote===undefined) t.longNote = '';
+    if(!t.attachments) t.attachments = [];
   });
   if((parsed.todayMood && parsed.todayMood.length) || parsed.reflection){
     const d = parsed.lastActiveDate || todayStr();
@@ -1682,6 +1693,9 @@ function taskRowHtml(t, opts){
   const done = taskDoneToday(t);
   const box = t.period? timeBoxOf(t.period) : null;
   const device = t.device || null;
+  const hasExtra = t.longNote || (t.attachments && t.attachments.length);
+  const noteKey = 'taskNote:'+t.id;
+  const noteOpen = !!state.collapsed[noteKey]; /* truthy here means "expanded", opposite of every other data-toggle-collapse usage — this one defaults hidden */
   return `
   <div class="task-row" data-task="${t.id}">
     <button class="check ${done?'done':''}" data-toggle="${t.id}">${done?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
@@ -1700,6 +1714,13 @@ function taskRowHtml(t, opts){
         ${t.recurType? `<span class="tag">🔁 ${recurLabel(t)}</span>`:''}
         ${t.link? `<a href="${escapeHtml(t.link)}" target="_blank" rel="noopener" class="tag" style="text-decoration:none;">🔗 رابط مساعد</a>`:''}
       </div>
+      ${hasExtra? `
+      <button type="button" class="icon-btn sm" style="padding:2px 4px;margin-top:2px;" data-toggle-collapse="${noteKey}">${noteOpen?'▾':'▸'} 📝 تفاصيل إضافية</button>
+      ${noteOpen? `
+        ${t.longNote? `<div class="rte-editable" style="margin-top:4px;min-height:auto;border-style:dashed;">${t.longNote}</div>`:''}
+        ${(t.attachments&&t.attachments.length)? `<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;">${t.attachments.map(a=>`<a href="${a.dataUrl}" download="${escapeHtml(a.name)}" style="font-size:13px;color:var(--petrol-dark);text-decoration:none;">📄 ${escapeHtml(a.name)}</a>`).join('')}</div>`:''}
+      `:''}
+      `:''}
     </div>
     ${opts.restore? `<button class="icon-btn" data-restore-task="${t.id}" title="استعادة — تراجعي عن إنجازها">↺</button>`:''}
     <button class="icon-btn" data-edit-task="${t.id}">✎</button>
@@ -4334,6 +4355,31 @@ function renderTaskDraft(){
         <input type="text" id="tdLink" value="${escapeHtml(d.link||'')}" placeholder="مثال: رابط فيديو يوتيوب يساعدك تسوين المهمة" style="direction:ltr;text-align:left;"/>
         <p class="muted" style="margin-top:6px;">ما عندي بحث تلقائي بالنسخة المستضافة، بس اطلبي مني رابط فيديو بالمحادثة وأنا أدورلك عليه وأعطيك إياه جاهز تلصقينه هنا.</p>
       </div>
+      <div class="field">
+        <label>ملاحظة طويلة (اختياري)</label>
+        <div class="rte-toolbar">
+          <button type="button" data-rte-cmd="bold" title="عريض"><b>B</b></button>
+          <button type="button" data-rte-cmd="italic" class="rte-italic" title="مائل"><i>I</i></button>
+          <button type="button" data-rte-cmd="insertOrderedList" title="ترقيم">1.</button>
+          <button type="button" data-rte-cmd="insertUnorderedList" title="تنقيط">•</button>
+        </div>
+        <div id="tdLongNote" class="rte-editable" contenteditable="true">${d.longNote||''}</div>
+      </div>
+      <div class="field">
+        <label>📎 مرفقات (أي نوع ملف، اختياري)</label>
+        ${(d.attachments||[]).length? `
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">
+          ${d.attachments.map((a,i)=>`
+            <div class="inbox-row" data-tdattach-row="${i}" style="align-items:center;">
+              <span class="dot"></span>
+              <a href="${a.dataUrl}" download="${escapeHtml(a.name)}" style="flex:1;color:var(--petrol-dark);font-size:14px;text-decoration:none;">📄 ${escapeHtml(a.name)} <span class="muted" style="font-size:11.5px;">(${Math.round(a.size/1024)} كيلوبايت)</span></a>
+              <button type="button" class="icon-btn" data-tdattach-del="${i}">✕</button>
+            </div>`).join('')}
+        </div>`:''}
+        <input type="file" id="tdAttachInput" style="width:100%;padding:10px;border:1.5px dashed var(--line);border-radius:10px;background:var(--parchment);font-size:13px;"/>
+        ${attachError? `<p class="muted" style="color:var(--rose-dark);margin-top:6px;">${escapeHtml(attachError)}</p>`:''}
+        <p class="muted" style="margin-top:6px;">حجم أقصى ٨٠٠ كيلوبايت لكل ملف (تخزين محلي بالجهاز).</p>
+      </div>
       <div style="display:flex;gap:10px;margin-top:8px;">
         <button class="btn btn-block" id="tdSave">حفظ المهمة</button>
         <button class="btn ghost" id="tdCancel">إلغاء</button>
@@ -4368,6 +4414,35 @@ function attachTaskDraftEvents(){
     if(i>-1) taskDraft.recur.splice(i,1); else taskDraft.recur.push(day);
     render();
   });
+  document.querySelectorAll('[data-rte-cmd]').forEach(b=> b.onclick=()=>{
+    document.getElementById('tdLongNote').focus();
+    document.execCommand(b.dataset.rteCmd, false, null);
+  });
+  const tdAttachInput = document.getElementById('tdAttachInput');
+  if(tdAttachInput) tdAttachInput.onchange = ()=>{
+    syncDraft();
+    const file = tdAttachInput.files && tdAttachInput.files[0];
+    if(!file) return;
+    if(file.size > 800*1024){
+      attachError = `الملف "${file.name}" حجمه أكبر من ٨٠٠ كيلوبايت — اختاري ملف أصغر.`;
+      render();
+      return;
+    }
+    attachError = null;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      taskDraft.attachments = taskDraft.attachments || [];
+      taskDraft.attachments.push({id:uid(), name:file.name, size:file.size, dataUrl:reader.result});
+      render();
+    };
+    reader.onerror = ()=>{ attachError = 'ما قدرت أقرأ الملف، جربي ملف ثاني.'; render(); };
+    reader.readAsDataURL(file);
+  };
+  document.querySelectorAll('[data-tdattach-del]').forEach(b=> b.onclick=()=>{
+    syncDraft();
+    taskDraft.attachments.splice(parseInt(b.dataset.tdattachDel,10),1);
+    render();
+  });
   document.getElementById('tdSave').onclick = ()=>{
     syncDraft();
     if(!taskDraft.title.trim()){ document.getElementById('tdTitle').focus(); return; }
@@ -4395,6 +4470,8 @@ function attachTaskDraftEvents(){
         t.link = taskDraft.link||null;
         t.device = taskDraft.device||null;
         t.actionType = taskDraft.actionType||null;
+        t.longNote = taskDraft.longNote||'';
+        t.attachments = (taskDraft.attachments||[]).slice();
         t.recurType = recurType;
         t.recur = recur;
         t.recurMonthDay = recurMonthDay;
@@ -4411,6 +4488,7 @@ function attachTaskDraftEvents(){
         id:uid(), title:taskDraft.title.trim(), goalId:taskDraft.goalId||null, category:taskDraft.category||null,
         priority:taskDraft.priority, period:taskDraft.period||null, due:taskDraft.due||null, link:taskDraft.link||null,
         device:taskDraft.device||null, actionType:taskDraft.actionType||null,
+        longNote:taskDraft.longNote||'', attachments:(taskDraft.attachments||[]).slice(),
         recurType, recur, recurMonthDay, recurStart, recurEnd, lastDoneDate:null, done:false, createdAt:todayStr()
       });
     }
@@ -4418,7 +4496,7 @@ function attachTaskDraftEvents(){
     taskDraft = null;
     render();
   };
-  document.getElementById('tdCancel').onclick = ()=>{ taskDraft=null; render(); };
+  document.getElementById('tdCancel').onclick = ()=>{ taskDraft=null; attachError=null; render(); };
 }
 function syncDraft(){
   taskDraft.title = document.getElementById('tdTitle').value;
@@ -4433,6 +4511,8 @@ function syncDraft(){
   if(re) taskDraft.recurEnd = re.value;
   const rmd = document.getElementById('tdRecurMonthDay');
   if(rmd) taskDraft.recurMonthDay = rmd.value;
+  const noteEl = document.getElementById('tdLongNote');
+  if(noteEl) taskDraft.longNote = noteEl.textContent.trim()? noteEl.innerHTML : '';
 }
 
 /* ============ nav ============ */
@@ -4574,8 +4654,10 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
       id:t.id, title:t.title, goalId:t.goalId||'', category:t.category||'',
       priority:t.priority, period:t.period||null, due:t.due||'', link:t.link||'', recurType:t.recurType||null,
       recur:(t.recur||[]).slice(), recurMonthDay:t.recurMonthDay||'', recurStart:t.recurStart||'', recurEnd:t.recurEnd||'',
-      device:t.device||null, actionType:t.actionType||''
+      device:t.device||null, actionType:t.actionType||'',
+      longNote:t.longNote||'', attachments:(t.attachments||[]).slice()
     };
+    attachError = null;
     taskDraftRecurOpen = !!t.recurType;
     render();
   });
@@ -4689,13 +4771,13 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
   if(cancelTop3Pick) cancelTop3Pick.onclick = ()=>{ top3Picker = null; render(); };
 
   const addTask = document.getElementById('goAddTask2');
-  if(addTask) addTask.onclick = ()=>{ taskDraft={title:'',goalId:'',priority:'متوسطة',period:currentTimeBoxId(),due: selectedDate!==todayStr()? selectedDate : '', recur:[]}; taskDraftRecurOpen=false; render(); };
+  if(addTask) addTask.onclick = ()=>{ taskDraft={title:'',goalId:'',priority:'متوسطة',period:currentTimeBoxId(),due: selectedDate!==todayStr()? selectedDate : '', recur:[]}; taskDraftRecurOpen=false; attachError=null; render(); };
 
   const addTaskPeriod = document.getElementById('goAddTaskPeriod');
-  if(addTaskPeriod) addTaskPeriod.onclick = ()=>{ taskDraft={title:'',goalId:'',priority:'متوسطة',period:addTaskPeriod.dataset.addPeriod,due: selectedDate!==todayStr()? selectedDate : '', recur:[]}; taskDraftRecurOpen=false; render(); };
+  if(addTaskPeriod) addTaskPeriod.onclick = ()=>{ taskDraft={title:'',goalId:'',priority:'متوسطة',period:addTaskPeriod.dataset.addPeriod,due: selectedDate!==todayStr()? selectedDate : '', recur:[]}; taskDraftRecurOpen=false; attachError=null; render(); };
 
   document.querySelectorAll('[data-addtaskfor]').forEach(b=> b.onclick=()=>{
-    taskDraft={title:'',goalId:b.dataset.addtaskfor,priority:'متوسطة',period:currentTimeBoxId(),due:'', recur:[]}; taskDraftRecurOpen=false; render();
+    taskDraft={title:'',goalId:b.dataset.addtaskfor,priority:'متوسطة',period:currentTimeBoxId(),due:'', recur:[]}; taskDraftRecurOpen=false; attachError=null; render();
   });
 
   const addGoal = document.getElementById('goAddGoal') || document.getElementById('goAddGoal2');
