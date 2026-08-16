@@ -352,16 +352,11 @@ function defaultGoalPillars(){
 }
 function pillarOf(id){ return (state.goalPillars||[]).find(p=>p.id===id) || null; }
 
-/* categories used to classify raw inbox tasks (business/personal/etc.) — user-editable, lives in state.taskCategories */
+/* categories used to classify raw inbox tasks — user-editable, lives in state.taskCategories.
+   Mirrors CATS (the same life-domain list used for yearly goals) so a task's category and
+   a goal's domain always read as the same taxonomy across the app. */
 function defaultTaskCategories(){
-  return [
-    {id:'work', label:'عمل', icon:'💼'},
-    {id:'business', label:'بزنس', icon:'📈'},
-    {id:'project', label:'مشروع مهم', icon:'🚀'},
-    {id:'family', label:'عائلية', icon:'👨‍👩‍👧'},
-    {id:'personal', label:'شخصية', icon:'🌸'},
-    {id:'other', label:'أخرى', icon:'✨'},
-  ];
+  return CATS.map(c=>({...c}));
 }
 function tcatOf(id){ return state.taskCategories.find(c=>c.id===id) || null; }
 
@@ -616,6 +611,21 @@ function hydrateState(parsed){
   if(!state.timeBoxes || !state.timeBoxes.length) state.timeBoxes = defaultTimeBoxes();
   state.timeBoxes.forEach(b=>{ if(!Array.isArray(b.categoryIds)) b.categoryIds = []; });
   if(!state.taskCategories || !state.taskCategories.length) state.taskCategories = defaultTaskCategories();
+  if(!state._taskCatsUnifiedV1){
+    /* task categories used to be a separate ad-hoc list (عمل/بزنس/عائلية...) that drifted
+       from CATS (the goal domains) — unify them so both pages show the same taxonomy.
+       Truly custom categories she added herself (ids not part of the old default set or
+       CATS) are kept and appended after the standard 9. Old default ids on already-tagged
+       tasks/time-boxes are remapped to their closest CATS equivalent so nothing goes blank. */
+    const OLD_TASKCAT_MAP = {work:'career', business:'business', project:'other', family:'relationships', personal:'other', other:'other'};
+    const customCats = state.taskCategories.filter(c => !(c.id in OLD_TASKCAT_MAP) && !CATS.some(x=>x.id===c.id));
+    state.taskCategories = CATS.map(c=>({...c})).concat(customCats);
+    (state.tasks||[]).forEach(t=>{ if(t.category && OLD_TASKCAT_MAP[t.category]) t.category = OLD_TASKCAT_MAP[t.category]; });
+    state.timeBoxes.forEach(b=>{
+      if(Array.isArray(b.categoryIds)) b.categoryIds = b.categoryIds.map(id => OLD_TASKCAT_MAP[id] || id);
+    });
+    state._taskCatsUnifiedV1 = true;
+  }
   if(!state.goalPillars || !state.goalPillars.length) state.goalPillars = defaultGoalPillars();
   (state.goals||[]).forEach(g=>{
     if(g.pillarId && !g.pillarIds){ g.pillarIds = [g.pillarId]; delete g.pillarId; }
