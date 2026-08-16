@@ -148,7 +148,7 @@ details.card > .details-body{padding:0 18px 18px;}
 .rte-editable{min-height:120px;border:1.5px solid var(--line);border-radius:10px;padding:12px 13px;background:var(--parchment);font-size:16px;color:var(--ink);line-height:1.7;}
 .rte-editable:focus{outline:2px solid var(--sage);outline-offset:1px;}
 .rte-editable ul, .rte-editable ol{margin:0;padding-inline-start:22px;}
-.task-title{flex:1;font-size:15.5px;}
+.task-title{flex:1;font-size:15.5px;font-weight:700;}
 .task-title.done{text-decoration:line-through;color:#9aa6a4;}
 .tag{font-size:10.5px;background:rgba(46,92,90,.09);color:var(--petrol-dark);padding:2px 8px;border-radius:10px;font-weight:700;}
 .tag.p-عالية{background:rgba(178,76,99,.13);color:var(--rose-dark);}
@@ -3037,7 +3037,7 @@ function plRowHtml(r){
     <div class="inbox-row" data-id="${r.id}">
       <span class="dot" style="background:${isIncome?'#2f9e6e':'var(--rose)'};"></span>
       <div style="flex:1;">
-        <div style="font-size:14px;color:var(--ink);">${escapeHtml(r.desc)}</div>
+        <div style="font-size:14px;font-weight:700;color:var(--ink);">${escapeHtml(r.desc)}</div>
         <div class="muted" style="font-size:12px;">${isIncome?'🟢':'🔴'} ${escapeHtml(r.category||'')} · ${r.date||''} · ${plFmt(parseFloat(r.amount)||0)} ريال</div>
       </div>
       <button type="button" class="icon-btn" data-pl-edit="${r.id}">✎</button>
@@ -3166,7 +3166,7 @@ function renderFinanceDashboard(){
     ${nextStage.tasks.map(t=>`
       <div class="habit-item">
         <button type="button" class="hbox ${t.done?'done':''}" data-stagetask-toggle="${nextStage.id}|${t.id}">${t.done?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
-        <input type="text" class="stagetask-edit" data-stagetask-edit="${nextStage.id}|${t.id}" value="${escapeHtml(t.text)}" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--paper);font-size:14.5px;${t.done?'text-decoration:line-through;color:#9aa6a4;':''}"/>
+        <input type="text" class="stagetask-edit" data-stagetask-edit="${nextStage.id}|${t.id}" value="${escapeHtml(t.text)}" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--paper);font-size:14.5px;font-weight:700;${t.done?'text-decoration:line-through;color:#9aa6a4;':''}"/>
         <button type="button" class="icon-btn" title="أضيفيها لمهامي" data-stagetask-addtotasks="${nextStage.id}|${t.id}">📌</button>
         <button type="button" class="icon-btn" data-stagetask-del="${nextStage.id}|${t.id}">✕</button>
       </div>
