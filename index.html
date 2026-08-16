@@ -636,7 +636,13 @@ function hydrateState(parsed){
     "طعام المطاعم":"مطاعم", "الرحلات":"سفر", "الهدايا":"هدايا",
   };
   if(state.safety && state.safety.expenses){
-    state.safety.expenses.forEach(r=>{ if(SC_ITEM_RENAMES[r.item]) r.item = SC_ITEM_RENAMES[r.item]; });
+    state.safety.expenses.forEach(r=>{
+      if(SC_ITEM_RENAMES[r.item]) r.item = SC_ITEM_RENAMES[r.item];
+      if(!r.freq) r.freq = 'monthly';
+    });
+  }
+  if(state.safety && state.safety.income){
+    state.safety.income.forEach(r=>{ if(!r.freq) r.freq = SC_INCOME_ANNUAL_ITEMS.has(r.item) ? 'yearly' : 'monthly'; });
   }
   const ED_ITEM_RENAMES = { "سوبرماركت":"بقالة / لحوم" };
   if(state.expenseDiag){
@@ -3486,8 +3492,8 @@ const SC_TAG_META = {
 function scDefaultState(){
   return {
     assets:[{id:uid(), item:"", custom:"", tag:"fast", amount:""}],
-    income:[state.sharedIncome? {id:uid(), item:"راتب شهري", custom:"", amount: state.sharedIncome} : {id:uid(), item:"", custom:"", amount:""}],
-    expenses:[{id:uid(), item:"", custom:"", tag:"essential", amount:""}],
+    income:[state.sharedIncome? {id:uid(), item:"راتب شهري", custom:"", amount: state.sharedIncome, freq:"monthly"} : {id:uid(), item:"", custom:"", amount:"", freq:"monthly"}],
+    expenses:[{id:uid(), item:"", custom:"", tag:"essential", amount:"", freq:"monthly"}],
     goals:[{id:uid(), item:"", custom:"", amount:""}],
     goalsTargetYears: "",
   };
@@ -3520,6 +3526,7 @@ function scActiveList(rows){
     name: r.item===SC_CUSTOM_VALUE ? (r.custom||'').trim() : r.item,
     amount: parseFloat(r.amount)||0,
     tag: r.tag,
+    freq: r.freq || 'monthly',
   })).filter(x=>x.name && x.amount>0);
 }
 
@@ -3573,7 +3580,7 @@ function renderSafetyPage(){
         <div class="stat-box" style="background:var(--parchment); grid-column:1 / -1; text-align:center;"><div class="p" id="scYearsVal" style="font-size:19px;">—</div><div class="l">الوقت المتبقي حتى نقطة الأمان المالي</div></div>
       </div>
       <div class="assumption-note">
-        الافتراضات المستخدمة: كل مبلغ شهري (دخل أو مصروف) يُضرب × 12 ويُفترض تكراره كل سنة بنفس القيمة. تغطية 5 سنوات من مصاريفك الأساسية السنوية + تضخم تقديري 2%. صافي الادخار = دخلك السنوي − كل مصاريفك السنوية (أساسية وغير أساسية). الأصول لا تُحسب كدخل أو مصروف. الأصول ذات السيولة السريعة أو طويلة المدى (⚡🐢) تُحسب بالكامل مقابل المبلغ المستهدف؛ الأصول الثابتة (🏠 كالمسكن الأساسي) تظهر ضمن أملاكك لكن لا تُخصم من المبلغ المطلوب.
+        الافتراضات المستخدمة: كل بند دخل أو مصروف يُحوَّل لقيمته الشهرية حسب تكراره اللي حددتيه (شهري، أو سنوي فيُقسم ÷12)، وبعدها يُضرب × 12 لحساب القيم السنوية. تغطية 5 سنوات من مصاريفك الأساسية السنوية + تضخم تقديري 2%. صافي الادخار = دخلك السنوي − كل مصاريفك السنوية (أساسية وغير أساسية). الأصول لا تُحسب كدخل أو مصروف. الأصول ذات السيولة السريعة أو طويلة المدى (⚡🐢) تُحسب بالكامل مقابل المبلغ المستهدف؛ الأصول الثابتة (🏠 كالمسكن الأساسي) تظهر ضمن أملاكك لكن لا تُخصم من المبلغ المطلوب.
       </div>
     </div>
 
@@ -3687,6 +3694,7 @@ function scRenderIncomeRows(){
   container.innerHTML = sc.income.map(r=>{
     const isCustom = r.item === SC_CUSTOM_VALUE;
     const amt = parseFloat(r.amount)||0;
+    const freq = r.freq || 'monthly';
     const showContribute = fgForContribute && fgForContribute.configured && amt>0;
     const editing = scIncomeEditingId===r.id || !scRowHasData(r);
     const body = editing? `
@@ -3696,7 +3704,13 @@ function scRenderIncomeRows(){
         ${isCustom ? `<input class="sel-custom" type="text" placeholder="اكتبي مصدر الدخل" value="${escapeHtml(r.custom||'')}" />` : ''}
         <button type="button" class="del-row" aria-label="حذف">✕</button>
       </div>
-      <div><label>المبلغ الشهري</label><input class="inp-amt" type="number" min="0" step="0.01" placeholder="المبلغ" value="${r.amount||''}" /></div>
+      <div class="card-grid">
+        <div><label>المبلغ</label><input class="inp-amt" type="number" min="0" step="0.01" placeholder="المبلغ" value="${r.amount||''}" /></div>
+        <div><label>يتكرر</label><select class="sel-freq">
+          <option value="monthly" ${freq==='monthly'?'selected':''}>شهريًا</option>
+          <option value="yearly" ${freq==='yearly'?'selected':''}>سنويًا</option>
+        </select></div>
+      </div>
       ${scRowHasData(r)? `<div style="display:flex;gap:8px;margin-top:10px;">
         <button type="button" class="btn ghost sm" data-sc-income-done="${r.id}">✓ تم</button>
         ${showContribute? `<button type="button" class="btn ghost sm" data-sc-contribute="${r.id}">💰 أضيفي للهدف</button>`:''}
@@ -3706,7 +3720,7 @@ function scRenderIncomeRows(){
       <span class="dot"></span>
       <div style="flex:1;">
         <div style="font-size:14px;color:var(--ink);">${escapeHtml(scRowDisplayName(r))}</div>
-        <div class="muted" style="font-size:12px;">${scFmt(amt)} ريال شهريًا</div>
+        <div class="muted" style="font-size:12px;">${scFmt(amt)} ريال ${freq==='yearly'?'سنويًا':'شهريًا'}</div>
       </div>
       ${showContribute? `<button type="button" class="icon-btn" title="أضيفي ${scFmt(amt)} ريال لهدفك المالي" data-sc-contribute="${r.id}">💰</button>`:''}
       <button type="button" class="icon-btn" data-sc-income-edit="${r.id}">✎</button>
@@ -3722,10 +3736,13 @@ function scRenderIncomeRows(){
     const selItem = rowEl.querySelector('.sel-item');
     if(selItem) selItem.onchange = ()=>{
       row.item = selItem.value; if(row.item!==SC_CUSTOM_VALUE) row.custom='';
+      if(SC_INCOME_ANNUAL_ITEMS.has(row.item)) row.freq = 'yearly';
       saveState(); scRenderIncomeRows(); scUpdateSummary();
     };
     const selCustom = rowEl.querySelector('.sel-custom');
     if(selCustom) selCustom.oninput = ()=>{ row.custom = selCustom.value; saveState(); scUpdateSummary(); };
+    const selFreq = rowEl.querySelector('.sel-freq');
+    if(selFreq) selFreq.onchange = ()=>{ row.freq = selFreq.value; saveState(); scUpdateSummary(); };
     const amtInput = rowEl.querySelector('.inp-amt');
     if(amtInput){
       amtInput.oninput = (e)=>{
@@ -3791,6 +3808,7 @@ function scRenderExpenseRows(){
   container.innerHTML = sc.expenses.map(r=>{
     const isCustom = r.item === SC_CUSTOM_VALUE;
     const tag = r.tag || 'essential';
+    const freq = r.freq || 'monthly';
     const editing = scExpenseEditingId===r.id || !scRowHasData(r);
     if(!editing){
       const meta = SC_TAG_META[tag] || {};
@@ -3800,12 +3818,16 @@ function scRenderExpenseRows(){
         <span class="dot"></span>
         <div style="flex:1;">
           <div style="font-size:14px;color:var(--ink);">${escapeHtml(scRowDisplayName(r))}</div>
-          <div class="muted" style="font-size:12px;">${emoji} ${meta.label||''} · ${scFmt(parseFloat(r.amount)||0)} ريال</div>
+          <div class="muted" style="font-size:12px;">${emoji} ${meta.label||''} · ${scFmt(parseFloat(r.amount)||0)} ريال ${freq==='yearly'?'سنويًا':'شهريًا'}</div>
         </div>
         <button type="button" class="icon-btn" data-sc-expense-edit="${r.id}">✎</button>
         <button type="button" class="icon-btn del-row" aria-label="حذف">✕</button>
       </div>`;
     }
+    const freqSelect = `<select class="sel-freq">
+      <option value="monthly" ${freq==='monthly'?'selected':''}>شهريًا</option>
+      <option value="yearly" ${freq==='yearly'?'selected':''}>سنويًا</option>
+    </select>`;
     return `
     <div class="item-card" data-id="${r.id}">
       <div class="card-top">
@@ -3813,12 +3835,11 @@ function scRenderExpenseRows(){
         ${isCustom ? `<input class="sel-custom" type="text" placeholder="اكتبي اسم البند" value="${escapeHtml(r.custom||'')}" />` : ''}
         <button type="button" class="del-row" aria-label="حذف">✕</button>
       </div>
-      ${isCustom ? `
       <div class="card-grid">
         <div><label>المبلغ</label><input class="inp-amt" type="number" min="0" step="0.01" placeholder="المبلغ" value="${r.amount||''}" /></div>
-        <div><label>التصنيف</label><select class="sel-tag">${scBuildTagOptions(tag)}</select></div>
-      </div>` : `
-      <div><label>المبلغ</label><input class="inp-amt" type="number" min="0" step="0.01" placeholder="المبلغ" value="${r.amount||''}" /></div>`}
+        <div><label>يتكرر</label>${freqSelect}</div>
+      </div>
+      ${isCustom ? `<div style="margin-top:8px;"><label>التصنيف</label><select class="sel-tag">${scBuildTagOptions(tag)}</select></div>` : ''}
       ${scRowHasData(r)? `<button type="button" class="btn ghost sm" style="margin-top:10px;" data-sc-expense-done="${r.id}">✓ تم</button>`:''}
     </div>`;
   }).join('');
@@ -3837,6 +3858,8 @@ function scRenderExpenseRows(){
     if(selCustom) selCustom.oninput = ()=>{ row.custom = selCustom.value; saveState(); scUpdateSummary(); };
     const selTag = rowEl.querySelector('.sel-tag');
     if(selTag) selTag.onchange = ()=>{ row.tag = selTag.value; saveState(); scUpdateSummary(); };
+    const selFreq = rowEl.querySelector('.sel-freq');
+    if(selFreq) selFreq.onchange = ()=>{ row.freq = selFreq.value; saveState(); scUpdateSummary(); };
     const amtInput = rowEl.querySelector('.inp-amt');
     if(amtInput){
       amtInput.oninput = (e)=>{ row.amount = e.target.value; saveState(); scUpdateSummary(); };
@@ -3863,9 +3886,10 @@ function scUpdateSummary(){
   const slowAssets = assets.filter(e=>e.tag==='slow').reduce((s,e)=>s+e.amount,0);
   const fixedAssets = assets.filter(e=>e.tag==='fixed').reduce((s,e)=>s+e.amount,0);
   const liquidAssets = fastAssets + slowAssets;
-  const totalIncomeMonthly = income.reduce((s,e)=> s + (SC_INCOME_ANNUAL_ITEMS.has(e.name) ? e.amount/12 : e.amount), 0);
-  const essentialMonthly = expenses.filter(e=>e.tag==='essential').reduce((s,e)=>s+e.amount,0);
-  const nonEssentialMonthly = expenses.filter(e=>e.tag==='nonessential').reduce((s,e)=>s+e.amount,0);
+  const monthlyEquiv = e => e.freq==='yearly' ? e.amount/12 : e.amount;
+  const totalIncomeMonthly = income.reduce((s,e)=> s + monthlyEquiv(e), 0);
+  const essentialMonthly = expenses.filter(e=>e.tag==='essential').reduce((s,e)=> s + monthlyEquiv(e), 0);
+  const nonEssentialMonthly = expenses.filter(e=>e.tag==='nonessential').reduce((s,e)=> s + monthlyEquiv(e), 0);
   const totalExpenseMonthly = essentialMonthly + nonEssentialMonthly;
   const totalGoals = goals.reduce((s,e)=>s+e.amount,0);
 
