@@ -651,6 +651,10 @@ let plEditingId = null; /* same idea, for one row in the project financial ledge
 let visionWizard = null; /* {step:'questions'|'review', answers:[], draftText:''} while building/redoing the life vision */
 let visionEditing = false; /* whether the confirmed life-vision text is currently shown as an editable textarea */
 let showLinkInfo = false; /* whether the Gist ID/Token of the already-linked device are revealed, for copying to a new device */
+let cloudRevisions = null; /* the Gist's revision list once fetched, so a bad sync or a bad migration can be undone */
+let revLoading = false;
+let revError = null;
+let revPreview = null; /* {version, tasks, goals, cats, pillars, journal, catLabels, pillarLabels} for the one revision being peeked at */
 let appUpdateMsg = null; /* {ok:bool, text:string} — feedback for the manual "تحديث الآن" check in Settings */
 let storageReady = false;
 let importPasteText = '';
@@ -705,20 +709,19 @@ function hydrateState(parsed){
   if(!state.timeBoxes || !state.timeBoxes.length) state.timeBoxes = defaultTimeBoxes();
   state.timeBoxes.forEach(b=>{ if(!Array.isArray(b.categoryIds)) b.categoryIds = []; });
   if(!state.taskCategories || !state.taskCategories.length) state.taskCategories = defaultTaskCategories();
-  if(!state._taskCatsUnifiedV1){
-    /* task categories used to be a separate ad-hoc list (عمل/بزنس/عائلية...) that drifted
-       from CATS (the goal domains) — unify them so both pages show the same taxonomy.
-       Truly custom categories she added herself (ids not part of the old default set or
-       CATS) are kept and appended after the standard 9. Old default ids on already-tagged
-       tasks/time-boxes are remapped to their closest CATS equivalent so nothing goes blank. */
-    const OLD_TASKCAT_MAP = {work:'career', business:'business', project:'other', family:'relationships', personal:'other', other:'other'};
-    const customCats = state.taskCategories.filter(c => !(c.id in OLD_TASKCAT_MAP) && !CATS.some(x=>x.id===c.id));
-    state.taskCategories = CATS.map(c=>({...c})).concat(customCats);
-    (state.tasks||[]).forEach(t=>{ if(t.category && OLD_TASKCAT_MAP[t.category]) t.category = OLD_TASKCAT_MAP[t.category]; });
-    state.timeBoxes.forEach(b=>{
-      if(Array.isArray(b.categoryIds)) b.categoryIds = b.categoryIds.map(id => OLD_TASKCAT_MAP[id] || id);
-    });
-    state._taskCatsUnifiedV1 = true;
+  /* Make the goal domains available as task categories too, so both pages can
+     share one vocabulary — but only ever by ADDING what's missing.
+
+     An earlier version of this replaced her category list with the CATS defaults
+     and kept only ids it didn't recognise. Any category she had renamed or
+     re-iconed while it kept its original id (work/business/project/family/
+     personal/other) was therefore thrown away, and the tasks tagged with it were
+     re-pointed elsewhere. That destroyed her own naming. Never again: her list is
+     hers, nothing here removes or rewrites an entry, and merging duplicates is
+     her call from the category editor. */
+  {
+    const have = new Set(state.taskCategories.map(c=>c.id));
+    CATS.forEach(c=>{ if(!have.has(c.id)) state.taskCategories.push({...c}); });
   }
   if(!state.goalPillars || !state.goalPillars.length) state.goalPillars = defaultGoalPillars();
   (state.goals||[]).forEach(g=>{
@@ -874,6 +877,41 @@ async function cloudPull(){
     cloudStatus='error'; cloudStatusMsg = friendlyErr(e);
     return false;
   }
+}
+/* ---- revision history ----
+   Every cloudPush writes a new Gist revision, so the Gist is a full backup
+   timeline. These let her look inside an older revision and put it back — the
+   safety net for a bad sync, an accidental delete, or a migration that ate
+   something it shouldn't have. */
+async function fetchGistRevisions(){
+  const res = await fetch('https://api.github.com/gists/'+cloud.gistId, { headers: ghHeaders() });
+  if(!res.ok) throw new Error('ما قدرت أجيب النسخ السابقة (كود '+res.status+')');
+  const data = await res.json();
+  return (data.history || []).slice(0, 30);
+}
+async function fetchRevisionState(version){
+  const res = await fetch('https://api.github.com/gists/'+cloud.gistId+'/'+version, { headers: ghHeaders() });
+  if(!res.ok) throw new Error('ما قدرت أفتح هذي النسخة (كود '+res.status+')');
+  const data = await res.json();
+  const file = data.files && data.files[CLOUD_FILENAME];
+  if(!file) throw new Error('ما فيه ملف بيانات داخل هذي النسخة.');
+  let content = file.content;
+  /* GitHub truncates large file bodies in the API response and gives a raw_url instead */
+  if(file.truncated && file.raw_url) content = await (await fetch(file.raw_url)).text();
+  const parsed = JSON.parse(content || '{}');
+  if(!parsed || typeof parsed!=='object' || !Array.isArray(parsed.tasks)) throw new Error('محتوى هذي النسخة غير صالح.');
+  return parsed;
+}
+function summariseRevision(version, s){
+  const names = (arr, key)=> (arr||[]).map(x=>x[key]).filter(Boolean).join('، ');
+  return {
+    version,
+    tasks:(s.tasks||[]).length, goals:(s.goals||[]).length,
+    cats:(s.taskCategories||[]).length, pillars:(s.goalPillars||[]).length,
+    journal:(s.journal||[]).length,
+    catLabels: names(s.taskCategories,'label'),
+    pillarLabels: names(s.goalPillars,'label'),
+  };
 }
 let cloudPushInFlight = 0;
 let lastLocalSaveAt = 0;
@@ -1497,6 +1535,32 @@ function renderSettings(){
           <button class="btn btn-block" id="syncNow">مزامنة الآن</button>
           <button class="btn ghost" id="unlinkCloud">إلغاء الربط</button>
         </div>
+        <div style="margin-top:14px;border-top:1px dashed var(--line);padding-top:12px;">
+          <p style="font-weight:700;color:var(--petrol-dark);margin-bottom:4px;">🕘 استعادة نسخة سابقة</p>
+          <p class="muted" style="margin-bottom:8px;font-size:12.5px;">السحاب يحفظ نسخة كاملة عند كل مزامنة. اعرضي القائمة، شوفي محتوى أي نسخة قبل ما تقرري، وارجعي لها لو ضاع منك شي.</p>
+          <button class="btn ghost btn-block" id="loadRevisions" ${cloudStatus==='syncing'?'disabled':''}>${revLoading? '⏳ يجيب القائمة…' : '📜 اعرضي النسخ السابقة'}</button>
+          ${revError? `<p class="muted" style="color:var(--rose-dark);margin-top:8px;">⚠️ ${escapeHtml(revError)}</p>`:''}
+          ${cloudRevisions? (cloudRevisions.length? `
+            <div style="margin-top:10px;">
+              ${cloudRevisions.map((r,i)=>`
+                <div class="inbox-row" style="align-items:flex-start;">
+                  <span class="dot"></span>
+                  <div style="flex:1;">
+                    <div style="font-size:13.5px;color:var(--ink);">${i===0? 'النسخة الحالية' : 'نسخة '+(i+1)}</div>
+                    <div class="muted" style="font-size:11.5px;">${new Date(r.committed_at).toLocaleString('ar')}</div>
+                    ${revPreview && revPreview.version===r.version? `
+                      <div class="quote-box" style="margin-top:6px;font-size:12.5px;">
+                        ${revPreview.error? `<span style="color:var(--rose-dark);">${escapeHtml(revPreview.error)}</span>` : `
+                        📋 ${revPreview.tasks} مهمة · 🎯 ${revPreview.goals} هدف · 🏷️ ${revPreview.cats} تصنيف · ✨ ${revPreview.pillars} بند هوية · 📖 ${revPreview.journal} إنجاز
+                        <div style="margin-top:6px;">التصنيفات: ${escapeHtml(revPreview.catLabels||'—')}</div>
+                        <div>بنود الهوية: ${escapeHtml(revPreview.pillarLabels||'—')}</div>
+                        <button type="button" class="btn sm" style="margin-top:8px;" data-rev-restore="${r.version}">↩️ استعيدي هذي النسخة</button>`}
+                      </div>`:''}
+                  </div>
+                  <button type="button" class="icon-btn" data-rev-peek="${r.version}">👁️</button>
+                </div>`).join('')}
+            </div>` : `<p class="muted" style="margin-top:8px;">ما فيه نسخ سابقة محفوظة.</p>`) : ''}
+        </div>
         <button class="btn ghost btn-block" id="toggleLinkInfo" style="margin-top:10px;">${showLinkInfo? '🙈 إخفاء بيانات الربط':'👁️ إظهار بيانات الربط (لجهاز ثالث)'}</button>
         ${showLinkInfo? `
         <div style="margin-top:10px;">
@@ -1612,6 +1676,38 @@ function attachSettingsEvents(){
   };
   const toggleLinkInfo = document.getElementById('toggleLinkInfo');
   if(toggleLinkInfo) toggleLinkInfo.onclick = ()=>{ showLinkInfo = !showLinkInfo; render(); };
+
+  const loadRevisions = document.getElementById('loadRevisions');
+  if(loadRevisions) loadRevisions.onclick = async ()=>{
+    revLoading = true; revError = null; revPreview = null; render();
+    try{ cloudRevisions = await fetchGistRevisions(); }
+    catch(e){ revError = friendlyErr(e); cloudRevisions = null; }
+    revLoading = false; render();
+  };
+  document.querySelectorAll('[data-rev-peek]').forEach(b=> b.onclick = async ()=>{
+    const version = b.dataset.revPeek;
+    if(revPreview && revPreview.version===version){ revPreview = null; render(); return; }
+    revPreview = {version, error:'⏳ يفتح…'}; render();
+    try{ revPreview = summariseRevision(version, await fetchRevisionState(version)); }
+    catch(e){ revPreview = {version, error: friendlyErr(e)}; }
+    render();
+  });
+  document.querySelectorAll('[data-rev-restore]').forEach(b=> b.onclick = async ()=>{
+    const version = b.dataset.revRestore;
+    try{
+      const snapshot = await fetchRevisionState(version);
+      const s = summariseRevision(version, snapshot);
+      if(!confirm(`استعادة هذي النسخة؟\n\n${s.tasks} مهمة · ${s.goals} هدف · ${s.cats} تصنيف · ${s.pillars} بند هوية · ${s.journal} إنجاز\n\nبيحل محل اللي على هذا الجهاز الآن. وضعك الحالي بيظل محفوظًا كنسخة بالسحاب تقدرين ترجعين لها من نفس القائمة.`)) return;
+      /* push the current state first so restoring is itself undoable */
+      await cloudPush();
+      hydrateState(snapshot);
+      saveState();
+      await cloudPush();
+      cloudRevisions = null; revPreview = null;
+      popStamp('رجعت بياناتك','الحمدلله');
+      render();
+    }catch(e){ revError = friendlyErr(e); render(); }
+  });
   document.querySelectorAll('[data-copy-link]').forEach(b=> b.onclick = async ()=>{
     const val = b.dataset.copyLink==='gistId'? cloud.gistId : cloud.token;
     try{ if(navigator.clipboard) await navigator.clipboard.writeText(val); }catch(e){}
