@@ -339,6 +339,9 @@ const CATS = [
   {id:'other', label:'أخرى', icon:'✨'},
 ];
 const CAT_MAP = Object.fromEntries(CATS.map(c=>[c.id,c]));
+/* the CATS ids that count as "money work" — used by the finance overview counter
+   so it never again hardcodes an id that a later rename could delete */
+const MONEY_CAT_IDS = new Set(['finance','business']);
 
 /* the big identity-statement pillars her yearly goals get grouped under
    ("أنا سعيدة", "أنا ثرية"...) — separate from CATS (the goal's domain),
@@ -979,11 +982,12 @@ function render(){
 function renderMoneyDashboard(){
   const fg = state.financialGoal;
   const sc = state.safety;
-  /* "مهمة مالية معلّقة" = بزنس/مشروع-category tasks, plus any undone task under
-     a stage of the detailed financial goal (its own paths' action items already
-     land in state.tasks tagged "business" when a tip gets accepted) */
+  /* "مهمة مالية معلّقة" = tasks in a money-related category, plus any undone task
+     under a stage of the detailed financial goal (its own paths' action items
+     already land in state.tasks tagged "business" when a tip gets accepted).
+     Reads the shared taxonomy, so it stays correct if those ids ever move again. */
   const stageTasksPending = (fg && fg.stages)? fg.stages.reduce((sum,s)=> sum + s.tasks.filter(t=>!t.done).length, 0) : 0;
-  const pendingFinTasks = state.tasks.filter(t=>!taskDoneToday(t) && (t.category==='business' || t.category==='project')).length + stageTasksPending;
+  const pendingFinTasks = state.tasks.filter(t=>!taskDoneToday(t) && MONEY_CAT_IDS.has(t.category)).length + stageTasksPending;
   const liquid = sc ? scActiveList(sc.assets).filter(a=>a.tag!=='fixed').reduce((s,a)=>s+a.amount,0) : 0;
   const m = state.expenseDiag ? state.expenseDiag[edMonthKey()] : null;
   const lastExp = m ? edActiveExpenses(m).reduce((s,e)=>s+e.amount,0) : 0;
@@ -2066,15 +2070,23 @@ function renderGroupedTaskBlocks(taskList, rowRenderer, emptyMsg){
     </div>`;
   };
 
+  /* one card per category, holding both the tasks that carry that category
+     directly and the tasks that inherit it from their goal — task categories and
+     goal domains are the same taxonomy now, so splitting them into two cards
+     would print the same heading twice */
   let body = '';
-  CATS.forEach(c=>{
-    if(!grouped[c.id]) return;
-    body += renderCatBlock('cat:'+c.id, c.icon, c.label, Object.values(grouped[c.id]));
-  });
-  state.taskCategories.forEach(c=>{
-    if(!tcatGroups[c.id] || !tcatGroups[c.id].length) return;
-    body += renderCatBlock('tcat:'+c.id, c.icon, c.label, [{goal:null, tasks:tcatGroups[c.id]}]);
-  });
+  const seen = {};
+  const emitCat = (c)=>{
+    if(seen[c.id]) return;
+    seen[c.id] = true;
+    const loose = tcatGroups[c.id] || [];
+    const goalGroups = grouped[c.id]? Object.values(grouped[c.id]) : [];
+    if(!loose.length && !goalGroups.length) return;
+    const blocks = loose.length? [{goal:null, tasks:loose}, ...goalGroups] : goalGroups;
+    body += renderCatBlock('cat:'+c.id, c.icon, c.label, blocks);
+  };
+  state.taskCategories.forEach(emitCat);
+  CATS.forEach(emitCat); /* safety net for a goal whose domain she removed from her category list */
   if(freeTasks.length){
     body += renderCatBlock('cat:__none__', '🗂️', 'غير مصنّفة', [{goal:null, tasks:freeTasks}]);
   }
