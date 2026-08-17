@@ -723,6 +723,7 @@ function hydrateState(parsed){
   });
   if(!state.lifeVision) state.lifeVision = {text:''};
   if(!state.projectLedger) state.projectLedger = [];
+  if(state.projectLedgerClaimed==null) state.projectLedgerClaimed = 0;
   /* one-time rename so already-saved rows follow EXPENSE_GROUPS's item names
      instead of showing as an unmatched blank selection in their dropdown */
   const SC_ITEM_RENAMES = {
@@ -3242,17 +3243,46 @@ function plRenderRows(){
     };
   });
 }
+function plNet(){
+  const income = state.projectLedger.filter(r=>r.type!=='expense').reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
+  const expense = state.projectLedger.filter(r=>r.type==='expense').reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
+  return {income, expense, net: income-expense};
+}
+/* how much of the project's net profit has already been moved into the financial
+   goal, so the "add to goal" button only ever offers what's new since last time */
+function plUnclaimed(){
+  return Math.max(0, plNet().net - (state.projectLedgerClaimed||0));
+}
 function plUpdateStats(){
   const el = id=>document.getElementById(id);
   if(!el('plIncomeVal')) return;
-  const income = state.projectLedger.filter(r=>r.type!=='expense').reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
-  const expense = state.projectLedger.filter(r=>r.type==='expense').reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
+  const {income, expense, net} = plNet();
   el('plIncomeVal').textContent = plFmt(income)+' ريال';
   el('plExpenseVal').textContent = plFmt(expense)+' ريال';
-  const net = income-expense;
   const netEl = el('plNetVal');
   netEl.textContent = plFmt(Math.abs(net))+' ريال'+(net<0?' (خسارة)':'');
   netEl.style.color = net<0? 'var(--rose-dark)' : '#2f9e6e';
+  const box = el('plToGoalBox');
+  if(box){
+    const fg = state.financialGoal;
+    const unclaimed = plUnclaimed();
+    const canPush = fg && fg.configured && unclaimed > 0;
+    box.innerHTML = canPush
+      ? `<button type="button" class="btn ghost sm btn-block" id="plToGoalBtn">💰 أضيفي ${plFmt(unclaimed)} ريال من ربح مشروعك لهدفك المالي</button>`
+      : (state.projectLedgerClaimed>0
+          ? `<p class="muted" style="font-size:12.5px;text-align:center;margin:0;">✓ أضفتِ ${plFmt(state.projectLedgerClaimed)} ريال من ربح مشروعك لهدفك المالي</p>`
+          : '');
+    const btn = el('plToGoalBtn');
+    if(btn) btn.onclick = ()=>{
+      const amt = plUnclaimed();
+      const g = state.financialGoal;
+      if(amt<=0 || !g || !g.configured) return;
+      g.currentAmount = (g.currentAmount||0) + amt;
+      g.stages.forEach(s=>{ if(!s.done && g.currentAmount >= s.targetAmount) s.done = true; });
+      state.projectLedgerClaimed = plNet().net;
+      saveState(); popStamp('ربح مشروعك وصل هدفك!','ماشاءالله عليك'); render();
+    };
+  }
 }
 function renderProjectLedgerCard(){
   return `
@@ -3263,6 +3293,7 @@ function renderProjectLedgerCard(){
       <div class="stat-box" style="background:rgba(178,76,99,.13);"><div class="p" style="color:var(--rose-dark);" id="plExpenseVal">0 ريال</div><div class="l" style="color:var(--rose-dark);">إجمالي المصروفات</div></div>
       <div class="stat-box" style="background:var(--parchment); grid-column:1 / -1; text-align:center;"><div class="p" id="plNetVal" style="font-size:19px;">0 ريال</div><div class="l">صافي الدخل</div></div>
     </div>
+    <div id="plToGoalBox" style="margin-bottom:12px;"></div>
     <div id="plRows"></div>
     <button class="btn ghost btn-block" id="plAddRowBtn" style="margin-top:10px;">+ إضافة عملية جديدة</button>
   </div>`;
@@ -3292,6 +3323,10 @@ function renderFinanceDashboard(){
       <input type="number" id="fgAddAmountInput" min="0" step="0.01" placeholder="أضيفي مبلغ ادّخرتيه…" style="flex:1;"/>
       <button class="btn sm" id="fgAddAmountBtn">+ إضافة للمدخر</button>
     </div>
+    ${state.safety? `<label style="display:flex;align-items:center;gap:7px;justify-content:center;margin-top:9px;font-size:12.5px;color:var(--ink);cursor:pointer;">
+      <input type="checkbox" id="fgAlsoAsset" style="width:auto;margin:0;"/>
+      وكمان زيديه على رصيد التوفير في أصولك
+    </label>`:''}
     <button class="btn ghost sm" id="financeEdit" style="margin-top:10px;">تعديل الهدف أو الموعد</button>
     `}
   </div>
@@ -3501,6 +3536,10 @@ function attachFinanceEvents(){
     const fg = state.financialGoal;
     fg.currentAmount = (fg.currentAmount||0) + amt;
     fg.stages.forEach(s=>{ if(!s.done && fg.currentAmount >= s.targetAmount) s.done = true; });
+    /* opt-in, because the money may already be sitting in the savings balance she
+       recorded on the safety page — auto-adding it there would double-count */
+    const alsoAsset = document.getElementById('fgAlsoAsset');
+    if(alsoAsset && alsoAsset.checked) scAddToSavingsAsset(amt);
     saveState(); popStamp('زادت مدخراتك!','ماشاءالله عليك'); render();
   };
 
@@ -3600,6 +3639,13 @@ const SC_ASSET_OPTIONS = ["أرض","منزل","ذهب","ذهب سبائك","فض
 const SC_INCOME_OPTIONS = ["راتب شهري","عقار للإيجار (المبلغ الشهري)","مشروع ربحي","تجارة منزلية","مشروع إلكتروني","عائد برنامج استثماري (تكافل)","أرباح الودائع السنوية","دعم من الدولة","مكافآت مالية"];
 const SC_INCOME_ANNUAL_ITEMS = new Set(["أرباح الودائع السنوية"]);
 const SC_GOAL_OPTIONS = ["منزل خاص","سيارة جديدة","قطعة أرض"];
+/* a long-term wish and an asset are the same thing before and after buying it,
+   so a fulfilled wish can move straight across instead of being retyped */
+const SC_WISH_TO_ASSET = {
+  "منزل خاص":   {item:"منزل", tag:"fixed"},
+  "قطعة أرض":   {item:"أرض",  tag:"slow"},
+  "سيارة جديدة":{item:SC_CUSTOM_VALUE, custom:"سيارة", tag:"fixed"},
+};
 const SC_ASSET_TAG_MAP = {
   "منزل": "fixed", "أرض": "slow", "ذهب": "fast", "ذهب سبائك": "fast", "فضة": "fast",
   "حساب توفير (الرصيد الحالي)": "fast", "أسهم": "fast", "ودائع": "fast", "برنامج استثماري (تكافل)": "slow",
@@ -3882,6 +3928,23 @@ function scRenderIncomeRows(){
     saveState(); popStamp('زادت مدّخراتك!','ماشاءالله عليك'); render();
   });
 }
+/* tops up the savings-account asset so money added to the financial goal also
+   moves the safety number, instead of the two pages disagreeing about the same
+   riyals. Creates the row if she doesn't have one yet. */
+const SC_SAVINGS_ITEM = "حساب توفير (الرصيد الحالي)";
+function scAddToSavingsAsset(amt){
+  const sc = state.safety;
+  if(!sc || !amt || amt<=0) return;
+  let row = sc.assets.find(r=>r.item===SC_SAVINGS_ITEM);
+  if(!row){
+    row = {id:uid(), item:SC_SAVINGS_ITEM, custom:"", tag:SC_ASSET_TAG_MAP[SC_SAVINGS_ITEM]||'fast', amount:""};
+    /* drop it into the first blank row if there is one, so she doesn't end up
+       with an empty placeholder card sitting above it */
+    const blank = sc.assets.findIndex(r=>!scRowHasData(r));
+    if(blank>-1) sc.assets.splice(blank, 1, row); else sc.assets.push(row);
+  }
+  row.amount = String((parseFloat(row.amount)||0) + amt);
+}
 function scRenderGoalRows(){
   const sc = state.safety;
   const container = document.getElementById('scGoalRows');
@@ -3893,9 +3956,23 @@ function scRenderGoalRows(){
       <select class="sel-item">${scBuildSimpleOptions(SC_GOAL_OPTIONS, r.item)}</select>
       ${isCustom ? `<input class="sel-custom" type="text" placeholder="اكتبي اسم الهدف" value="${escapeHtml(r.custom||'')}" />` : ''}
       <input class="inp-amt" type="number" min="0" step="0.01" placeholder="المبلغ" value="${r.amount||''}" />
+      ${scRowHasData(r)? `<button type="button" class="icon-btn" title="تحققت — حوّليها لأصل" data-sc-wish-done="${r.id}">✅</button>`:''}
       <button type="button" class="del-row" aria-label="حذف">✕</button>
     </div>`;
   }).join('');
+  container.querySelectorAll('[data-sc-wish-done]').forEach(b=> b.onclick=()=>{
+    const row = sc.goals.find(r=>String(r.id)===b.dataset.scWishDone);
+    if(!row) return;
+    const name = scRowDisplayName(row);
+    if(!confirm(`تحققت "${name}"؟ بنقلها لأصولك بمبلغ ${scFmt(parseFloat(row.amount)||0)} ريال، وتنشال من الرغبات.`)) return;
+    const mapped = SC_WISH_TO_ASSET[row.item];
+    sc.assets.push(mapped
+      ? {id:uid(), item:mapped.item, custom:mapped.custom||'', tag:mapped.tag, amount:row.amount}
+      : {id:uid(), item:SC_CUSTOM_VALUE, custom:name, tag:'fixed', amount:row.amount});
+    sc.goals = sc.goals.filter(x=>x!==row);
+    if(sc.goals.length===0) sc.goals.push({id:uid(), item:"", custom:"", amount:""});
+    saveState(); popStamp('تحققت رغبتك!','ماشاءالله عليك'); render();
+  });
   container.querySelectorAll('.item-row').forEach(rowEl=>{
     const id = rowEl.getAttribute('data-id');
     const row = sc.goals.find(r=>String(r.id)===id);
@@ -4198,6 +4275,12 @@ function renderExpensesPage(){
       <div class="breakdown-grid" id="edBreakdownGrid"></div>
     </div>
 
+    <div class="card" id="edPlanVsActualCard" style="display:none;">
+      <div class="card-title"><h3>خطتك مقابل الفعلي</h3></div>
+      <p class="muted" style="margin-bottom:10px;">البنود اللي خططتيها في حاسبة الأمان، مقارنة بالمسجّل فعليًا هالشهر.</p>
+      <div id="edPlanVsActualBox"></div>
+    </div>
+
     <div class="card">
       <div class="card-title"><h3>مؤشر اليسر المالي</h3></div>
       <div class="score-wrap">
@@ -4425,6 +4508,46 @@ function edUpdateSummary(){
       }).join('');
 
   edRenderScore(income, totalExp, byTag, pctOfIncome);
+  edRenderPlanVsActual(exp);
+}
+
+/* the payoff of both money tools sharing one expense vocabulary: her planned
+   monthly figure and what she actually spent are finally the same item name, so
+   they can sit side by side. Yearly plan rows are shown at their monthly share
+   so the two columns compare like for like. */
+function edRenderPlanVsActual(actualList){
+  const card = document.getElementById('edPlanVsActualCard');
+  const box  = document.getElementById('edPlanVsActualBox');
+  if(!card || !box) return;
+  const sc = state.safety;
+  if(!sc || !sc.expenses){ card.style.display='none'; return; }
+
+  const planned = {};
+  scActiveList(sc.expenses).forEach(e=>{
+    planned[e.name] = (planned[e.name]||0) + (e.freq==='yearly'? e.amount/12 : e.amount);
+  });
+  const actual = {};
+  actualList.forEach(e=>{ actual[e.name] = (actual[e.name]||0) + e.amount; });
+
+  const names = Object.keys(planned).filter(n=> actual[n]!=null);
+  if(!names.length){ card.style.display='none'; return; }
+  card.style.display = '';
+
+  names.sort((a,b)=> Math.abs(actual[b]-planned[b]) - Math.abs(actual[a]-planned[a]));
+  box.innerHTML = names.map(n=>{
+    const p = planned[n], a = actual[n], diff = a - p;
+    const over = diff > 0.5, under = diff < -0.5;
+    const color = over? 'var(--rose-dark)' : (under? '#2f9e6e' : 'var(--ink)');
+    const note  = over? `+${edFmt(diff)} فوق خطتك` : (under? `−${edFmt(-diff)} تحت خطتك` : 'مطابق لخطتك');
+    return `
+    <div class="top-item">
+      <span>${escapeHtml(n)}</span>
+      <span class="amt" style="color:${color};">
+        ${edFmt(a)} / ${edFmt(p)} ريال
+        <span style="display:block;font-size:11.5px;font-weight:400;">${note}</span>
+      </span>
+    </div>`;
+  }).join('');
 }
 
 function edRenderScore(income, totalExp, byTag, pctOfIncome){
