@@ -254,6 +254,9 @@ details.card > .details-body{padding:0 18px 18px;}
 .period-tabs{display:flex;gap:6px;margin-bottom:8px;}
 .period-tab{flex:1;text-align:center;padding:7px;border-radius:8px;background:var(--parchment);border:1px solid var(--line);font-size:12.5px;font-weight:700;color:#6b7a78;}
 .period-tab.active{background:var(--petrol);color:#fff;border-color:var(--petrol);}
+/* how many tasks sit in each box, so a day's workload reads without tabbing through */
+.ptab-count{display:inline-block;min-width:16px;padding:0 4px;margin-inline-start:3px;border-radius:9px;background:rgba(46,92,90,.14);color:var(--petrol-dark);font-size:11px;line-height:16px;font-weight:700;}
+.period-tab.active .ptab-count{background:rgba(255,255,255,.28);color:#fff;}
 
 /* time-box color picker + management rows */
 .color-dot{width:26px;height:26px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;flex-shrink:0;}
@@ -1755,7 +1758,7 @@ function renderHome(){
   </div>
   `}
 
-  ${isToday? renderScheduleCard():''}
+  ${renderScheduleCard(selectedDate)}
   ${isToday? renderSuggestionsCard():''}
   ${top3Picker? renderTop3Picker():''}
   `;
@@ -1920,23 +1923,48 @@ function taskRowHtml(t, opts){
 }
 
 function renderScheduleCard(){
-  /* follows the real current time live unless the user explicitly picked a
-     different period tab this session (that manual choice sticks until reload) */
-  const period = window.__activePeriodManual ? window.__activePeriod : currentTimeBoxId();
-  window.__activePeriod = period;
-  const items = state.tasks.filter(t=>!taskDoneToday(t) && taskActiveToday(t) && t.period===period);
+  const dateStr = arguments.length? arguments[0] : todayStr();
+  const isToday = dateStr === todayStr();
+  /* today follows the real current time live unless she explicitly picked a
+     different tab this session; another day has no "now", so it opens on the
+     first box and remembers whichever tab she taps while browsing */
+  let period;
+  if(isToday){
+    period = window.__activePeriodManual ? window.__activePeriod : currentTimeBoxId();
+    window.__activePeriod = period;
+  }else{
+    const remembered = window.__schedPeriodOther;
+    period = state.timeBoxes.some(b=>b.id===remembered)? remembered : (state.timeBoxes[0]||{}).id;
+  }
+  /* today keeps its open-ended backlog (overdue and undated tasks belong to
+     "now"); another day shows exactly what's scheduled for it, recurrences
+     included — same split renderTasksForDate already uses */
+  const pool = isToday
+    ? state.tasks.filter(t=> !taskDoneToday(t) && taskActiveToday(t))
+    : tasksPlannedForDate(dateStr).filter(t=> !taskDoneOnDate(t, dateStr));
+  const countIn = id => pool.filter(t=>t.period===id).length;
+  const items = pool.filter(t=>t.period===period);
+  const unslotted = pool.filter(t=>!t.period);
   const collapsed = state.collapsed.schedule;
   const activeBox = timeBoxOf(period);
   return `
   <div class="card">
-    <div class="card-title"><h3 style="cursor:pointer;flex:1;" data-toggle-collapse="schedule">${collapsed?'▸':'▾'} جدول يومك</h3></div>
+    <div class="card-title"><h3 style="cursor:pointer;flex:1;" data-toggle-collapse="schedule">${collapsed?'▸':'▾'} ${isToday? 'جدول يومك' : 'جدول هذا اليوم'}</h3></div>
     ${collapsed? '' : `
     <div class="period-tabs">
-      ${state.timeBoxes.map(b=>`<button type="button" class="period-tab ${period===b.id?'active':''}" data-period="${b.id}" ${period===b.id?`style="background:${b.color};border-color:${b.color};color:#fff;"`:''}>${escapeHtml(b.label)}</button>`).join('')}
+      ${state.timeBoxes.map(b=>{
+        const n = countIn(b.id);
+        return `<button type="button" class="period-tab ${period===b.id?'active':''}" data-period="${b.id}" ${period===b.id?`style="background:${b.color};border-color:${b.color};color:#fff;"`:''}>${escapeHtml(b.label)}${n? ` <span class="ptab-count">${n}</span>`:''}</button>`;
+      }).join('')}
     </div>
     ${activeBox? `<p class="muted" style="margin-bottom:10px;">⏰ ${activeBox.start} – ${activeBox.end}${(activeBox.categoryIds&&activeBox.categoryIds.length)? ' · '+activeBox.categoryIds.map(id=>tcatOf(id)?.label).filter(Boolean).join('، ') : ''}</p>`:''}
-    ${items.length===0? `<div class="empty">ما فيه مهام في هالصندوق. وزّعي مهامك من صفحة المهام.</div>` : items.map(t=>taskRowHtml(t)).join('')}
+    ${items.length===0? `<div class="empty">ما فيه مهام في هالصندوق. وزّعي مهامك من صفحة المهام.</div>` : items.map(t=>taskRowHtml(t, {date:dateStr})).join('')}
     <button class="btn ghost btn-block" style="margin-top:8px;" id="goAddTaskPeriod" data-add-period="${period}">+ إضافة مهمة ${activeBox?'لـ'+escapeHtml(activeBox.label):''}</button>
+    ${unslotted.length? `
+    <div style="margin-top:12px;border-top:1px dashed var(--line);padding-top:10px;">
+      <p class="muted" style="margin-bottom:6px;font-size:12.5px;">🗂️ بدون صندوق زمن (${unslotted.length}) — افتحي المهمة وحددي لها فترة</p>
+      ${unslotted.map(t=>taskRowHtml(t, {date:dateStr})).join('')}
+    </div>`:''}
     <p class="muted" style="margin-top:8px;font-size:12px;">🎨 تعديل صناديق الزمن (الاسم، الوقت، اللون) صار من تبويب "الأساس".</p>
     `}
   </div>`;
@@ -5436,7 +5464,13 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
   });
   document.querySelectorAll('[data-goto-goals]').forEach(b=> b.onclick=()=>{ view = 'goals'; render(); });
 
-  document.querySelectorAll('[data-period]').forEach(b=> b.onclick=()=>{ window.__activePeriod=b.dataset.period; window.__activePeriodManual=true; render(); });
+  document.querySelectorAll('[data-period]').forEach(b=> b.onclick=()=>{
+    /* today's tab choice overrides the clock for the rest of the session; another
+       day keeps its own so switching back to today doesn't strand it on a tab */
+    if(selectedDate === todayStr()){ window.__activePeriod = b.dataset.period; window.__activePeriodManual = true; }
+    else { window.__schedPeriodOther = b.dataset.period; }
+    render();
+  });
 
   document.querySelectorAll('[data-tbox-label]').forEach(inp=>{
     inp.onchange = ()=>{
