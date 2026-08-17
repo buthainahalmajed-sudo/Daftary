@@ -2223,23 +2223,25 @@ let taskSearchQuery = '';
    so both present the exact same organized view */
 function renderGroupedTaskBlocks(taskList, rowRenderer, emptyMsg){
   const grouped = {}; /* catId -> {goalId -> {goal, tasks}} */
-  const tcatGroups = {}; /* tcatId -> tasks[], for goal-less tasks that still carry their own category tag */
+  const tcatGroups = {}; /* catId -> tasks[], for tasks with no goal to nest under */
   const freeTasks = [];
   taskList.forEach(t=>{
     const g = t.goalId? state.goals.find(x=>x.id===t.goalId) : null;
+    /* the category she picked on the task wins. Attaching a task to a goal used
+       to override it with the goal's own domain, so a task filed under a
+       category she chose vanished from it the moment it gained a goal — the
+       goal's domain is only the fallback when she didn't pick one. */
+    const catId = t.category || (g? g.cat : null);
+    if(!catId && !g){ freeTasks.push(t); return; }
+    const key = catId || 'other';
     if(g){
-      const catId = g.cat || 'other';
-      grouped[catId] = grouped[catId] || {};
-      grouped[catId][g.id] = grouped[catId][g.id] || {goal:g, tasks:[]};
-      grouped[catId][g.id].tasks.push(t);
-      return;
+      grouped[key] = grouped[key] || {};
+      grouped[key][g.id] = grouped[key][g.id] || {goal:g, tasks:[]};
+      grouped[key][g.id].tasks.push(t);
+    }else{
+      tcatGroups[key] = tcatGroups[key] || [];
+      tcatGroups[key].push(t);
     }
-    if(t.category){
-      tcatGroups[t.category] = tcatGroups[t.category] || [];
-      tcatGroups[t.category].push(t);
-      return;
-    }
-    freeTasks.push(t);
   });
 
   const renderCatBlock = (catKey, icon, label, goalGroups)=>{
@@ -2278,6 +2280,12 @@ function renderGroupedTaskBlocks(taskList, rowRenderer, emptyMsg){
   };
   state.taskCategories.forEach(emitCat);
   CATS.forEach(emitCat); /* safety net for a goal whose domain she removed from her category list */
+  /* anything still holding a category id that no longer exists — she deleted the
+     category after tagging tasks with it. Emit it under its bare id rather than
+     letting those tasks fall off the page entirely. */
+  Object.keys(Object.assign({}, tcatGroups, grouped)).forEach(id=>{
+    emitCat({id, icon:'🏷️', label:'تصنيف محذوف'});
+  });
   if(freeTasks.length){
     body += renderCatBlock('cat:__none__', '🗂️', 'غير مصنّفة', [{goal:null, tasks:freeTasks}]);
   }
