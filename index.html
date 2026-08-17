@@ -343,6 +343,90 @@ const CAT_MAP = Object.fromEntries(CATS.map(c=>[c.id,c]));
    so it never again hardcodes an id that a later rename could delete */
 const MONEY_CAT_IDS = new Set(['finance','business']);
 
+/* ============ the one expense vocabulary ============
+   Both money tools read this: the safety calculator (what a month is *planned*
+   to cost) and the expense diagnosis (what a month *actually* cost). They used
+   to own separate lists — 20 items with a two-way tag vs 50 items with a
+   five-way tag, only 11 names in common — so the same real expense was written
+   two different ways and the plan could never be compared to the actual.
+   One list, one tag system; anything coarser is derived, never re-entered. */
+const EXPENSE_TAGS = {
+  necessary: {label:"ضروري", emoji:"🟢", color:"#2f9e6e", bg:"#e7f7ef"},
+  reducible: {label:"قابل للتقليل", emoji:"🟡", color:"#d99a1f", bg:"#fdf2dc"},
+  luxury:    {label:"كمالي", emoji:"🔴", color:"var(--rose)", bg:"rgba(178,76,99,.13)"},
+  wealth:    {label:"بناء الثروة (ادخار/استثمار)", emoji:"🔵", color:"#3f6fd1", bg:"#e8effb"},
+  /* kept separate from "wealth" — paying down debt isn't the same as building
+     savings, and lumping them together was hiding how much of her income
+     actually goes to loan/credit payments each month */
+  debt:      {label:"سداد ديون وقروض", emoji:"🟠", color:"#d9772f", bg:"#fdece0"},
+};
+const EXPENSE_GROUPS = [
+  {group:"🏠 السكن", items:[
+    {name:"إيجار", tag:"necessary"},{name:"قرض عقاري", tag:"necessary"},{name:"صيانة المنزل", tag:"necessary"},
+    {name:"أثاث", tag:"reducible"},{name:"كهرباء", tag:"necessary"},{name:"ماء", tag:"necessary"},
+    {name:"إنترنت", tag:"necessary"},{name:"جوال", tag:"necessary"},
+  ]},
+  {group:"🍽 الطعام والمواد الاستهلاكية", items:[
+    {name:"بقالة / لحوم", tag:"necessary"},{name:"مطاعم", tag:"reducible"},{name:"قهوة", tag:"reducible"},
+    {name:"طلبات توصيل", tag:"reducible"},{name:"مستلزمات منزلية", tag:"necessary"},{name:"منظفات", tag:"necessary"},
+  ]},
+  {group:"🚗 النقل", items:[
+    {name:"بنزين", tag:"necessary"},{name:"صيانة سيارة", tag:"necessary"},{name:"تأمين", tag:"necessary"},
+    {name:"أقساط سيارة", tag:"necessary"},{name:"أوبر / كريم", tag:"reducible"},{name:"مواقف", tag:"necessary"},
+  ]},
+  {group:"👨‍👩‍👧 الأسرة", items:[
+    {name:"مدارس", tag:"necessary"},{name:"حضانة", tag:"necessary"},{name:"مصروف الأبناء", tag:"necessary"},
+    {name:"ملابس الأطفال", tag:"necessary"},{name:"هدايا الأسرة", tag:"luxury"},
+  ]},
+  {group:"🩺 الصحة", items:[
+    {name:"علاج", tag:"necessary"},{name:"أدوية", tag:"necessary"},{name:"تأمين طبي", tag:"necessary"},{name:"نادي رياضي", tag:"reducible"},
+  ]},
+  {group:"👕 الملابس والعناية", items:[
+    {name:"ملابس", tag:"reducible"},{name:"أحذية", tag:"reducible"},{name:"عطور", tag:"luxury"},
+    {name:"مكياج", tag:"luxury"},{name:"صالون", tag:"luxury"},
+  ]},
+  {group:"🎉 الترفيه", items:[
+    {name:"سفر", tag:"luxury"},{name:"فنادق", tag:"luxury"},{name:"كافيهات", tag:"reducible"},
+    {name:"اشتراكات ترفيه", tag:"reducible"},{name:"ألعاب", tag:"luxury"},{name:"فعاليات", tag:"luxury"},
+    {name:"هوايات", tag:"luxury"},
+  ]},
+  {group:"💳 الالتزامات المالية", items:[
+    {name:"قروض", tag:"debt"},{name:"بطاقات ائتمانية", tag:"debt"},{name:"ديون", tag:"debt"},{name:"أقساط", tag:"debt"},
+  ]},
+  {group:"📈 الاستثمار والادخار", items:[
+    {name:"استثمار", tag:"wealth"},{name:"ادخار", tag:"wealth"},{name:"صندوق طوارئ", tag:"wealth"},
+  ]},
+  {group:"🎁 أخرى", items:[
+    {name:"هدايا", tag:"luxury"},{name:"صدقات", tag:"luxury"},{name:"رسوم حكومية", tag:"necessary"},
+    {name:"تطوير ذات / دورات / كتب", tag:"reducible"},{name:"حيوانات أليفة", tag:"luxury"},
+  ]},
+];
+const EXPENSE_TAG_OF = {};
+EXPENSE_GROUPS.forEach(g => g.items.forEach(it => EXPENSE_TAG_OF[it.name] = it.tag));
+/* the safety calculator asks a coarser question — "must I cover this to keep
+   living?" — so it derives its answer from the tag above instead of storing a
+   second one. Necessary spending and debt payments are unavoidable; the rest can
+   flex. Savings/investment is in neither bucket: it's money moving from one of
+   her pockets to another, so counting it as an expense would understate her
+   savings rate by exactly the amount she saved. */
+const ESSENTIAL_TAGS = new Set(['necessary','debt']);
+const TRANSFER_TAGS  = new Set(['wealth']);
+function isEssentialTag(tag){ return ESSENTIAL_TAGS.has(tag); }
+function isTransferTag(tag){ return TRANSFER_TAGS.has(tag); }
+function buildExpenseItemOptions(selected, customValue){
+  let html = `<option value="">اختاري بند...</option>`;
+  EXPENSE_GROUPS.forEach(g=>{
+    html += `<optgroup label="${g.group}">`;
+    g.items.forEach(it=>{ html += `<option value="${escapeHtml(it.name)}" ${selected===it.name?'selected':''}>${escapeHtml(it.name)}</option>`; });
+    html += `</optgroup>`;
+  });
+  html += `<option value="${customValue}" ${selected===customValue?'selected':''}>✏️ أخرى (اكتبي يدويًا)</option>`;
+  return html;
+}
+function buildExpenseTagOptions(selected){
+  return Object.keys(EXPENSE_TAGS).map(k=>`<option value="${k}" ${selected===k?'selected':''}>${EXPENSE_TAGS[k].emoji} ${EXPENSE_TAGS[k].label}</option>`).join('');
+}
+
 /* the big identity-statement pillars her yearly goals get grouped under
    ("أنا سعيدة", "أنا ثرية"...) — separate from CATS (the goal's domain),
    this is a higher-level, fully user-editable grouping, lives in
@@ -639,9 +723,8 @@ function hydrateState(parsed){
   });
   if(!state.lifeVision) state.lifeVision = {text:''};
   if(!state.projectLedger) state.projectLedger = [];
-  /* one-time rename so already-saved rows follow SC_EXPENSE_GROUPS/
-     ED_CATEGORY_GROUPS's unified item names instead of showing as an
-     unmatched blank selection in their dropdown */
+  /* one-time rename so already-saved rows follow EXPENSE_GROUPS's item names
+     instead of showing as an unmatched blank selection in their dropdown */
   const SC_ITEM_RENAMES = {
     "فواتير كهرباء":"كهرباء", "فواتير الماء":"ماء", "فواتير اتصالات":"إنترنت والجوال",
     "إيجارات سكن":"إيجار", "المدارس للأطفال":"مدارس", "مصروفات الأطفال":"مصروف الأبناء",
@@ -653,6 +736,34 @@ function hydrateState(parsed){
       if(SC_ITEM_RENAMES[r.item]) r.item = SC_ITEM_RENAMES[r.item];
       if(!r.freq) r.freq = 'monthly';
     });
+  }
+  if(!state._expenseVocabV1){
+    /* the safety calculator used to keep its own 20-item expense list with a
+       two-way أساسي/غير أساسي tag, separate from the 50-item list on the
+       expenses page. Both now read one shared vocabulary, so saved rows get
+       remapped onto it. Nine of the old names were coarser roll-ups of several
+       shared items; each lands on the most representative one and keeps its
+       amount, so nothing is lost — just re-point any that read wrong. */
+    const SC_TO_SHARED_EXPENSE = {
+      "إنترنت والجوال":"إنترنت",
+      "سيارة ومواصلات / تأمين":"بنزين",
+      "قروض / ديون / أقساط":"قروض",
+      "إصلاح أعطال":"صيانة المنزل",
+      "الصحة والرياضة":"نادي رياضي",
+      "الترفيه و الرغبات":"فعاليات",
+      /* هوايات · حيوانات أليفة · تطوير ذات / دورات / كتب were added to the shared
+         list under their existing names, so they need no remap */
+    };
+    /* custom rows carried the old two-way tag; map it onto the shared five-way one */
+    const OLD_TAG_TO_SHARED = {essential:'necessary', nonessential:'reducible'};
+    if(state.safety && state.safety.expenses){
+      state.safety.expenses.forEach(r=>{
+        if(SC_TO_SHARED_EXPENSE[r.item]) r.item = SC_TO_SHARED_EXPENSE[r.item];
+        if(r.item && r.item !== SC_CUSTOM_VALUE && EXPENSE_TAG_OF[r.item]) r.tag = EXPENSE_TAG_OF[r.item];
+        else if(OLD_TAG_TO_SHARED[r.tag]) r.tag = OLD_TAG_TO_SHARED[r.tag];
+      });
+    }
+    state._expenseVocabV1 = true;
   }
   if(state.safety && state.safety.income){
     state.safety.income.forEach(r=>{ if(!r.freq) r.freq = SC_INCOME_ANNUAL_ITEMS.has(r.item) ? 'yearly' : 'monthly'; });
@@ -3498,28 +3609,14 @@ const SC_ASSET_TAG_META = {
   slow:  {label:"سيولة طويلة المدى — يُحسب", emoji:"🐢"},
   fixed: {label:"أصل ثابت — لا يُحسب", emoji:"🏠"},
 };
-/* item names kept aligned with ED_CATEGORY_GROUPS below (the expense
-   diagnosis page) wherever the same real-world expense appears in both —
-   e.g. "بقالة / لحوم" here matches "بقالة / لحوم" there, not a differently
-   worded "سوبرماركت" — so the same purchase reads the same way on both
-   calculators. See edMigrateItemNames()/scMigrateItemNames() for the
-   one-time rename of any already-saved rows using the old wording. */
-const SC_EXPENSE_GROUPS = [
-  {label:"🟢 أساسي", tag:"essential", items:["كهرباء","ماء","إنترنت والجوال","سيارة ومواصلات / تأمين","إيجار","بقالة / لحوم","مدارس","مصروف الأبناء","قروض / ديون / أقساط","إصلاح أعطال","الصحة والرياضة","ملابس"]},
-  {label:"🔴 غير أساسي", tag:"nonessential", items:["اشتراكات ترفيه","مطاعم","الترفيه و الرغبات","سفر","هدايا","هوايات","حيوانات أليفة","تطوير ذات / دورات / كتب"]},
-];
-const SC_EXPENSE_TAG_MAP = {};
-SC_EXPENSE_GROUPS.forEach(g => g.items.forEach(it => SC_EXPENSE_TAG_MAP[it] = g.tag));
-const SC_TAG_META = {
-  essential:    {label:"أساسي"},
-  nonessential: {label:"غير أساسي"},
-};
+/* expense items/tags for this page come from the shared EXPENSE_GROUPS
+   vocabulary at the top of the file — see the note there */
 
 function scDefaultState(){
   return {
     assets:[{id:uid(), item:"", custom:"", tag:"fast", amount:""}],
     income:[state.sharedIncome? {id:uid(), item:"راتب شهري", custom:"", amount: state.sharedIncome, freq:"monthly"} : {id:uid(), item:"", custom:"", amount:"", freq:"monthly"}],
-    expenses:[{id:uid(), item:"", custom:"", tag:"essential", amount:"", freq:"monthly"}],
+    expenses:[{id:uid(), item:"", custom:"", tag:"necessary", amount:"", freq:"monthly"}],
     goals:[{id:uid(), item:"", custom:"", amount:""}],
     goalsTargetYears: "",
   };
@@ -3531,19 +3628,8 @@ function scBuildSimpleOptions(options, selected){
   html += `<option value="${SC_CUSTOM_VALUE}" ${selected===SC_CUSTOM_VALUE?'selected':''}>✏️ أخرى (اكتبي يدويًا)</option>`;
   return html;
 }
-function scBuildExpenseOptions(selected){
-  let html = `<option value="">اختاري بند...</option>`;
-  SC_EXPENSE_GROUPS.forEach(g=>{
-    html += `<optgroup label="${g.label}">`;
-    g.items.forEach(it=>{ html += `<option value="${escapeHtml(it)}" ${selected===it?'selected':''}>${escapeHtml(it)}</option>`; });
-    html += `</optgroup>`;
-  });
-  html += `<option value="${SC_CUSTOM_VALUE}" ${selected===SC_CUSTOM_VALUE?'selected':''}>✏️ أخرى (اكتبي يدويًا)</option>`;
-  return html;
-}
-function scBuildTagOptions(selected){
-  return Object.keys(SC_TAG_META).map(k=>`<option value="${k}" ${selected===k?'selected':''}>${k==='essential'?'🟢':'🔴'} ${SC_TAG_META[k].label}</option>`).join('');
-}
+function scBuildExpenseOptions(selected){ return buildExpenseItemOptions(selected, SC_CUSTOM_VALUE); }
+function scBuildTagOptions(selected){ return buildExpenseTagOptions(selected); }
 function scBuildAssetTagOptions(selected){
   return Object.keys(SC_ASSET_TAG_META).map(k=>`<option value="${k}" ${selected===k?'selected':''}>${SC_ASSET_TAG_META[k].emoji} ${SC_ASSET_TAG_META[k].label}</option>`).join('');
 }
@@ -3583,10 +3669,11 @@ function renderSafetyPage(){
 
     <div class="card">
       <div class="card-title"><h3>بنود الصرف الشهرية</h3></div>
-      <p class="muted" style="margin-bottom:10px;">كل بند يُصنَّف تلقائيًا 🟢 أساسي أو 🔴 غير أساسي — رقم الأمان المالي يعتمد على الأساسي فقط</p>
+      <p class="muted" style="margin-bottom:10px;">نفس بنود صفحة "المصاريف" بالضبط — كل بند يحمل تصنيفه (🟢 ضروري، 🟡 قابل للتقليل، 🔴 كمالي، 🟠 دين، 🔵 ادخار)، ومنه يُعرف تلقائيًا إن كان أساسيًا. رقم الأمان يعتمد على الأساسي فقط.</p>
       <div id="scExpenseRows"></div>
       <button class="btn ghost btn-block" id="scAddExpenseBtn" style="margin-top:10px;">+ إضافة بند صرف</button>
       <div class="total-line"><span class="lbl">إجمالي المصاريف الشهرية</span><span class="val" id="scExpenseTotal">0 ريال</span></div>
+      <p class="muted" id="scExpenseBreakdown" style="margin-top:8px;"></p>
     </div>
 
     <div class="card">
@@ -3606,7 +3693,7 @@ function renderSafetyPage(){
         <div class="stat-box" style="background:var(--parchment); grid-column:1 / -1; text-align:center;"><div class="p" id="scYearsVal" style="font-size:19px;">—</div><div class="l">الوقت المتبقي حتى نقطة الأمان المالي</div></div>
       </div>
       <div class="assumption-note">
-        الافتراضات المستخدمة: كل بند دخل أو مصروف يُحوَّل لقيمته الشهرية حسب تكراره اللي حددتيه (شهري، أو سنوي فيُقسم ÷12)، وبعدها يُضرب × 12 لحساب القيم السنوية. تغطية 5 سنوات من مصاريفك الأساسية السنوية + تضخم تقديري 2%. صافي الادخار = دخلك السنوي − كل مصاريفك السنوية (أساسية وغير أساسية). الأصول لا تُحسب كدخل أو مصروف. الأصول ذات السيولة السريعة أو طويلة المدى (⚡🐢) تُحسب بالكامل مقابل المبلغ المستهدف؛ الأصول الثابتة (🏠 كالمسكن الأساسي) تظهر ضمن أملاكك لكن لا تُخصم من المبلغ المطلوب.
+        الافتراضات المستخدمة: كل بند دخل أو مصروف يُحوَّل لقيمته الشهرية حسب تكراره اللي حددتيه (شهري، أو سنوي فيُقسم ÷12)، وبعدها يُضرب × 12 لحساب القيم السنوية. تغطية 5 سنوات من مصاريفك الأساسية السنوية + تضخم تقديري 2%. صافي الادخار = دخلك السنوي − كل مصاريفك السنوية (أساسية وغير أساسية). بنود الادخار والاستثمار 🔵 لا تُحسب مصروفًا لأنها تحويل بين جيوبك، فتظهر ضمن فائضك لا خصمًا منه. الأصول لا تُحسب كدخل أو مصروف. الأصول ذات السيولة السريعة أو طويلة المدى (⚡🐢) تُحسب بالكامل مقابل المبلغ المستهدف؛ الأصول الثابتة (🏠 كالمسكن الأساسي) تظهر ضمن أملاكك لكن لا تُخصم من المبلغ المطلوب.
       </div>
     </div>
 
@@ -3833,18 +3920,19 @@ function scRenderExpenseRows(){
   if(!container) return;
   container.innerHTML = sc.expenses.map(r=>{
     const isCustom = r.item === SC_CUSTOM_VALUE;
-    const tag = r.tag || 'essential';
+    const tag = r.tag || EXPENSE_TAG_OF[r.item] || 'necessary';
     const freq = r.freq || 'monthly';
     const editing = scExpenseEditingId===r.id || !scRowHasData(r);
     if(!editing){
-      const meta = SC_TAG_META[tag] || {};
-      const emoji = tag==='essential' ? '🟢' : '🔴';
+      const meta = EXPENSE_TAGS[tag] || {};
+      const roll = isTransferTag(tag)? 'تحويل لادخارك — لا يُحسب مصروفًا'
+                 : isEssentialTag(tag)? 'أساسي' : 'غير أساسي';
       return `
       <div class="inbox-row" data-id="${r.id}">
         <span class="dot"></span>
         <div style="flex:1;">
           <div style="font-size:14px;color:var(--ink);">${escapeHtml(scRowDisplayName(r))}</div>
-          <div class="muted" style="font-size:12px;">${emoji} ${meta.label||''} · ${scFmt(parseFloat(r.amount)||0)} ريال ${freq==='yearly'?'سنويًا':'شهريًا'}</div>
+          <div class="muted" style="font-size:12px;">${meta.emoji||''} ${meta.label||''} · ${roll} · ${scFmt(parseFloat(r.amount)||0)} ريال ${freq==='yearly'?'سنويًا':'شهريًا'}</div>
         </div>
         <button type="button" class="icon-btn" data-sc-expense-edit="${r.id}">✎</button>
         <button type="button" class="icon-btn del-row" aria-label="حذف">✕</button>
@@ -3877,7 +3965,7 @@ function scRenderExpenseRows(){
     const selItem = rowEl.querySelector('.sel-item');
     if(selItem) selItem.onchange = ()=>{
       row.item = selItem.value;
-      if(row.item !== SC_CUSTOM_VALUE){ row.tag = SC_EXPENSE_TAG_MAP[row.item] || 'essential'; row.custom=''; }
+      if(row.item !== SC_CUSTOM_VALUE){ row.tag = EXPENSE_TAG_OF[row.item] || 'reducible'; row.custom=''; }
       saveState(); scRenderExpenseRows(); scUpdateSummary();
     };
     const selCustom = rowEl.querySelector('.sel-custom');
@@ -3893,7 +3981,7 @@ function scRenderExpenseRows(){
     }
     rowEl.querySelector('.del-row').onclick = ()=>{
       sc.expenses = sc.expenses.filter(x=>x!==row);
-      if(sc.expenses.length===0) sc.expenses.push({id:uid(), item:"", custom:"", tag:"essential", amount:""});
+      if(sc.expenses.length===0) sc.expenses.push({id:uid(), item:"", custom:"", tag:"necessary", amount:"", freq:"monthly"});
       saveState(); scRenderExpenseRows(); scUpdateSummary();
     };
   });
@@ -3914,8 +4002,13 @@ function scUpdateSummary(){
   const liquidAssets = fastAssets + slowAssets;
   const monthlyEquiv = e => e.freq==='yearly' ? e.amount/12 : e.amount;
   const totalIncomeMonthly = income.reduce((s,e)=> s + monthlyEquiv(e), 0);
-  const essentialMonthly = expenses.filter(e=>e.tag==='essential').reduce((s,e)=> s + monthlyEquiv(e), 0);
-  const nonEssentialMonthly = expenses.filter(e=>e.tag==='nonessential').reduce((s,e)=> s + monthlyEquiv(e), 0);
+  /* أساسي/غير أساسي is derived from the shared expense tag, not stored twice.
+     Savings/investment rows are transfers between her own pockets, so they're
+     kept out of the expense total — counting them would shrink net savings by
+     exactly the amount she saved. They're surfaced on their own line instead. */
+  const essentialMonthly    = expenses.filter(e=> isEssentialTag(e.tag)).reduce((s,e)=> s + monthlyEquiv(e), 0);
+  const nonEssentialMonthly = expenses.filter(e=> !isEssentialTag(e.tag) && !isTransferTag(e.tag)).reduce((s,e)=> s + monthlyEquiv(e), 0);
+  const transferMonthly     = expenses.filter(e=> isTransferTag(e.tag)).reduce((s,e)=> s + monthlyEquiv(e), 0);
   const totalExpenseMonthly = essentialMonthly + nonEssentialMonthly;
   const totalGoals = goals.reduce((s,e)=>s+e.amount,0);
 
@@ -3930,6 +4023,11 @@ function scUpdateSummary(){
   el('scAssetsBreakdown').innerHTML = breakdownParts.join(' — ');
   el('scIncomeTotal').textContent = scFmt(totalIncomeMonthly) + ' ريال';
   el('scExpenseTotal').textContent = scFmt(totalExpenseMonthly) + ' ريال';
+  const expParts = [];
+  if(essentialMonthly > 0) expParts.push(`🟢 <b>${scFmt(essentialMonthly)} ريال</b> أساسي`);
+  if(nonEssentialMonthly > 0) expParts.push(`🔴 <b>${scFmt(nonEssentialMonthly)} ريال</b> غير أساسي`);
+  if(transferMonthly > 0) expParts.push(`🔵 <b style="color:#3f6fd1">${scFmt(transferMonthly)} ريال</b> ادخار/استثمار — محسوب ضمن فائضك، مو مصروفًا`);
+  el('scExpenseBreakdown').innerHTML = expParts.join(' — ');
   el('scGoalsTotal').textContent = scFmt(totalGoals) + ' ريال';
 
   const annualIncome = totalIncomeMonthly*12;
@@ -4026,7 +4124,7 @@ function attachSafetyEvents(){
     saveState(); scRenderIncomeRows();
   };
   document.getElementById('scAddExpenseBtn').onclick = ()=>{
-    sc.expenses.push({id:uid(), item:"", custom:"", tag:"essential", amount:""});
+    sc.expenses.push({id:uid(), item:"", custom:"", tag:"necessary", amount:"", freq:"monthly"});
     saveState(); scRenderExpenseRows();
   };
   document.getElementById('scAddGoalBtn').onclick = ()=>{
@@ -4041,57 +4139,8 @@ function attachSafetyEvents(){
 
 /* ============ monthly expense diagnosis ============ */
 const ED_CUSTOM_VALUE = "__custom__";
-const ED_TAGS = {
-  necessary: {label:"ضروري", emoji:"🟢", color:"#2f9e6e", bg:"#e7f7ef"},
-  reducible: {label:"قابل للتقليل", emoji:"🟡", color:"#d99a1f", bg:"#fdf2dc"},
-  luxury:    {label:"كمالي", emoji:"🔴", color:"var(--rose)", bg:"rgba(178,76,99,.13)"},
-  wealth:    {label:"بناء الثروة (ادخار/استثمار)", emoji:"🔵", color:"#3f6fd1", bg:"#e8effb"},
-  /* kept separate from "wealth" — paying down debt isn't the same as building
-     savings, and lumping them together was hiding how much of her income
-     actually goes to loan/credit payments each month */
-  debt:      {label:"سداد ديون وقروض", emoji:"🟠", color:"#d9772f", bg:"#fdece0"},
-};
-const ED_CATEGORY_GROUPS = [
-  {group:"🏠 السكن", items:[
-    {name:"إيجار", tag:"necessary"},{name:"قرض عقاري", tag:"necessary"},{name:"صيانة المنزل", tag:"necessary"},
-    {name:"أثاث", tag:"reducible"},{name:"كهرباء", tag:"necessary"},{name:"ماء", tag:"necessary"},
-    {name:"إنترنت", tag:"necessary"},{name:"جوال", tag:"necessary"},
-  ]},
-  {group:"🍽 الطعام والمواد الاستهلاكية", items:[
-    {name:"بقالة / لحوم", tag:"necessary"},{name:"مطاعم", tag:"reducible"},{name:"قهوة", tag:"reducible"},
-    {name:"طلبات توصيل", tag:"reducible"},{name:"مستلزمات منزلية", tag:"necessary"},{name:"منظفات", tag:"necessary"},
-  ]},
-  {group:"🚗 النقل", items:[
-    {name:"بنزين", tag:"necessary"},{name:"صيانة سيارة", tag:"necessary"},{name:"تأمين", tag:"necessary"},
-    {name:"أقساط سيارة", tag:"necessary"},{name:"أوبر / كريم", tag:"reducible"},{name:"مواقف", tag:"necessary"},
-  ]},
-  {group:"👨‍👩‍👧 الأسرة", items:[
-    {name:"مدارس", tag:"necessary"},{name:"حضانة", tag:"necessary"},{name:"مصروف الأبناء", tag:"necessary"},
-    {name:"ملابس الأطفال", tag:"necessary"},{name:"هدايا الأسرة", tag:"luxury"},
-  ]},
-  {group:"🩺 الصحة", items:[
-    {name:"علاج", tag:"necessary"},{name:"أدوية", tag:"necessary"},{name:"تأمين طبي", tag:"necessary"},{name:"نادي رياضي", tag:"reducible"},
-  ]},
-  {group:"👕 الملابس والعناية", items:[
-    {name:"ملابس", tag:"reducible"},{name:"أحذية", tag:"reducible"},{name:"عطور", tag:"luxury"},
-    {name:"مكياج", tag:"luxury"},{name:"صالون", tag:"luxury"},
-  ]},
-  {group:"🎉 الترفيه", items:[
-    {name:"سفر", tag:"luxury"},{name:"فنادق", tag:"luxury"},{name:"كافيهات", tag:"reducible"},
-    {name:"اشتراكات ترفيه", tag:"reducible"},{name:"ألعاب", tag:"luxury"},{name:"فعاليات", tag:"luxury"},
-  ]},
-  {group:"💳 الالتزامات المالية", items:[
-    {name:"قروض", tag:"debt"},{name:"بطاقات ائتمانية", tag:"debt"},{name:"ديون", tag:"debt"},{name:"أقساط", tag:"debt"},
-  ]},
-  {group:"📈 الاستثمار والادخار", items:[
-    {name:"استثمار", tag:"wealth"},{name:"ادخار", tag:"wealth"},{name:"صندوق طوارئ", tag:"wealth"},
-  ]},
-  {group:"🎁 أخرى", items:[
-    {name:"هدايا", tag:"luxury"},{name:"صدقات", tag:"luxury"},{name:"رسوم حكومية", tag:"necessary"},
-  ]},
-];
-const ED_ITEM_TAG_MAP = {};
-ED_CATEGORY_GROUPS.forEach(g => g.items.forEach(it => ED_ITEM_TAG_MAP[it.name] = it.tag));
+/* expense items/tags for this page come from the shared EXPENSE_GROUPS
+   vocabulary at the top of the file — see the note there */
 
 function edMonthKey(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'); }
 function edCurrentMonthLabel(){ const d = new Date(); return 'مصاريف شهر ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear(); }
@@ -4105,23 +4154,12 @@ function edGetMonth(){
   return m;
 }
 function edFmt(n){ return Number(n||0).toLocaleString('ar-SA', {maximumFractionDigits:2}); }
-function edBuildItemOptions(selected){
-  let html = `<option value="">اختاري بند...</option>`;
-  ED_CATEGORY_GROUPS.forEach(g=>{
-    html += `<optgroup label="${g.group}">`;
-    g.items.forEach(it=>{ html += `<option value="${escapeHtml(it.name)}" ${selected===it.name?'selected':''}>${escapeHtml(it.name)}</option>`; });
-    html += `</optgroup>`;
-  });
-  html += `<option value="${ED_CUSTOM_VALUE}" ${selected===ED_CUSTOM_VALUE?'selected':''}>✏️ أخرى (اكتبي يدويًا)</option>`;
-  return html;
-}
-function edBuildTagOptions(selected){
-  return Object.keys(ED_TAGS).map(k=>`<option value="${k}" ${selected===k?'selected':''}>${ED_TAGS[k].emoji} ${ED_TAGS[k].label}</option>`).join('');
-}
+function edBuildItemOptions(selected){ return buildExpenseItemOptions(selected, ED_CUSTOM_VALUE); }
+function edBuildTagOptions(selected){ return buildExpenseTagOptions(selected); }
 function edActiveExpenses(m){
   return m.rows.map(r=>({
     name: r.item===ED_CUSTOM_VALUE ? ((r.custom||'').trim() || "بند بدون اسم") : r.item,
-    tag: r.tag || ED_ITEM_TAG_MAP[r.item] || 'reducible',
+    tag: r.tag || EXPENSE_TAG_OF[r.item] || 'reducible',
     amount: parseFloat(r.amount) || 0,
   })).filter(e => e.name && e.amount > 0);
 }
@@ -4239,7 +4277,7 @@ function edAttachRowHandlers(container, m){
     const selItem = rowEl.querySelector('.sel-item');
     if(selItem) selItem.onchange = ()=>{
       row.item = selItem.value;
-      if(row.item !== ED_CUSTOM_VALUE){ row.tag = ED_ITEM_TAG_MAP[row.item] || 'reducible'; row.custom=''; }
+      if(row.item !== ED_CUSTOM_VALUE){ row.tag = EXPENSE_TAG_OF[row.item] || 'reducible'; row.custom=''; }
       saveState(); edRenderRows(); edUpdateSummary();
     };
     const selCustom = rowEl.querySelector('.sel-custom');
@@ -4341,7 +4379,7 @@ function edUpdateSummary(){
   const byTag = {necessary:0, reducible:0, luxury:0, wealth:0, debt:0};
   exp.forEach(e=> byTag[e.tag] += e.amount);
   const pctOfIncome = {};
-  Object.keys(ED_TAGS).forEach(k=> pctOfIncome[k] = income>0 ? (byTag[k]/income*100) : 0);
+  Object.keys(EXPENSE_TAGS).forEach(k=> pctOfIncome[k] = income>0 ? (byTag[k]/income*100) : 0);
   const remainingPct = income>0 ? Math.max(0, 100 - Object.values(pctOfIncome).reduce((a,b)=>a+b,0)) : 0;
 
   const alertsBox = el('edAlertsBox');
@@ -4354,18 +4392,18 @@ function edUpdateSummary(){
     alertsBox.innerHTML += `<div class="alert ok">✅ مصاريفك ضمن حدود دخلك.</div>`;
   }
 
-  el('edDiagBar').innerHTML = Object.keys(ED_TAGS).map(k=>
-    `<span style="width:${pctOfIncome[k]}%; background:${ED_TAGS[k].color}"></span>`
+  el('edDiagBar').innerHTML = Object.keys(EXPENSE_TAGS).map(k=>
+    `<span style="width:${pctOfIncome[k]}%; background:${EXPENSE_TAGS[k].color}"></span>`
   ).join('') + `<span style="width:${remainingPct}%; background:var(--line)"></span>`;
 
-  el('edDiagLegend').innerHTML = Object.keys(ED_TAGS).map(k=>
-    `<span class="li"><span class="dot" style="background:${ED_TAGS[k].color}"></span>${ED_TAGS[k].emoji} ${ED_TAGS[k].label} <b>${pctOfIncome[k].toFixed(0)}%</b></span>`
+  el('edDiagLegend').innerHTML = Object.keys(EXPENSE_TAGS).map(k=>
+    `<span class="li"><span class="dot" style="background:${EXPENSE_TAGS[k].color}"></span>${EXPENSE_TAGS[k].emoji} ${EXPENSE_TAGS[k].label} <b>${pctOfIncome[k].toFixed(0)}%</b></span>`
   ).join('') + `<span class="li"><span class="dot" style="background:var(--line)"></span>متبقي <b>${remainingPct.toFixed(0)}%</b></span>`;
 
-  el('edBreakdownGrid').innerHTML = Object.keys(ED_TAGS).map(k=>
-    `<div class="bd-item" style="background:${ED_TAGS[k].bg}">
-      <div class="p" style="color:${ED_TAGS[k].color}">${edFmt(byTag[k])} ريال</div>
-      <div class="l" style="color:${ED_TAGS[k].color}">${ED_TAGS[k].emoji} ${ED_TAGS[k].label} — ${totalExp>0?(byTag[k]/totalExp*100).toFixed(0):0}% من مصاريفك</div>
+  el('edBreakdownGrid').innerHTML = Object.keys(EXPENSE_TAGS).map(k=>
+    `<div class="bd-item" style="background:${EXPENSE_TAGS[k].bg}">
+      <div class="p" style="color:${EXPENSE_TAGS[k].color}">${edFmt(byTag[k])} ريال</div>
+      <div class="l" style="color:${EXPENSE_TAGS[k].color}">${EXPENSE_TAGS[k].emoji} ${EXPENSE_TAGS[k].label} — ${totalExp>0?(byTag[k]/totalExp*100).toFixed(0):0}% من مصاريفك</div>
     </div>`
   ).join('');
 
@@ -5748,7 +5786,10 @@ function friendlyErr(e){
   return msg;
 }
 function escapeHtml(s){
-  return (s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  /* coerce first — a number reaching this (e.g. an amount that round-tripped
+     through cloud JSON as a number rather than a string) used to throw and take
+     the whole render down with it */
+  return String(s==null? '' : s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
 /* ============ offline support ============ */
