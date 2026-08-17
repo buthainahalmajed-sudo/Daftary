@@ -2277,7 +2277,12 @@ function renderCompletedByDay(){
   const byDay = {};
   const undated = []; /* finished, but from before completion dates were recorded */
   taskSearchPool().forEach(t=>{
-    if(t.recurType){ if(t.lastDoneDate) (byDay[t.lastDoneDate] = byDay[t.lastDoneDate] || []).push(t); return; }
+    /* a recurring task only belongs here while it is actually done — once its
+       next occurrence comes round it's open again and lives in the list above.
+       Listing it under an older completion date would put the same task in both
+       places at once, and it wouldn't even be real history: only the most recent
+       completion is stored, so that row is a single value that moves forward. */
+    if(t.recurType){ if(t.lastDoneDate === todayStr()) (byDay[t.lastDoneDate] = byDay[t.lastDoneDate] || []).push(t); return; }
     if(!t.done) return;
     if(t.doneAt) (byDay[t.doneAt] = byDay[t.doneAt] || []).push(t);
     else undated.push(t);
