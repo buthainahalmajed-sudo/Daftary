@@ -993,10 +993,13 @@ function timeBoxTagStyle(box){
 /* recurring tasks (daily / weekly on chosen weekdays / monthly on a chosen day-of-month)
    track completion via lastDoneDate instead of the plain done flag, so they automatically
    reappear on their next scheduled occurrence */
-function taskDoneToday(t){
-  if(t.recurType) return t.lastDoneDate === todayStr();
+/* "is this task done for the given day?" — only recurring tasks have a per-day
+   answer; a one-off task is finished once and stays finished on every view. */
+function taskDoneOnDate(t, dateStr){
+  if(t.recurType) return t.lastDoneDate === dateStr;
   return !!t.done;
 }
+function taskDoneToday(t){ return taskDoneOnDate(t, todayStr()); }
 function taskActiveToday(t){
   if(!t.recurType){
     /* a task explicitly scheduled for a future date isn't today's business yet —
@@ -1819,13 +1822,15 @@ function renderQuestionsCard(log){
 
 const PRIORITY_WEIGHT = {'عالية':3, 'متوسطة':2, 'منخفضة':1};
 function renderTasksForDate(isToday){
-  /* future/past dates get their own simple due-date list (not the "today" scoring pool),
-     but still sort by priority so a high-priority task for that day surfaces first */
-  const list = isToday? topTasks() : state.tasks.filter(t=>t.due===selectedDate).sort((a,b)=>(PRIORITY_WEIGHT[b.priority]||0)-(PRIORITY_WEIGHT[a.priority]||0));
+  /* other dates get everything actually scheduled for that day — which means
+     recurring tasks landing on it, not just tasks with a matching due date.
+     Reuses tasksPlannedForDate so the recurrence rule lives in one place. */
+  const list = isToday? topTasks()
+    : tasksPlannedForDate(selectedDate).sort((a,b)=>(PRIORITY_WEIGHT[b.priority]||0)-(PRIORITY_WEIGHT[a.priority]||0));
   if(list.length===0){
     return `<div class="empty">${isToday? 'ما فيه مهام بعد.':'ما فيه مهام مجدولة لهذا التاريخ.'}</div>`;
   }
-  return list.map(t=>taskRowHtml(t)).join('');
+  return list.map(t=>taskRowHtml(t, {date:selectedDate})).join('');
 }
 
 function renderTop3Picker(){
@@ -1874,7 +1879,9 @@ function deviceIconSvg(kind, size){
 function taskRowHtml(t, opts){
   opts = opts || {};
   const g = t.goalId? state.goals.find(x=>x.id===t.goalId): null;
-  const done = taskDoneToday(t);
+  /* a recurring task is done *for a given day*, so when this row is shown under
+     another date the tick has to reflect that date, not today */
+  const done = taskDoneOnDate(t, opts.date || todayStr());
   const box = t.period? timeBoxOf(t.period) : null;
   const device = t.device || null;
   const hasExtra = t.longNote || (t.attachments && t.attachments.length);
@@ -5251,8 +5258,12 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
        flagged them permanently done. taskDoneToday() only ever reads
        lastDoneDate for a recurring task, so they never hid and never came back. */
     if(t.recurType){
-      const wasDone = t.lastDoneDate === todayStr();
-      t.lastDoneDate = wasDone? null : todayStr();
+      /* record against the day being viewed, matching how a one-off task's doneAt
+         already works — ticking an occurrence while browsing another date should
+         mark that date, not today */
+      const day = selectedDate || todayStr();
+      const wasDone = t.lastDoneDate === day;
+      t.lastDoneDate = wasDone? null : day;
       saveState();
       if(!wasDone){ popStamp('أنجزتها','ماشاءالله'); }
     }else{
