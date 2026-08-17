@@ -106,6 +106,7 @@ details.card > .details-body{padding:0 18px 18px;}
 .btn.sm{padding:7px 12px;font-size:12.5px;border-radius:8px;}
 .btn:disabled{opacity:.45;cursor:not-allowed;}
 .btn-block{width:100%;display:block;text-align:center;}
+.linkish{background:none;border:none;padding:0;color:var(--petrol);font-size:inherit;text-decoration:underline;cursor:pointer;}
 .icon-btn{background:none;color:var(--petrol);font-size:16px;padding:4px 8px;border-radius:6px;}
 .icon-btn:hover{background:rgba(46,92,90,.08);}
 
@@ -654,6 +655,9 @@ let importError = null;
 let aiPlan = null; /* array of {sourceId, text, category, priority, period, due, note, include} pending review, from the offline text-extraction flow */
 let journalWorkDraft = '';
 let journalPersonalDraft = '';
+let journalWorkCat = '';     /* CATS id picked for the work achievement being written */
+let journalPersonalCat = ''; /* same, for the personal one */
+let journalFilterCat = '';   /* CATS id the year view is filtered to, '' = all */
 let journalViewYear = null; /* selected year on the يومياتي page; defaults to current year */
 let journalExportText = '';
 let journalEditingId = null; /* id of the one journal entry currently shown as an editable textarea */
@@ -2065,18 +2069,38 @@ function renderJournalEntryRow(j){
       </div>
     </div>`;
   }
+  const c = j.cat? CAT_MAP[j.cat] : null;
   return `<div class="inbox-row" data-journal-row="${j.id}">
     <span class="dot"></span>
-    <div style="flex:1;"><span class="muted" style="font-size:11px;">${j.date}</span><div class="txt">${escapeHtml(j.text)}</div></div>
+    <div style="flex:1;">
+      <span class="muted" style="font-size:11px;">${j.date}</span>
+      ${c? `<span class="tag" style="margin-inline-start:6px;">${c.icon} ${escapeHtml(c.label)}</span>`:''}
+      <div class="txt">${escapeHtml(j.text)}</div>
+    </div>
     <button class="icon-btn" data-journal-edit="${j.id}">✎</button>
     <button class="icon-btn" data-journal-del="${j.id}">✕</button>
+  </div>`;
+}
+/* the domain picker shown on each "add achievement" card. This is a second axis,
+   not a duplicate of the work/personal split above it: work/personal says which
+   part of her life the win belongs to, the domain says what it was about — a
+   finance achievement can be either. Sharing CATS here means her journal can be
+   sliced the same way her goals and tasks are. */
+function journalCatPicker(kind, selected){
+  return `<div class="chip-row" style="margin-bottom:10px;">
+    ${CATS.map(c=>`<button type="button" class="chip cat ${selected===c.id?'selected':''}" data-journal-cat="${kind}" data-cat="${c.id}">${c.icon} ${c.label}</button>`).join('')}
   </div>`;
 }
 function renderJournalPage(){
   const year = journalViewYear || parseInt(todayStr().slice(0,4),10);
   const years = journalYearsWithEntries();
-  const workEntries = state.journal.filter(j=>j.category==='work' && j.date.startsWith(String(year))).sort((a,b)=>b.date.localeCompare(a.date));
-  const personalEntries = state.journal.filter(j=>j.category==='personal' && j.date.startsWith(String(year))).sort((a,b)=>b.date.localeCompare(a.date));
+  const inYear = j => j.date.startsWith(String(year));
+  const matchesCat = j => !journalFilterCat || j.cat===journalFilterCat;
+  const workEntries = state.journal.filter(j=>j.category==='work' && inYear(j) && matchesCat(j)).sort((a,b)=>b.date.localeCompare(a.date));
+  const personalEntries = state.journal.filter(j=>j.category==='personal' && inYear(j) && matchesCat(j)).sort((a,b)=>b.date.localeCompare(a.date));
+  /* only offer domains she's actually tagged something with, so the filter row
+     doesn't show nine chips that mostly lead to an empty list */
+  const usedCats = CATS.filter(c=> state.journal.some(j=> inYear(j) && j.cat===c.id));
   return `
   <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:4px;">📖 يومياتي</h2>
   <p class="muted" style="margin-bottom:16px;">سجّلي إنجازاتك بحرية، عدّليها متى ما بغيتِ، واستخلصيها بنهاية السنة بضغطة وحدة.</p>
@@ -2086,6 +2110,8 @@ function renderJournalPage(){
     <div class="field" style="margin-bottom:8px;">
       <textarea id="journalWorkInput" placeholder="اكتبي بحرية…">${escapeHtml(journalWorkDraft)}</textarea>
     </div>
+    <p class="muted" style="margin-bottom:6px;font-size:12.5px;">في أي مجال؟ (اختياري)</p>
+    ${journalCatPicker('work', journalWorkCat)}
     <button class="btn btn-block" id="journalWorkAdd">إضافة</button>
   </div>
 
@@ -2094,6 +2120,8 @@ function renderJournalPage(){
     <div class="field" style="margin-bottom:8px;">
       <textarea id="journalPersonalInput" placeholder="اكتبي بحرية…">${escapeHtml(journalPersonalDraft)}</textarea>
     </div>
+    <p class="muted" style="margin-bottom:6px;font-size:12.5px;">في أي مجال؟ (اختياري)</p>
+    ${journalCatPicker('personal', journalPersonalCat)}
     <button class="btn btn-block" id="journalPersonalAdd">إضافة</button>
   </div>
 
@@ -2103,6 +2131,13 @@ function renderJournalPage(){
     <div class="chip-row" style="margin-bottom:14px;">
       ${years.map(y=>`<button type="button" class="chip ${year===y?'selected':''}" data-journal-year="${y}">${y}</button>`).join('')}
     </div>
+
+    ${usedCats.length? `
+    <p class="muted" style="margin-bottom:6px;font-size:12.5px;">صفّي حسب المجال:</p>
+    <div class="chip-row" style="margin-bottom:14px;">
+      <button type="button" class="chip ${!journalFilterCat?'selected':''}" data-journal-filter="">الكل</button>
+      ${usedCats.map(c=>`<button type="button" class="chip cat ${journalFilterCat===c.id?'selected':''}" data-journal-filter="${c.id}">${c.icon} ${c.label}</button>`).join('')}
+    </div>`:''}
 
     <p style="font-weight:700;color:var(--petrol-dark);margin-bottom:6px;">💼 إنجازات العمل (${workEntries.length})</p>
     ${workEntries.length? workEntries.map(renderJournalEntryRow).join('') : `<p class="muted" style="margin-bottom:10px;">ما فيه إنجازات عمل مسجّلة هالسنة.</p>`}
@@ -3308,7 +3343,13 @@ function renderFinanceDashboard(){
   const done = fg.stages.filter(s=>s.done);
   const fgDetailsCollapsed = state.collapsed.fgDetails;
   return `
-  <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:14px;">🎯 ${escapeHtml(fg.title)}</h2>
+  <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:4px;">🎯 ${escapeHtml(fg.title)}</h2>
+  ${(()=>{ /* the other direction of the link the yearly-goal card already offers,
+              so the two "goals" read as one thing seen at two zoom levels */
+    const yearly = state.goals.filter(g=>g.cat==='finance');
+    if(!yearly.length) return `<p class="muted" style="margin-bottom:14px;font-size:12.5px;">هذا هدفك المالي التفصيلي — بمراحل وطرق دخل. أهدافك السنوية العامة بتبويب "الأساس".</p>`;
+    return `<p class="muted" style="margin-bottom:14px;font-size:12.5px;">التفصيل المالي لـ ${yearly.map(g=>`<b style="color:var(--petrol-dark);">${escapeHtml(g.title)}</b>`).join(' و ')} — <button type="button" class="linkish" data-goto-goals="1">افتحي الهدف السنوي</button></p>`;
+  })()}
 
   <div class="card" style="text-align:center;">
     <div style="font-size:34px;font-weight:800;color:var(--petrol-dark);font-family:'IBM Plex Sans Arabic',sans-serif;">${pct}%</div>
@@ -5349,6 +5390,7 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
   document.querySelectorAll('[data-goto-money]').forEach(b=> b.onclick=()=>{
     view = 'money'; moneySubView = 'finance'; render();
   });
+  document.querySelectorAll('[data-goto-goals]').forEach(b=> b.onclick=()=>{ view = 'goals'; render(); });
 
   document.querySelectorAll('[data-period]').forEach(b=> b.onclick=()=>{ window.__activePeriod=b.dataset.period; window.__activePeriodManual=true; render(); });
 
@@ -5638,8 +5680,8 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
   if(journalWorkAdd) journalWorkAdd.onclick = ()=>{
     const text = journalWorkDraft.trim();
     if(!text) return;
-    state.journal.push({id:uid(), date:todayStr(), category:'work', text, createdAt:todayStr()});
-    journalWorkDraft = '';
+    state.journal.push({id:uid(), date:todayStr(), category:'work', cat:journalWorkCat||null, text, createdAt:todayStr()});
+    journalWorkDraft = ''; journalWorkCat = '';
     saveState(); render();
   };
   const journalPersonalInput = document.getElementById('journalPersonalInput');
@@ -5648,13 +5690,24 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
   if(journalPersonalAdd) journalPersonalAdd.onclick = ()=>{
     const text = journalPersonalDraft.trim();
     if(!text) return;
-    state.journal.push({id:uid(), date:todayStr(), category:'personal', text, createdAt:todayStr()});
-    journalPersonalDraft = '';
+    state.journal.push({id:uid(), date:todayStr(), category:'personal', cat:journalPersonalCat||null, text, createdAt:todayStr()});
+    journalPersonalDraft = ''; journalPersonalCat = '';
     saveState(); render();
   };
+  document.querySelectorAll('[data-journal-cat]').forEach(b=> b.onclick=()=>{
+    const picked = b.dataset.cat;
+    if(b.dataset.journalCat==='work') journalWorkCat = (journalWorkCat===picked? '' : picked);
+    else journalPersonalCat = (journalPersonalCat===picked? '' : picked);
+    render();
+  });
+  document.querySelectorAll('[data-journal-filter]').forEach(b=> b.onclick=()=>{
+    journalFilterCat = b.dataset.journalFilter;
+    render();
+  });
   document.querySelectorAll('[data-journal-year]').forEach(b=> b.onclick=()=>{
     journalViewYear = parseInt(b.dataset.journalYear,10);
     journalExportText = '';
+    journalFilterCat = '';
     render();
   });
   document.querySelectorAll('[data-journal-edit]').forEach(b=> b.onclick=()=>{
