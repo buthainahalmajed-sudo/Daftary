@@ -818,6 +818,15 @@ function hydrateState(parsed){
   state.habits.forEach(h=>{ if(!Array.isArray(h.days)) h.days = []; if(h.link===undefined) h.link = null; });
   (state.tasks||[]).forEach(t=>{
     if(t.recur && t.recur.length && !t.recurType) t.recurType = 'weekly';
+    /* repair daily/monthly recurring tasks that the completion button used to
+       flag as permanently done instead of done-for-today. Their completion date
+       is kept (as lastDoneDate) so a task ticked today still reads as done
+       today; the stale done flag, which a recurring task never consults, goes. */
+    if(t.recurType && t.done){
+      if(!t.lastDoneDate && t.doneAt) t.lastDoneDate = t.doneAt;
+      t.done = false;
+      t.doneAt = null;
+    }
     if(t.longNote===undefined) t.longNote = '';
     if(!t.attachments) t.attachments = [];
   });
@@ -5237,7 +5246,11 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
   document.querySelectorAll('[data-toggle]').forEach(b=> b.onclick=()=>{
     const t = state.tasks.find(x=>x.id===b.dataset.toggle);
     if(!t) return;
-    if(t.recur && t.recur.length){
+    /* branch on recurType, not on the weekday array — daily and monthly tasks
+       have no weekdays, so checking t.recur sent them down the one-off path and
+       flagged them permanently done. taskDoneToday() only ever reads
+       lastDoneDate for a recurring task, so they never hid and never came back. */
+    if(t.recurType){
       const wasDone = t.lastDoneDate === todayStr();
       t.lastDoneDate = wasDone? null : todayStr();
       saveState();
