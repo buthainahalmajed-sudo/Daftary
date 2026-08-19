@@ -657,6 +657,7 @@ let revError = null;
 let revPreview = null; /* {version, tasks, goals, cats, pillars, journal, catLabels, pillarLabels} for the one revision being peeked at */
 let appUpdateMsg = null; /* {ok:bool, text:string} — feedback for the manual "تحديث الآن" check in Settings */
 let storageReady = false;
+let storageError = null; /* {quota, msg} while the last write to this device failed */
 let importPasteText = '';
 let importError = null;
 let aiPlan = null; /* array of {sourceId, text, category, priority, period, due, note, include} pending review, from the offline text-extraction flow */
@@ -868,8 +869,12 @@ async function cloudPull(){
     const parsed = JSON.parse(file.content || '{}');
     if(parsed && typeof parsed==='object' && Array.isArray(parsed.tasks)){
       hydrateState(parsed);
-      try{ localStorage.setItem('plannerState', JSON.stringify(state)); }catch(e){}
+      try{ await persistState(); }catch(e){ noteStorageFailure(e); }
     }
+    /* remember which revision this device is now based on, so a later push can
+       tell whether anything else wrote in the meantime */
+    cloudBaseVersion = (data.history && data.history[0] && data.history[0].version) || null;
+    cloudConflict = null;
     cloudStatus='synced'; cloudLastSync = new Date();
     return true;
   }catch(e){
@@ -915,17 +920,51 @@ function summariseRevision(version, s){
 }
 let cloudPushInFlight = 0;
 let lastLocalSaveAt = 0;
+let cloudBaseVersion = null; /* the gist revision this device's state is based on */
+let pushedThisSession = false;
+let cloudConflict = null; /* {remoteVersion, when, theirTasks, myTasks} — another device wrote; wait for her call */
 async function cloudPush(){
   if(!cloud.linked) return false;
+  if(cloudConflict) return false; /* stay put until she says which side wins */
   cloudStatus='syncing'; cloudStatusMsg='';
   cloudPushInFlight++;
   try{
+    /* Before the first upload of a session, check the cloud is still where this
+       device left it. Two devices used offline would otherwise both push and the
+       later one would erase the earlier one's work with no trace. Only the first
+       push needs the check — after that this device owns the newest revision. */
+    if(!pushedThisSession && cloudBaseVersion){
+      const head = await fetch('https://api.github.com/gists/'+cloud.gistId, { headers: ghHeaders() });
+      if(head.ok){
+        const info = await head.json();
+        const remote = (info.history && info.history[0] && info.history[0].version) || null;
+        if(remote && remote !== cloudBaseVersion){
+          const f = info.files && info.files[CLOUD_FILENAME];
+          let theirs = null;
+          try{ theirs = JSON.parse((f && f.content) || '{}'); }catch(e){}
+          cloudConflict = {
+            remoteVersion: remote,
+            when: info.updated_at,
+            theirTasks: (theirs && theirs.tasks || []).length,
+            myTasks: (state.tasks||[]).length,
+          };
+          cloudStatus='error';
+          cloudStatusMsg='جهاز ثاني عدّل بياناتك بعد آخر مزامنة لهذا الجهاز.';
+          return false;
+        }
+      }
+    }
     const res = await fetch('https://api.github.com/gists/'+cloud.gistId, {
       method:'PATCH',
       headers: ghHeaders({'Content-Type':'application/json'}),
       body: JSON.stringify({ files:{ [CLOUD_FILENAME]:{ content: JSON.stringify(state) } } })
     });
     if(!res.ok) throw new Error('فشل الرفع للسحاب (كود '+res.status+')');
+    try{
+      const saved = await res.json();
+      cloudBaseVersion = (saved.history && saved.history[0] && saved.history[0].version) || cloudBaseVersion;
+    }catch(e){}
+    pushedThisSession = true;
     cloudStatus='synced'; cloudLastSync = new Date();
     return true;
   }catch(e){
@@ -966,10 +1005,23 @@ async function loadState(){
   let usedCloud = false;
   if(cloud.linked){ usedCloud = await cloudPull(); }
   if(!usedCloud){
-    try{
-      const raw = localStorage.getItem('plannerState');
-      hydrateState(raw? JSON.parse(raw) : {});
-    }catch(e){ console.error('تعذر القراءة', e); }
+    /* IndexedDB is the real store; localStorage is the older location and the
+       fallback copy. Read the richer one — an existing install has its data only
+       in localStorage on this first run, and gets written across below. */
+    let fromIdb = null, fromLocal = null;
+    try{ const raw = await idbGet(); if(raw) fromIdb = JSON.parse(raw); }
+    catch(e){ console.error('تعذر القراءة من IndexedDB', e); }
+    try{ const raw = localStorage.getItem('plannerState'); if(raw) fromLocal = JSON.parse(raw); }
+    catch(e){ console.error('تعذر القراءة من التخزين المحلي', e); }
+
+    /* prefer IndexedDB, except where it holds nothing and localStorage does. Never
+       let an attachment-stripped fallback copy overwrite a full one. */
+    let chosen = fromIdb || fromLocal;
+    if(fromIdb && fromLocal && !fromLocal._slim && !(fromIdb.tasks||[]).length && (fromLocal.tasks||[]).length) chosen = fromLocal;
+    hydrateState(chosen || {});
+    if(chosen && chosen !== fromIdb){
+      try{ await idbPut(JSON.stringify(state)); }catch(e){ console.error('تعذر الترحيل لـ IndexedDB', e); }
+    }
   }
   storageReady = true;
   selectedDate = todayStr();
@@ -977,17 +1029,133 @@ async function loadState(){
   render();
   startAutoCloudSync();
 }
+/* ---- local store ----
+   The state lives in IndexedDB, not localStorage. Attachments are held inside the
+   state as base64, which inflates them by a third, so roughly four files were
+   enough to exhaust localStorage's ~5MB and every save after that failed.
+   IndexedDB's quota is orders of magnitude larger, and keeping attachments in the
+   state means they still travel through the gist to her other devices.
+
+   localStorage is still written as a fallback copy, minus attachments so it always
+   fits. It is only read if IndexedDB is unavailable or empty, which also carries
+   existing installs across on first load. */
+const IDB_NAME = 'daftari', IDB_STORE = 'state', IDB_KEY = 'plannerState';
+let idbHandle = null;
+function idbOpen(){
+  if(idbHandle) return idbHandle;
+  idbHandle = new Promise((resolve, reject)=>{
+    if(!window.indexedDB) return reject(new Error('IndexedDB غير متاح'));
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = ()=>{ req.result.createObjectStore(IDB_STORE); };
+    req.onsuccess = ()=> resolve(req.result);
+    req.onerror = ()=> reject(req.error || new Error('تعذر فتح قاعدة البيانات'));
+  }).catch(e=>{ idbHandle = null; throw e; });
+  return idbHandle;
+}
+function idbPut(value){
+  return idbOpen().then(db => new Promise((resolve, reject)=>{
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(value, IDB_KEY);
+    tx.oncomplete = ()=> resolve();
+    tx.onabort = tx.onerror = ()=> reject(tx.error || new Error('فشل الحفظ'));
+  }));
+}
+function idbGet(){
+  return idbOpen().then(db => new Promise((resolve, reject)=>{
+    const tx = db.transaction(IDB_STORE, 'readonly');
+    const req = tx.objectStore(IDB_STORE).get(IDB_KEY);
+    req.onsuccess = ()=> resolve(req.result || null);
+    req.onerror = ()=> reject(req.error || new Error('فشل القراءة'));
+  }));
+}
+/* the fallback copy leaves attachments out — they are the only thing big enough to
+   overflow, and a backup missing them still beats no backup at all */
+function stateWithoutAttachments(){
+  const slim = JSON.parse(JSON.stringify(state));
+  (slim.tasks||[]).forEach(t=>{ if(t.attachments && t.attachments.length) t.attachments = []; });
+  (slim.goals||[]).forEach(g=>{ if(g.attachments && g.attachments.length) g.attachments = []; });
+  slim._slim = true;
+  return slim;
+}
+/* the single place the state is written to this device */
+async function persistState(){
+  const json = JSON.stringify(state);
+  await idbPut(json);
+  /* best effort only — a full localStorage must not fail a save that IndexedDB accepted */
+  try{ localStorage.setItem('plannerState', JSON.stringify(stateWithoutAttachments())); }
+  catch(e){ try{ localStorage.removeItem('plannerState'); }catch(e2){} }
+}
+function noteStorageFailure(e){
+  const quota = e && (e.name==='QuotaExceededError' || e.name==='NS_ERROR_DOM_QUOTA_REACHED' || e.code===22 || e.code===1014);
+  storageError = {
+    quota,
+    msg: quota ? 'امتلأت مساحة التخزين على هذا الجهاز.' : 'ما قدرت أحفظ على هذا الجهاز: ' + friendlyErr(e),
+  };
+  console.error('تعذر الحفظ', e);
+}
 async function saveState(){
   lastLocalSaveAt = Date.now();
   try{
-    localStorage.setItem('plannerState', JSON.stringify(state));
+    await persistState();
+    if(storageError){ storageError = null; paintStorageWarning(); }
   }catch(e){
-    console.error('تعذر الحفظ', e);
+    /* never swallow this. A failed write used to be logged to the console and
+       nothing else, so the screen kept showing edits that were never stored and
+       the whole session was lost on reload with no warning at any point. */
+    noteStorageFailure(e);
+    paintStorageWarning();
   }
   /* only re-render after the async cloud push if the settings page (where sync
      status is shown) is actually open — otherwise this silently steals focus from
      whatever input the user is still typing in, elsewhere in the app */
   if(cloud.linked){ cloudPush().then(()=>{ if(settingsOpen) render(); }); }
+}
+/* a second device wrote since this one last synced. Both versions exist, so the
+   only wrong move is to pick one automatically — she decides, and either way the
+   losing side stays recoverable from the revision list in Settings. */
+function renderCloudConflict(){
+  if(!cloudConflict) return '';
+  const c = cloudConflict;
+  return `
+  <div class="card" style="border:1.5px solid var(--rose);background:rgba(178,76,99,.08);">
+    <p style="font-weight:700;color:var(--rose-dark);margin-bottom:6px;">⚠️ جهاز ثاني عدّل بياناتك</p>
+    <p class="muted" style="margin-bottom:8px;">
+      فيه تعديلات بالسحاب من جهاز آخر${c.when? ' بتاريخ '+new Date(c.when).toLocaleString('ar') : ''}، ما وصلت هذا الجهاز.
+      وقّفت الرفع عشان ما أمحيها. اختاري وش تبين:
+    </p>
+    <div class="quote-box" style="margin-bottom:10px;font-size:13px;">
+      📱 هذا الجهاز: <b>${c.myTasks}</b> مهمة &nbsp;·&nbsp; ☁️ السحاب: <b>${c.theirTasks}</b> مهمة
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn sm" id="conflictTakeCloud">☁️ خذي نسخة السحاب</button>
+      <button class="btn ghost sm" id="conflictKeepMine">📱 اعتمدي هذا الجهاز</button>
+      <button class="btn ghost sm" id="conflictOpenSettings">📜 اعرضي النسخ</button>
+    </div>
+    <p class="muted" style="margin-top:8px;font-size:12px;">أي خيار تختارينه، النسخة الثانية تبقى محفوظة بسجل النسخ وتقدرين ترجعين لها.</p>
+  </div>`;
+}
+/* painted into its own slot rather than through render(), so a warning that
+   arrives mid-typing doesn't yank the cursor out of the field she's in */
+function paintStorageWarning(){
+  const slot = document.getElementById('storageWarn');
+  if(!slot) return;
+  if(!storageError){ slot.innerHTML = ''; return; }
+  slot.innerHTML = `
+    <div class="card" style="border:1.5px solid var(--rose);background:rgba(178,76,99,.08);">
+      <p style="font-weight:700;color:var(--rose-dark);margin-bottom:6px;">⚠️ آخر تعديلاتك ما انحفظت على هذا الجهاز</p>
+      <p class="muted" style="margin-bottom:8px;">${escapeHtml(storageError.msg)} ${cloud.linked
+        ? 'بياناتك ترفع للسحاب، فاللي انرفع بأمان — لكن أي شي بعد آخر مزامنة ناجحة معرّض للضياع.'
+        : 'وما عندك نسخة سحابية، فأي شي جديد بيضيع لو أقفلتِ التطبيق.'}</p>
+      ${storageError.quota? `<p class="muted" style="margin-bottom:8px;">السبب الأغلب المرفقات — كل مرفق يأخذ مساحة كبيرة. احذفي مرفقًا ما تحتاجينه من مهمة أو هدف، وبعدها اضغطي "حاولي مرة ثانية".</p>`:''}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn sm" id="retryStorage">حاولي الحفظ مرة ثانية</button>
+        ${!cloud.linked? `<button class="btn ghost sm" id="storageOpenSettings">⚙️ فعّلي النسخ السحابي</button>`:''}
+      </div>
+    </div>`;
+  const retry = document.getElementById('retryStorage');
+  if(retry) retry.onclick = ()=> saveState();
+  const openSet = document.getElementById('storageOpenSettings');
+  if(openSet) openSet.onclick = ()=>{ settingsOpen = true; render(); };
 }
 
 
@@ -1040,6 +1208,17 @@ function taskDoneOnDate(t, dateStr){
   if(t.recurType) return t.lastDoneDate === dateStr;
   return !!t.done;
 }
+/* "the 31st of every month" has to mean something in a 30-day month, or the task
+   silently skips five months a year (Feb/Apr/Jun/Sep/Nov). A day past the end of
+   the month lands on that month's last day, which is what a monthly bill or
+   review actually means. */
+function monthlyRecurHitsDate(t, dateStr){
+  const d = parseISO(dateStr);
+  const wanted = t.recurMonthDay;
+  if(!wanted) return false;
+  const lastDayOfMonth = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+  return d.getDate() === Math.min(wanted, lastDayOfMonth);
+}
 function taskDoneToday(t){ return taskDoneOnDate(t, todayStr()); }
 function taskActiveToday(t){
   if(!t.recurType){
@@ -1052,7 +1231,7 @@ function taskActiveToday(t){
   if(t.recurEnd && todayStr() > t.recurEnd) return false;
   if(t.recurType==='daily') return true;
   if(t.recurType==='weekly') return !!(t.recur && t.recur.includes(new Date().getDay()));
-  if(t.recurType==='monthly') return t.recurMonthDay === new Date().getDate();
+  if(t.recurType==='monthly') return monthlyRecurHitsDate(t, todayStr());
   return true;
 }
 /* tasks explicitly scheduled for a given date (due that day, or recurring on it) — narrower
@@ -1065,7 +1244,7 @@ function tasksPlannedForDate(dateStr){
       if(t.recurEnd && dateStr > t.recurEnd) return false;
       if(t.recurType==='daily') return true;
       if(t.recurType==='weekly') return !!(t.recur && t.recur.includes(dow));
-      if(t.recurType==='monthly') return t.recurMonthDay === parseISO(dateStr).getDate();
+      if(t.recurType==='monthly') return monthlyRecurHitsDate(t, dateStr);
       return false;
     }
     if(t.due) return t.due === dateStr;
@@ -1140,11 +1319,14 @@ function render(){
 
   app.innerHTML = `
     ${renderTopbar()}
+    <div id="storageWarn"></div>
+    ${renderCloudConflict()}
     ${body}
     ${renderNav()}
     <div class="stamp-pop" id="stampPop">${stampSVG('أنجزتها','ماشاءالله')}</div>
   `;
   attachGlobalEvents();
+  paintStorageWarning();
   if(view==='money') attachMoneyEvents();
 }
 
@@ -2040,7 +2222,10 @@ function renderScheduleCard(){
     : tasksPlannedForDate(dateStr).filter(t=> !taskDoneOnDate(t, dateStr));
   const countIn = id => pool.filter(t=>t.period===id).length;
   const items = pool.filter(t=>t.period===period);
-  const unslotted = pool.filter(t=>!t.period);
+  /* a task pointing at a time box she has since deleted belongs here too —
+     otherwise it matches no tab and drops off the schedule entirely */
+  const boxIds = new Set(state.timeBoxes.map(b=>b.id));
+  const unslotted = pool.filter(t=> !t.period || !boxIds.has(t.period));
   const collapsed = state.collapsed.schedule;
   const activeBox = timeBoxOf(period);
   return `
@@ -2059,6 +2244,7 @@ function renderScheduleCard(){
     ${unslotted.length? `
     <div style="margin-top:12px;border-top:1px dashed var(--line);padding-top:10px;">
       <p class="muted" style="margin-bottom:6px;font-size:12.5px;">🗂️ بدون صندوق زمن (${unslotted.length}) — افتحي المهمة وحددي لها فترة</p>
+      ${unslotted.some(t=>t.period)? `<p class="muted" style="margin-bottom:6px;font-size:11.5px;color:var(--rose-dark);">بعضها كان في صندوق زمن محذوف</p>`:''}
       ${unslotted.map(t=>taskRowHtml(t, {date:dateStr})).join('')}
     </div>`:''}
     <p class="muted" style="margin-top:8px;font-size:12px;">🎨 تعديل صناديق الزمن (الاسم، الوقت، اللون) صار من تبويب "الأساس".</p>
@@ -5567,6 +5753,24 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
     view = 'money'; moneySubView = 'finance'; render();
   });
   document.querySelectorAll('[data-goto-goals]').forEach(b=> b.onclick=()=>{ view = 'goals'; render(); });
+
+  const conflictTakeCloud = document.getElementById('conflictTakeCloud');
+  if(conflictTakeCloud) conflictTakeCloud.onclick = async ()=>{
+    cloudConflict = null;              /* clear first so cloudPull isn't blocked */
+    await cloudPull();                 /* replaces local with the cloud copy */
+    pushedThisSession = false;
+    render();
+  };
+  const conflictKeepMine = document.getElementById('conflictKeepMine');
+  if(conflictKeepMine) conflictKeepMine.onclick = async ()=>{
+    if(!confirm('تعتمدين نسخة هذا الجهاز؟ تعديلات الجهاز الثاني بتنحفظ بسجل النسخ وتقدرين ترجعين لها، بس نسخة هذا الجهاز بتصير هي الأساس.')) return;
+    cloudBaseVersion = cloudConflict.remoteVersion; /* accept their revision as our base, then overwrite */
+    cloudConflict = null;
+    await cloudPush();
+    render();
+  };
+  const conflictOpenSettings = document.getElementById('conflictOpenSettings');
+  if(conflictOpenSettings) conflictOpenSettings.onclick = ()=>{ settingsOpen = true; render(); };
 
   document.querySelectorAll('[data-period]').forEach(b=> b.onclick=()=>{
     /* today's tab choice overrides the clock for the rest of the session; another
