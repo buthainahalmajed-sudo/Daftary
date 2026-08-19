@@ -2285,11 +2285,11 @@ function renderScheduleCard(){
     ? state.tasks.filter(t=> !taskDoneToday(t) && taskActiveToday(t))
     : tasksPlannedForDate(dateStr).filter(t=> !taskDoneOnDate(t, dateStr));
   const countIn = id => pool.filter(t=>t.period===id).length;
+  /* the schedule is strictly the day laid out by time box. A task with no period
+     (or one pointing at a box she deleted) has no place on that map, so it stays
+     out of here entirely — it is still reachable on the tasks page, under its
+     category or under "غير مصنّفة". */
   const items = pool.filter(t=>t.period===period);
-  /* a task pointing at a time box she has since deleted belongs here too —
-     otherwise it matches no tab and drops off the schedule entirely */
-  const boxIds = new Set(state.timeBoxes.map(b=>b.id));
-  const unslotted = pool.filter(t=> !t.period || !boxIds.has(t.period));
   const collapsed = state.collapsed.schedule;
   const activeBox = timeBoxOf(period);
   return `
@@ -2305,12 +2305,6 @@ function renderScheduleCard(){
     ${activeBox? `<p class="muted" style="margin-bottom:10px;">⏰ ${activeBox.start} – ${activeBox.end}${(activeBox.categoryIds&&activeBox.categoryIds.length)? ' · '+activeBox.categoryIds.map(id=>tcatOf(id)?.label).filter(Boolean).join('، ') : ''}</p>`:''}
     ${items.length===0? `<div class="empty">ما فيه مهام في هالصندوق. وزّعي مهامك من صفحة المهام.</div>` : items.map(t=>taskRowHtml(t, {date:dateStr})).join('')}
     <button class="btn ghost btn-block" style="margin-top:8px;" id="goAddTaskPeriod" data-add-period="${period}">+ إضافة مهمة ${activeBox?'لـ'+escapeHtml(activeBox.label):''}</button>
-    ${unslotted.length? `
-    <div style="margin-top:12px;border-top:1px dashed var(--line);padding-top:10px;">
-      <p class="muted" style="margin-bottom:6px;font-size:12.5px;">🗂️ بدون صندوق زمن (${unslotted.length}) — افتحي المهمة وحددي لها فترة</p>
-      ${unslotted.some(t=>t.period)? `<p class="muted" style="margin-bottom:6px;font-size:11.5px;color:var(--rose-dark);">بعضها كان في صندوق زمن محذوف</p>`:''}
-      ${unslotted.map(t=>taskRowHtml(t, {date:dateStr})).join('')}
-    </div>`:''}
     <p class="muted" style="margin-top:8px;font-size:12px;">🎨 تعديل صناديق الزمن (الاسم، الوقت، اللون) صار من تبويب "الأساس".</p>
     `}
   </div>`;
