@@ -735,7 +735,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 12';
+const APP_BUILD = '2026-08-17 · 13';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -2126,26 +2126,43 @@ function renderTemplateCard(tpl, dow){
 function renderHabitsCard(tpl, log, dow){
   const dayHabits = state.habits.filter(h=>h.days.includes(dow));
   const collapsed = state.collapsed.habits;
+  /* a finished habit leaves the list, so what's on screen is only what's still
+     waiting. The done ones move behind a toggle rather than vanishing outright —
+     a mis-tap has to stay undoable, and this is where she'd look to undo it.
+     Truthy here means "open", the same inverted sense the taskNote keys use. */
+  const doneOpen = !!state.collapsed.habitsDoneOpen;
+  const isDone = h => !!log.habits[h.id];
+  const pending = dayHabits.filter(h=>!isDone(h));
+  const finished = dayHabits.filter(isDone);
+  /* reorder arrows act on the full day list, so their bounds come from there and
+     not from the shortened pending list */
+  const habitRow = (h)=>{
+    const i = dayHabits.indexOf(h);
+    const done = isDone(h);
+    return `<div class="habit-item">
+      <div style="display:flex;flex-direction:column;gap:1px;">
+        <button type="button" class="icon-btn" style="padding:1px 6px;font-size:12px;" data-homehabit-up="${h.id}" data-homehabit-dow="${dow}" ${i===0?'disabled':''}>▲</button>
+        <button type="button" class="icon-btn" style="padding:1px 6px;font-size:12px;" data-homehabit-down="${h.id}" data-homehabit-dow="${dow}" ${i===dayHabits.length-1?'disabled':''}>▼</button>
+      </div>
+      <button type="button" class="hbox ${done?'done':''}" data-habit="${h.id}">${done?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
+      <span class="habit-label ${done?'done':''}" style="flex:1;">${escapeHtml(h.label)}</span>
+      ${h.link? `<a href="${escapeHtml(h.link)}" target="_blank" rel="noopener" title="رابط مساعد" style="font-size:16px;text-decoration:none;">🔗</a>`:''}
+    </div>`;
+  };
   return `
   <div class="card">
     <div class="card-title">
-      <h3 style="cursor:pointer;flex:1;" data-toggle-collapse="habits">${collapsed?'▸':'▾'} عادات ${tpl.name}</h3>
+      <h3 style="cursor:pointer;flex:1;" data-toggle-collapse="habits">${collapsed?'▸':'▾'} عادات ${tpl.name}${dayHabits.length? ` <span class="muted" style="font-size:12.5px;font-weight:400;">(${finished.length}/${dayHabits.length})</span>`:''}</h3>
       <button class="icon-btn sm" data-goto-habits="1">إدارة العادات</button>
     </div>
     ${collapsed? '' : `
     ${dayHabits.length===0? `<p class="muted" style="margin-bottom:10px;">ما فيه عادات مفعّلة لهذا اليوم. أضيفي أو فعّلي من صفحة "العادات".</p>`:''}
-    ${dayHabits.map((h,i)=>{
-      const done = !!log.habits[h.id];
-      return `<div class="habit-item">
-        <div style="display:flex;flex-direction:column;gap:1px;">
-          <button type="button" class="icon-btn" style="padding:1px 6px;font-size:12px;" data-homehabit-up="${h.id}" data-homehabit-dow="${dow}" ${i===0?'disabled':''}>▲</button>
-          <button type="button" class="icon-btn" style="padding:1px 6px;font-size:12px;" data-homehabit-down="${h.id}" data-homehabit-dow="${dow}" ${i===dayHabits.length-1?'disabled':''}>▼</button>
-        </div>
-        <button type="button" class="hbox ${done?'done':''}" data-habit="${h.id}">${done?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
-        <span class="habit-label ${done?'done':''}" style="flex:1;">${escapeHtml(h.label)}</span>
-        ${h.link? `<a href="${escapeHtml(h.link)}" target="_blank" rel="noopener" title="رابط مساعد" style="font-size:16px;text-decoration:none;">🔗</a>`:''}
-      </div>`;
-    }).join('')}
+    ${pending.map(habitRow).join('')}
+    ${dayHabits.length && pending.length===0? `<p style="text-align:center;font-size:15px;color:var(--petrol-dark);margin:6px 0;">🌿 خلّصتي عادات اليوم كلها، ماشاءالله</p>`:''}
+    ${finished.length? `
+      <button type="button" class="icon-btn sm" style="padding:3px 4px;margin-top:4px;" data-toggle-collapse="habitsDoneOpen">${doneOpen?'▾':'▸'} ✓ اللي خلّصتيها (${finished.length})</button>
+      ${doneOpen? finished.map(habitRow).join('') : ''}
+    `:''}
     `}
   </div>`;
 }
