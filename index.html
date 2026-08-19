@@ -106,6 +106,40 @@ details.card > .details-body{padding:0 18px 18px;}
 .btn.sm{padding:7px 12px;font-size:12.5px;border-radius:8px;}
 .btn:disabled{opacity:.45;cursor:not-allowed;}
 .btn-block{width:100%;display:block;text-align:center;}
+/* ---------- money-making paths ----------
+   one block per path, so several chosen paths read as a scannable list instead
+   of a wall: identity and progress on top, the single next step in the middle,
+   its two actions under it, and everything else folded away. */
+.path-block{
+  border:1px solid var(--line);border-radius:12px;background:var(--parchment);
+  padding:12px 14px;margin-bottom:10px;
+}
+.path-head{display:flex;align-items:center;gap:8px;}
+.path-icon{font-size:17px;flex-shrink:0;}
+.path-name{flex:1;min-width:0;font-size:14.5px;font-weight:700;color:var(--petrol-dark);}
+.path-count{
+  font-size:11.5px;color:#6b7a78;font-variant-numeric:tabular-nums;
+  white-space:nowrap;flex-shrink:0;
+}
+.path-bar{height:4px;background:var(--line);border-radius:3px;overflow:hidden;margin:8px 0 10px;}
+.path-bar span{display:block;height:100%;background:var(--sage);}
+/* the next step is the thing to look at, so it carries the visual weight */
+.path-tip{
+  font-size:15px;line-height:1.75;color:var(--ink);
+  background:var(--paper);border-radius:8px;padding:10px 12px;margin:0 0 10px;
+}
+.path-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.path-extra, .path-add{margin-top:10px;}
+.path-extra > summary, .path-add > summary{
+  cursor:pointer;list-style:none;font-size:12.5px;color:var(--petrol);
+  padding:5px 0;user-select:none;
+}
+.path-extra > summary::-webkit-details-marker, .path-add > summary::-webkit-details-marker{display:none;}
+.path-extra > summary::before, .path-add > summary::before{content:'▸ ';}
+.path-extra[open] > summary::before, .path-add[open] > summary::before{content:'▾ ';}
+.path-add{border-top:1px dashed var(--line);padding-top:6px;}
+.path-add > summary{font-weight:700;}
+
 .linkish{background:none;border:none;padding:0;color:var(--petrol);font-size:inherit;text-decoration:underline;cursor:pointer;}
 .icon-btn{background:none;color:var(--petrol);font-size:16px;padding:4px 8px;border-radius:6px;}
 .icon-btn:hover{background:rgba(46,92,90,.08);}
@@ -3445,18 +3479,9 @@ function renderFinancePathsCard(fg){
   <details class="card" data-sec="finPaths" ${pathsOpen?'open':''}>
     <summary><h3>🧭 طريقتك لتحقيق الهدف <span class="chev">▾</span></h3></summary>
     <div class="details-body">
-      <p class="muted" style="margin-bottom:10px;">اختاري طريقة أو أكثر من القائمة، وأنا أعطيك مقترحات مرتبة وحدة وحدة لكل طريقة — توافقين عليها أو تطلبين غيرها.</p>
-      <div class="field" style="margin-bottom:10px;">
-        <select id="methodSelect">
-          ${available.length? available.map(p=>`<option value="${p.id}">${p.icon} ${p.label}</option>`).join('') : '<option value="">-- كل الطرق مختارة --</option>'}
-        </select>
-      </div>
-      <button class="btn btn-block" id="methodAdd" style="margin-bottom:14px;" ${available.length===0?'disabled':''}>+ إضافة هالطريقة</button>
-
-      <div style="display:flex;gap:8px;margin-bottom:14px;">
-        <input type="text" id="customPathInput" placeholder="طريقة ثانية من عندك مو بالقائمة…" style="flex:1;"/>
-        <button class="btn sm" id="customPathAdd">إضافة</button>
-      </div>
+      ${selected.length===0 && fg.customPaths.length===0? `
+        <p class="muted" style="margin-bottom:12px;">ما اخترتي طريقة بعد. اختاري وحدة من الأسفل وأعطيك خطوة عملية كل مرة.</p>
+      `:''}
 
       ${selected.map(pid=>{
         const p = FINANCE_PATHS.find(x=>x.id===pid);
@@ -3468,19 +3493,17 @@ function renderFinancePathsCard(fg){
         const tip = override!=null ? override : seq[idx];
         const pending = pendingTipAdd && pendingTipAdd.methodId===pid;
         const defaultSpacing = defaultSpacingDays(setup.timeline);
+        const pct = seq.length? Math.round(idx/seq.length*100) : 0;
         return `
-        <div class="card" style="margin:0 0 12px;background:var(--parchment);">
-          <div class="card-title"><h3 style="font-size:16px;">${p.icon} ${p.label}</h3>
-            <button class="icon-btn" data-path-remove="${pid}">✕</button>
+        <div class="path-block">
+          <div class="path-head">
+            <span class="path-icon">${p.icon}</span>
+            <span class="path-name">${escapeHtml(p.label)}</span>
+            <span class="path-count">${idx} / ${seq.length}</span>
           </div>
-          ${setup.successCriteria? `<p class="muted" style="margin-bottom:8px;">🎯 نجاحك يعني: <b style="color:var(--petrol-dark);">${escapeHtml(setup.successCriteria)}</b></p>`:''}
+          <div class="path-bar"><span style="width:${pct}%;"></span></div>
           ${tip? `
-            <p class="muted" style="font-size:11px;margin-bottom:4px;">مقترح ${idx+1} من ${seq.length}</p>
-            ${pending? `
-              <p style="font-size:15px;margin-bottom:10px;">${escapeHtml(tip)}</p>
-            `:`
-              <textarea data-tip-edit="${pid}|${idx}" style="width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;background:var(--paper);font-size:15px;margin-bottom:10px;min-height:44px;resize:vertical;">${escapeHtml(tip)}</textarea>
-            `}
+            <p class="path-tip">${escapeHtml(tip)}</p>
             ${pending? `
               <p class="muted" style="margin-bottom:6px;">تحطّينها بجدولك بعد كم؟</p>
               <div class="chip-row" style="margin-bottom:8px;">
@@ -3494,27 +3517,60 @@ function renderFinancePathsCard(fg){
               <div class="period-tabs" style="margin-bottom:10px;">
                 ${state.timeBoxes.map(p=>`<button type="button" class="period-tab ${pendingTipAdd.period===p.id?'active':''}" data-tip-period="${p.id}" ${pendingTipAdd.period===p.id?`style="background:${p.color};border-color:${p.color};color:#fff;"`:''}>${escapeHtml(p.label)}</button>`).join('')}
               </div>
-              <div style="display:flex;gap:8px;">
+              <div class="path-actions">
                 <button class="btn sm" id="confirmTipAdd">✅ أضيفيها لمهامي</button>
                 <button class="btn ghost sm" id="cancelTipAdd">إلغاء</button>
               </div>
             `:`
-              <div style="display:flex;gap:8px;">
-                <button class="btn sm" data-tip-accept="${pid}">✅ موافقة، ضيفيها</button>
-                <button class="btn ghost sm" data-tip-skip="${pid}">➡️ اقترح غيرها</button>
+              <div class="path-actions">
+                <button class="btn sm" data-tip-accept="${pid}">✅ ضيفيها لمهامي</button>
+                <button class="btn ghost sm" data-tip-skip="${pid}">➡️ غيرها</button>
               </div>
             `}
-          `:`<p class="muted">خلّصنا كل مقترحات هالطريقة 🎉 تقدرين تشوفين طريقة ثانية.</p>`}
+          `:`<p class="muted" style="margin:6px 0 10px;">خلّصتي كل مقترحات هالطريقة 🎉</p>`}
+
+          <details class="path-extra" data-sec="pathInfo:${pid}" ${openSections['pathInfo:'+pid]?'open':''}>
+            <summary>تفاصيل هالطريقة</summary>
+            <div class="details-body">
+              ${setup.successCriteria? `<p class="muted" style="margin-bottom:8px;">🎯 نجاحك يعني: <b style="color:var(--petrol-dark);">${escapeHtml(setup.successCriteria)}</b></p>`:''}
+              ${(p.tools&&p.tools.length)? `<p class="muted" style="margin-bottom:4px;">🧰 تحتاجين:</p><ul style="margin:0 0 10px;padding-inline-start:18px;font-size:13.5px;line-height:1.9;">${p.tools.map(t=>`<li>${escapeHtml(t)}</li>`).join('')}</ul>`:''}
+              ${tip? `
+                <p class="muted" style="margin-bottom:4px;">تعديل نص المقترح الحالي:</p>
+                <textarea data-tip-edit="${pid}|${idx}" style="width:100%;padding:9px 11px;border:1.5px solid var(--line);border-radius:8px;background:var(--paper);font-size:14px;margin-bottom:10px;min-height:44px;resize:vertical;">${escapeHtml(tip)}</textarea>
+              `:''}
+              <button class="btn ghost sm" data-path-remove="${pid}">✕ احذفي هالطريقة</button>
+            </div>
+          </details>
         </div>`;
       }).join('')}
 
-      ${fg.customPaths.map(cp=>`
-        <div class="inbox-row">
-          <span class="dot"></span><span class="txt">${escapeHtml(cp.label)}</span>
-          <button class="icon-btn" data-custompath-del="${cp.id}">✕</button>
-        </div>`).join('')}
+      ${fg.customPaths.length? `
+      <div class="path-block">
+        <div class="path-head"><span class="path-icon">✏️</span><span class="path-name">طرق من عندك</span></div>
+        ${fg.customPaths.map(cp=>`
+          <div class="inbox-row" style="padding:7px 2px;">
+            <span class="dot"></span><span class="txt">${escapeHtml(cp.label)}</span>
+            <button class="icon-btn" data-custompath-del="${cp.id}">✕</button>
+          </div>`).join('')}
+      </div>`:''}
 
-      <p class="muted" style="margin-top:6px;">💡 اطلبي مني بالمحادثة رابط تعلم يناسب أي طريقة، وأضيفيه بنفسك لمهامك.</p>
+      <details class="path-add" data-sec="finAddPath" ${(openSections.finAddPath || selected.length===0)?'open':''}>
+        <summary>+ إضافة طريقة</summary>
+        <div class="details-body">
+          <p class="muted" style="margin-bottom:8px;font-size:12.5px;">اختاري طريقة وأعطيك خطوة عملية كل مرة — توافقين عليها أو تطلبين غيرها.</p>
+          <div class="field" style="margin-bottom:8px;">
+            <select id="methodSelect">
+              ${available.length? available.map(p=>`<option value="${p.id}">${p.icon} ${p.label}</option>`).join('') : '<option value="">-- كل الطرق مختارة --</option>'}
+            </select>
+          </div>
+          <button class="btn btn-block" id="methodAdd" style="margin-bottom:12px;" ${available.length===0?'disabled':''}>+ إضافة هالطريقة</button>
+          <div style="display:flex;gap:8px;">
+            <input type="text" id="customPathInput" placeholder="طريقة ثانية من عندك…" style="flex:1;"/>
+            <button class="btn sm" id="customPathAdd">إضافة</button>
+          </div>
+          <p class="muted" style="margin-top:10px;font-size:12px;">💡 اطلبي مني بالمحادثة رابط تعلم يناسب أي طريقة، وأضيفيه بنفسك لمهامك.</p>
+        </div>
+      </details>
     </div>
   </details>`;
 }
