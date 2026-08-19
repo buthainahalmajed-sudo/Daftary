@@ -732,6 +732,10 @@ function getLog(dateStr){
 }
 
 /* ============ persistence (local device storage + optional GitHub Gist cloud sync) ============ */
+/* stamped on every release so she can read, on the device itself, which version
+   she is actually running — several rounds today were spent on "is this the new
+   code or a cached copy?" with no way to tell from the screen */
+const APP_BUILD = '2026-08-17 · 12';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -1801,7 +1805,12 @@ function renderSettings(){
 
     <div class="card">
       <div class="card-title"><h3>📦 تحديثات التطبيق</h3></div>
-      <p class="muted" style="margin-bottom:10px;">لو تشكّين إن عندك نسخة قديمة، اضغطي هنا بدل ما تحذفين الأيقونة.</p>
+      <div class="quote-box" style="margin-bottom:10px;">
+        <p class="muted" style="margin:0 0 4px;font-size:12.5px;">نسختك الحالية</p>
+        <p style="margin:0;font-weight:700;color:var(--petrol-dark);font-size:15px;">${APP_BUILD}</p>
+        <p class="muted" style="margin:6px 0 0;font-size:12px;" id="buildCompare">…يقارن بالنسخة المنشورة</p>
+      </div>
+      <p class="muted" style="margin-bottom:10px;">لو الرقم فوق ما يطابق المنشور، اضغطي تحديث. ما تحتاجين تحذفين الأيقونة.</p>
       ${appUpdateMsg? `<p class="muted" style="margin-bottom:10px;color:${appUpdateMsg.ok?'var(--sage)':'var(--rose-dark)'};">${escapeHtml(appUpdateMsg.text)}</p>`:''}
       <button class="btn ghost btn-block" id="checkAppUpdate">🔄 تحديث الآن</button>
     </div>
@@ -1831,6 +1840,27 @@ function renderSettings(){
 }
 function attachSettingsEvents(){
   document.getElementById('closeSettings').onclick = ()=>{ settingsOpen=false; syncExportCode=''; syncMsg=null; showLinkInfo=false; render(); };
+
+  /* read the published build straight off the server, bypassing every cache, and
+     say plainly whether this device is behind — guessing was the problem */
+  const cmp = document.getElementById('buildCompare');
+  if(cmp){
+    fetch(location.pathname + '?v=' + Date.now(), {cache:'no-store'})
+      .then(r=> r.ok? r.text() : Promise.reject(new Error('كود '+r.status)))
+      .then(html=>{
+        const m = html.match(/APP_BUILD\s*=\s*'([^']+)'/);
+        const live = m && m[1];
+        if(!live){ cmp.textContent = 'ما قدرت أقرأ النسخة المنشورة.'; return; }
+        if(live === APP_BUILD){
+          cmp.style.color = 'var(--sage)';
+          cmp.textContent = '✓ عندك آخر نسخة منشورة.';
+        }else{
+          cmp.style.color = 'var(--rose-dark)';
+          cmp.textContent = '⚠️ فيه نسخة أحدث منشورة (' + live + ') — اضغطي تحديث.';
+        }
+      })
+      .catch(e=>{ cmp.textContent = 'ما قدرت أتأكد من النسخة المنشورة (' + friendlyErr(e) + ').'; });
+  }
 
   const checkAppUpdate = document.getElementById('checkAppUpdate');
   if(checkAppUpdate) checkAppUpdate.onclick = async ()=>{
