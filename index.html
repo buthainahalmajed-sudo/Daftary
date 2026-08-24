@@ -140,6 +140,18 @@ details.card > .details-body{padding:0 18px 18px;}
 .path-add{border-top:1px dashed var(--line);padding-top:6px;}
 .path-add > summary{font-weight:700;}
 
+/* the optional comment under a daily question — folded away so it costs nothing
+   when unused, and the dot in the summary says when something is written inside */
+.q-note{margin-top:6px;}
+.q-note > summary{
+  cursor:pointer;list-style:none;font-size:12px;color:var(--petrol);
+  padding:3px 0;user-select:none;
+}
+.q-note > summary::-webkit-details-marker{display:none;}
+.q-note > summary::before{content:'▸ ';}
+.q-note[open] > summary::before{content:'▾ ';}
+.q-note textarea{margin-top:4px;min-height:52px;font-size:14px;}
+
 .linkish{background:none;border:none;padding:0;color:var(--petrol);font-size:inherit;text-decoration:underline;cursor:pointer;}
 .icon-btn{background:none;color:var(--petrol);font-size:16px;padding:4px 8px;border-radius:6px;}
 .icon-btn:hover{background:rgba(46,92,90,.08);}
@@ -732,6 +744,7 @@ function getLog(dateStr){
   if(!state.dailyLogs[dateStr]) state.dailyLogs[dateStr] = {habits:{}, answers:['','',''], mood:[], reflection:null};
   if(!state.dailyLogs[dateStr].answers) state.dailyLogs[dateStr].answers=['','',''];
   if(!state.dailyLogs[dateStr].answersById) state.dailyLogs[dateStr].answersById={};
+  if(!state.dailyLogs[dateStr].commentsById) state.dailyLogs[dateStr].commentsById={};
   if(!state.dailyLogs[dateStr].mood) state.dailyLogs[dateStr].mood=[];
   if(!state.dailyLogs[dateStr].habits) state.dailyLogs[dateStr].habits={};
   return state.dailyLogs[dateStr];
@@ -741,7 +754,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 17';
+const APP_BUILD = '2026-08-17 · 18';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -892,7 +905,11 @@ function hydrateState(parsed){
   releaseLapsedTasks();
 
   if(!state.dailyQuestions || !state.dailyQuestions.length) state.dailyQuestions = DEFAULT_QUESTIONS.map(q=>({...q}));
-  state.dailyQuestions.forEach(q=>{ if(!q.id) q.id = uid(); });
+  state.dailyQuestions.forEach(q=>{
+    if(!q.id) q.id = uid();
+    /* an inactive question keeps its past answers, it just stops being asked */
+    if(q.active===undefined) q.active = true;
+  });
   if(state.questionsTitle===undefined) state.questionsTitle = DEFAULT_QUESTIONS_TITLE;
   if(!state.actionTypes || !state.actionTypes.length) state.actionTypes = ACTION_TYPES.slice();
   /* answers used to be a positional array, so editing or reordering the question
@@ -907,6 +924,7 @@ function hydrateState(parsed){
         if(a && q) log.answersById[q.id] = a;
       });
     }
+    if(!log.commentsById) log.commentsById = {};
   });
   if((parsed.todayMood && parsed.todayMood.length) || parsed.reflection){
     const d = parsed.lastActiveDate || todayStr();
@@ -2249,16 +2267,27 @@ function renderHabitsCard(tpl, log, dow){
 
 function renderQuestionsCard(log){
   const collapsed = state.collapsed.questions;
-  const qs = state.dailyQuestions || [];
+  const qs = (state.dailyQuestions || []).filter(q=> q.active !== false);
   const answers = log.answersById || {};
+  const comments = log.commentsById || {};
   return `
   <div class="card">
     <div class="card-title"><h3 style="cursor:pointer;flex:1;" data-toggle-collapse="questions">${collapsed?'▸':'▾'} ${escapeHtml(state.questionsTitle || DEFAULT_QUESTIONS_TITLE)}</h3></div>
-    ${collapsed? '' : (qs.length? qs.map(q=>`
+    ${collapsed? '' : (qs.length? qs.map(q=>{
+      const note = comments[q.id] || '';
+      /* the comment opens on its own when something is written in it, so a note
+         from an earlier day is never hidden behind a closed fold */
+      const open = openSections['qc:'+q.id] || !!note;
+      return `
       <div class="field" style="margin-bottom:12px;">
         <label>${escapeHtml(q.text)}</label>
         <textarea data-qid="${q.id}" placeholder="اكتبي إجابتك…">${escapeHtml(answers[q.id]||'')}</textarea>
-      </div>`).join('') : `<p class="muted">ما فيه أسئلة حاليًا — أضيفيها من تبويب "الأساس".</p>`)}
+        <details class="q-note" data-sec="qc:${q.id}" ${open?'open':''}>
+          <summary>💬 تعليق${note? ' ●':''}</summary>
+          <textarea data-qnote="${q.id}" placeholder="مساحة حرة — فكرة، سبب، أو تفصيل تبين تضيفينه…">${escapeHtml(note)}</textarea>
+        </details>
+      </div>`;
+    }).join('') : `<p class="muted">ما فيه أسئلة نشطة — فعّلي أو أضيفي من تبويب "الأساس".</p>`)}
   </div>`;
 }
 
@@ -2465,18 +2494,23 @@ function renderDailyQuestionsManager(){
         <label>اسم القسم</label>
         <input type="text" id="dqTitle" value="${escapeHtml(state.questionsTitle || DEFAULT_QUESTIONS_TITLE)}" placeholder="${escapeHtml(DEFAULT_QUESTIONS_TITLE)}"/>
       </div>
-      ${qs.map((q,i)=>`
-        <div class="tcat-row" data-dq="${q.id}">
+      ${qs.map((q,i)=>{
+        const off = q.active===false;
+        return `
+        <div class="tcat-row" data-dq="${q.id}" style="${off?'opacity:.6;':''}">
           <div style="display:flex;flex-direction:column;gap:1px;flex-shrink:0;">
             <button type="button" class="icon-btn" style="padding:1px 6px;font-size:12px;" data-dq-up="${q.id}" ${i===0?'disabled':''}>▲</button>
             <button type="button" class="icon-btn" style="padding:1px 6px;font-size:12px;" data-dq-down="${q.id}" ${i===qs.length-1?'disabled':''}>▼</button>
           </div>
-          <input type="text" data-dq-text="${q.id}" value="${escapeHtml(q.text)}" placeholder="اكتبي السؤال" style="flex:1;"/>
+          <button type="button" class="icon-btn" data-dq-active="${q.id}" title="${off?'سؤال غير نشط — اضغطي لتفعيله':'سؤال نشط — اضغطي لإيقافه'}" style="flex-shrink:0;">${off?'⭕':'✅'}</button>
+          <input type="text" data-dq-text="${q.id}" value="${escapeHtml(q.text)}" placeholder="اكتبي السؤال" style="flex:1;${off?'font-style:italic;':''}"/>
           <button type="button" class="icon-btn" data-dq-del="${q.id}">✕</button>
-        </div>`).join('')}
+        </div>`;
+      }).join('')}
       ${qs.length===0? `<p class="muted">ما فيه أسئلة — أضيفي أول سؤال.</p>`:''}
       <button type="button" class="btn ghost btn-block" style="margin-top:10px;" id="dqAddNew">+ إضافة سؤال</button>
-      <p class="muted" style="margin-top:8px;font-size:12px;">💡 إجاباتك محفوظة لكل سؤال على حدة، فتعديل الترتيب أو النص ما يخلط إجابات الأيام السابقة. حذف سؤال يخفي إجاباته من العرض فقط.</p>
+      <p class="muted" style="margin-top:8px;font-size:12px;">✅ نشط يظهر بصفحة اليوم · ⭕ غير نشط يختفي ويحتفظ بإجاباته. تحت كل سؤال بصفحة اليوم مساحة تعليق اختيارية مطوية.</p>
+      <p class="muted" style="margin-top:4px;font-size:12px;">💡 إجاباتك محفوظة لكل سؤال على حدة، فتعديل الترتيب أو النص ما يخلط إجابات الأيام السابقة. حذف سؤال يخفي إجاباته من العرض فقط.</p>
     </div>
   </details>`;
 }
@@ -5832,7 +5866,14 @@ function attachGlobalEvents(){
     saveState(); render();
   });
 
-document.querySelectorAll('[data-qid]').forEach(ta=>{
+document.querySelectorAll('[data-qnote]').forEach(ta=>{
+    ta.onchange = ()=>{
+      const log = getLog(selectedDate);
+      log.commentsById[ta.dataset.qnote] = ta.value;
+      saveState();
+    };
+  });
+  document.querySelectorAll('[data-qid]').forEach(ta=>{
     ta.onchange = ()=>{
       const log = getLog(selectedDate);
       log.answersById[ta.dataset.qid] = ta.value;
@@ -6141,9 +6182,15 @@ document.querySelectorAll('[data-qid]').forEach(ta=>{
   };
   document.querySelectorAll('[data-dq-up]').forEach(b=> b.onclick=()=> moveQuestion(b.dataset.dqUp, -1));
   document.querySelectorAll('[data-dq-down]').forEach(b=> b.onclick=()=> moveQuestion(b.dataset.dqDown, 1));
+  document.querySelectorAll('[data-dq-active]').forEach(b=> b.onclick=()=>{
+    const q = (state.dailyQuestions||[]).find(x=>x.id===b.dataset.dqActive);
+    if(!q) return;
+    q.active = q.active===false;
+    saveState(); render();
+  });
   const dqAddNew = document.getElementById('dqAddNew');
   if(dqAddNew) dqAddNew.onclick = ()=>{
-    state.dailyQuestions.push({ id:uid(), text:'سؤال جديد' });
+    state.dailyQuestions.push({ id:uid(), text:'سؤال جديد', active:true });
     saveState(); render();
   };
 
