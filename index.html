@@ -581,12 +581,15 @@ const DOW_NAMES = ['الأحد','الإثنين','الثلاثاء','الأرب�
 const DOW_SHORT = ['أحد','إثنين','ثلاثاء','أربعاء','خميس','جمعة','سبت'];
 const MONTHS = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 
-/* recurring daily reflection questions, taken from the user's own routine notes */
+/* the starting set of daily reflection questions, taken from the user's own
+   routine notes. Editable from the الأساس tab and stored in state.dailyQuestions;
+   the ids are fixed so answers already written against them survive any edit. */
 const DEFAULT_QUESTIONS = [
-  'ما الشعور الذي أريده لهذا اليوم؟',
-  'ماهي خطوة تحسين البيع اليوم؟',
-  'كيف أحسّن أداء متدربات الماراثون هذا الأسبوع؟',
+  {id:'q1', text:'ما الشعور الذي أريده لهذا اليوم؟'},
+  {id:'q2', text:'ماهي خطوة تحسين البيع اليوم؟'},
+  {id:'q3', text:'كيف أحسّن أداء متدربات الماراثون هذا الأسبوع؟'},
 ];
+const DEFAULT_QUESTIONS_TITLE = 'تساؤلات اليوم';
 
 /* default weekday routine templates, built from the user's uploaded routine notes.
    Friday/Saturday left empty for her to fill in. */
@@ -728,6 +731,7 @@ function formatDateAr(dateStr){ const dt=parseISO(dateStr); return `${dt.getDate
 function getLog(dateStr){
   if(!state.dailyLogs[dateStr]) state.dailyLogs[dateStr] = {habits:{}, answers:['','',''], mood:[], reflection:null};
   if(!state.dailyLogs[dateStr].answers) state.dailyLogs[dateStr].answers=['','',''];
+  if(!state.dailyLogs[dateStr].answersById) state.dailyLogs[dateStr].answersById={};
   if(!state.dailyLogs[dateStr].mood) state.dailyLogs[dateStr].mood=[];
   if(!state.dailyLogs[dateStr].habits) state.dailyLogs[dateStr].habits={};
   return state.dailyLogs[dateStr];
@@ -737,7 +741,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 16';
+const APP_BUILD = '2026-08-17 · 17';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -886,6 +890,24 @@ function hydrateState(parsed){
   /* after recurType has been filled in above, so a legacy weekly task isn't
      mistaken for a one-off and stripped of its date */
   releaseLapsedTasks();
+
+  if(!state.dailyQuestions || !state.dailyQuestions.length) state.dailyQuestions = DEFAULT_QUESTIONS.map(q=>({...q}));
+  state.dailyQuestions.forEach(q=>{ if(!q.id) q.id = uid(); });
+  if(state.questionsTitle===undefined) state.questionsTitle = DEFAULT_QUESTIONS_TITLE;
+  if(!state.actionTypes || !state.actionTypes.length) state.actionTypes = ACTION_TYPES.slice();
+  /* answers used to be a positional array, so editing or reordering the question
+     list would have re-pointed every past answer at the wrong question. They are
+     keyed by question id now; the old array is left untouched as a raw copy since
+     it is three short strings a day and costs nothing to keep. */
+  Object.values(state.dailyLogs||{}).forEach(log=>{
+    if(!log.answersById){
+      log.answersById = {};
+      (log.answers||[]).forEach((a,i)=>{
+        const q = DEFAULT_QUESTIONS[i];
+        if(a && q) log.answersById[q.id] = a;
+      });
+    }
+  });
   if((parsed.todayMood && parsed.todayMood.length) || parsed.reflection){
     const d = parsed.lastActiveDate || todayStr();
     const log = getLog(d);
@@ -2227,16 +2249,16 @@ function renderHabitsCard(tpl, log, dow){
 
 function renderQuestionsCard(log){
   const collapsed = state.collapsed.questions;
+  const qs = state.dailyQuestions || [];
+  const answers = log.answersById || {};
   return `
   <div class="card">
-    <div class="card-title"><h3 style="cursor:pointer;flex:1;" data-toggle-collapse="questions">${collapsed?'▸':'▾'} تساؤلات اليوم</h3></div>
-    ${collapsed? '' : `
-    ${DEFAULT_QUESTIONS.map((q,i)=>`
+    <div class="card-title"><h3 style="cursor:pointer;flex:1;" data-toggle-collapse="questions">${collapsed?'▸':'▾'} ${escapeHtml(state.questionsTitle || DEFAULT_QUESTIONS_TITLE)}</h3></div>
+    ${collapsed? '' : (qs.length? qs.map(q=>`
       <div class="field" style="margin-bottom:12px;">
-        <label>${q}</label>
-        <textarea data-qidx="${i}" placeholder="اكتبي إجابتك…">${escapeHtml(log.answers[i]||'')}</textarea>
-      </div>`).join('')}
-    `}
+        <label>${escapeHtml(q.text)}</label>
+        <textarea data-qid="${q.id}" placeholder="اكتبي إجابتك…">${escapeHtml(answers[q.id]||'')}</textarea>
+      </div>`).join('') : `<p class="muted">ما فيه أسئلة حاليًا — أضيفيها من تبويب "الأساس".</p>`)}
   </div>`;
 }
 
@@ -2429,6 +2451,52 @@ function renderGoalPillarManager(){
           <button type="button" class="icon-btn" data-pillar-del="${p.id}">✕</button>
         </div>`).join('')}
       <button type="button" class="btn ghost btn-block" style="margin-top:10px;" id="pillarAddNew">+ إضافة بند جديد</button>
+    </div>
+  </details>`;
+}
+function renderDailyQuestionsManager(){
+  const qs = state.dailyQuestions || [];
+  return `
+  <details class="card" data-sec="dqs" ${openSections.dqs?'open':''} style="margin-bottom:14px;">
+    <summary><h3>❓ تساؤلات اليوم <span class="chev">▾</span></h3></summary>
+    <div class="details-body">
+      <p class="muted" style="margin-bottom:10px;">الأسئلة اللي تجاوبين عليها كل يوم بصفحة اليوم. غيّري عنوان القسم، وعدّلي الأسئلة أو رتّبيها كيف ما يناسبك.</p>
+      <div class="field" style="margin-bottom:12px;">
+        <label>اسم القسم</label>
+        <input type="text" id="dqTitle" value="${escapeHtml(state.questionsTitle || DEFAULT_QUESTIONS_TITLE)}" placeholder="${escapeHtml(DEFAULT_QUESTIONS_TITLE)}"/>
+      </div>
+      ${qs.map((q,i)=>`
+        <div class="tcat-row" data-dq="${q.id}">
+          <div style="display:flex;flex-direction:column;gap:1px;flex-shrink:0;">
+            <button type="button" class="icon-btn" style="padding:1px 6px;font-size:12px;" data-dq-up="${q.id}" ${i===0?'disabled':''}>▲</button>
+            <button type="button" class="icon-btn" style="padding:1px 6px;font-size:12px;" data-dq-down="${q.id}" ${i===qs.length-1?'disabled':''}>▼</button>
+          </div>
+          <input type="text" data-dq-text="${q.id}" value="${escapeHtml(q.text)}" placeholder="اكتبي السؤال" style="flex:1;"/>
+          <button type="button" class="icon-btn" data-dq-del="${q.id}">✕</button>
+        </div>`).join('')}
+      ${qs.length===0? `<p class="muted">ما فيه أسئلة — أضيفي أول سؤال.</p>`:''}
+      <button type="button" class="btn ghost btn-block" style="margin-top:10px;" id="dqAddNew">+ إضافة سؤال</button>
+      <p class="muted" style="margin-top:8px;font-size:12px;">💡 إجاباتك محفوظة لكل سؤال على حدة، فتعديل الترتيب أو النص ما يخلط إجابات الأيام السابقة. حذف سؤال يخفي إجاباته من العرض فقط.</p>
+    </div>
+  </details>`;
+}
+function renderActionTypeManager(){
+  const types = state.actionTypes || [];
+  return `
+  <details class="card" data-sec="atypes" ${openSections.atypes?'open':''} style="margin-bottom:14px;">
+    <summary><h3>🔸 أنواع الفعل <span class="chev">▾</span></h3></summary>
+    <div class="details-body">
+      <p class="muted" style="margin-bottom:10px;">نوع الفعل اللي تتطلبه المهمة (اتصال، حركة، قرار...) — يظهر كخيار وقت إضافة مهمة، عشان تعرفين بنظرة أي جهد تحتاجه.</p>
+      ${types.map((a,i)=>`
+        <div class="tcat-row" data-atype="${i}">
+          <input type="text" data-atype-text="${i}" value="${escapeHtml(a)}" placeholder="اسم النوع" style="flex:1;"/>
+          <button type="button" class="icon-btn" data-atype-del="${i}">✕</button>
+        </div>`).join('')}
+      ${types.length===0? `<p class="muted">ما فيه أنواع — أضيفي أول نوع.</p>`:''}
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <input type="text" id="atypeNew" placeholder="نوع فعل جديد…" style="flex:1;"/>
+        <button type="button" class="btn sm" id="atypeAdd">إضافة</button>
+      </div>
     </div>
   </details>`;
 }
@@ -2950,6 +3018,8 @@ function renderGoals(){
   ${renderGoalPillarManager()}
   ${renderTimeBoxManager()}
   ${renderTaskCategoryManager()}
+  ${renderActionTypeManager()}
+  ${renderDailyQuestionsManager()}
   `;
 }
 function renderFinanceGoalLink(){
@@ -5419,7 +5489,8 @@ function renderTaskDraft(){
         <label>نوع الفعل المطلوب (اختياري)</label>
         <select id="tdAction">
           <option value="">بدون تحديد</option>
-          ${ACTION_TYPES.map(a=>`<option value="${a}" ${d.actionType===a?'selected':''}>${a}</option>`).join('')}
+          ${(state.actionTypes||[]).map(a=>`<option value="${escapeHtml(a)}" ${d.actionType===a?'selected':''}>${escapeHtml(a)}</option>`).join('')}
+          ${d.actionType && !(state.actionTypes||[]).includes(d.actionType)? `<option value="${escapeHtml(d.actionType)}" selected>${escapeHtml(d.actionType)} (نوع محذوف)</option>`:''}
         </select>
       </div>
       <div class="field">
@@ -5761,10 +5832,10 @@ function attachGlobalEvents(){
     saveState(); render();
   });
 
-document.querySelectorAll('[data-qidx]').forEach(ta=>{
+document.querySelectorAll('[data-qid]').forEach(ta=>{
     ta.onchange = ()=>{
       const log = getLog(selectedDate);
-      log.answers[parseInt(ta.dataset.qidx,10)] = ta.value;
+      log.answersById[ta.dataset.qid] = ta.value;
       saveState();
     };
   });
@@ -6039,6 +6110,72 @@ document.querySelectorAll('[data-qidx]').forEach(ta=>{
   const tcatAddNew = document.getElementById('tcatAddNew');
   if(tcatAddNew) tcatAddNew.onclick = ()=>{
     state.taskCategories.push({ id:uid(), label:'تصنيف جديد', icon:'🏷️' });
+    saveState(); render();
+  };
+
+  /* ---- daily questions ---- */
+  const dqTitle = document.getElementById('dqTitle');
+  if(dqTitle) dqTitle.onchange = ()=>{
+    state.questionsTitle = dqTitle.value.trim() || DEFAULT_QUESTIONS_TITLE;
+    saveState(); render();
+  };
+  document.querySelectorAll('[data-dq-text]').forEach(inp=>{
+    inp.onchange = ()=>{
+      const q = (state.dailyQuestions||[]).find(x=>x.id===inp.dataset.dqText);
+      if(q){ q.text = inp.value.trim() || q.text; saveState(); render(); }
+    };
+  });
+  document.querySelectorAll('[data-dq-del]').forEach(b=> b.onclick=()=>{
+    const q = (state.dailyQuestions||[]).find(x=>x.id===b.dataset.dqDel);
+    if(!confirm(`تحذفين سؤال "${q? q.text : ''}"؟ إجاباتك السابقة عليه تضل محفوظة، بس ما تظهر.`)) return;
+    state.dailyQuestions = state.dailyQuestions.filter(x=>x.id!==b.dataset.dqDel);
+    saveState(); render();
+  });
+  const moveQuestion = (id, dir)=>{
+    const qs = state.dailyQuestions;
+    const i = qs.findIndex(x=>x.id===id);
+    const j = i + dir;
+    if(i<0 || j<0 || j>=qs.length) return;
+    [qs[i], qs[j]] = [qs[j], qs[i]];
+    saveState(); render();
+  };
+  document.querySelectorAll('[data-dq-up]').forEach(b=> b.onclick=()=> moveQuestion(b.dataset.dqUp, -1));
+  document.querySelectorAll('[data-dq-down]').forEach(b=> b.onclick=()=> moveQuestion(b.dataset.dqDown, 1));
+  const dqAddNew = document.getElementById('dqAddNew');
+  if(dqAddNew) dqAddNew.onclick = ()=>{
+    state.dailyQuestions.push({ id:uid(), text:'سؤال جديد' });
+    saveState(); render();
+  };
+
+  /* ---- action types ---- */
+  document.querySelectorAll('[data-atype-text]').forEach(inp=>{
+    inp.onchange = ()=>{
+      const i = parseInt(inp.dataset.atypeText,10);
+      const val = inp.value.trim();
+      if(!val || !state.actionTypes[i]) return;
+      const old = state.actionTypes[i];
+      state.actionTypes[i] = val;
+      /* carry the rename onto tasks already tagged with it, so renaming a type
+         doesn't quietly orphan every task using it */
+      (state.tasks||[]).forEach(t=>{ if(t.actionType===old) t.actionType = val; });
+      saveState(); render();
+    };
+  });
+  document.querySelectorAll('[data-atype-del]').forEach(b=> b.onclick=()=>{
+    const i = parseInt(b.dataset.atypeDel,10);
+    const name = state.actionTypes[i];
+    const used = (state.tasks||[]).filter(t=>t.actionType===name).length;
+    if(!confirm(`تحذفين نوع "${name}"؟${used? ` فيه ${used} مهمة مستخدمة له — بتضل محتفظة فيه لين تغيّرينه.`:''}`)) return;
+    state.actionTypes.splice(i,1);
+    saveState(); render();
+  });
+  const atypeAdd = document.getElementById('atypeAdd');
+  if(atypeAdd) atypeAdd.onclick = ()=>{
+    const inp = document.getElementById('atypeNew');
+    const val = inp.value.trim();
+    if(!val) return;
+    if(state.actionTypes.includes(val)){ inp.value=''; return; }
+    state.actionTypes.push(val);
     saveState(); render();
   };
 
