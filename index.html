@@ -762,7 +762,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 20';
+const APP_BUILD = '2026-08-17 · 21';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -934,6 +934,20 @@ function hydrateState(parsed){
     }
     if(!log.commentsById) log.commentsById = {};
   });
+  /* the separate answer box is gone — the comment is the only writing space now.
+     Anything already written as an answer moves into the comment so it stays
+     reachable; where both held text the answer is appended rather than dropped. */
+  if(!state._qAnswersMergedV1){
+    Object.values(state.dailyLogs||{}).forEach(log=>{
+      Object.keys(log.answersById||{}).forEach(qid=>{
+        const ans = (log.answersById[qid]||'').trim();
+        if(!ans) return;
+        const note = (log.commentsById[qid]||'').trim();
+        log.commentsById[qid] = note? (note + '\n' + ans) : ans;
+      });
+    });
+    state._qAnswersMergedV1 = true;
+  }
   if((parsed.todayMood && parsed.todayMood.length) || parsed.reflection){
     const d = parsed.lastActiveDate || todayStr();
     const log = getLog(d);
@@ -2289,10 +2303,9 @@ function renderQuestionsCard(log){
       return `
       <div class="field" style="margin-bottom:12px;">
         <label>${escapeHtml(q.text)}</label>
-        <textarea data-qid="${q.id}" placeholder="اكتبي إجابتك…">${escapeHtml(answers[q.id]||'')}</textarea>
         <details class="q-note" data-sec="qc:${q.id}" ${open?'open':''}>
           <summary>💬 تعليق${note? ' ●':''}</summary>
-          <textarea data-qnote="${q.id}" placeholder="مساحة حرة — فكرة، سبب، أو تفصيل تبين تضيفينه…">${escapeHtml(note)}</textarea>
+          <textarea data-qnote="${q.id}" placeholder="اكتبي هنا…">${escapeHtml(note)}</textarea>
         </details>
       </div>`;
     }).join('') : `<p class="muted">ما فيه أسئلة نشطة — فعّلي أو أضيفي من تبويب "الأساس".</p>`)}
@@ -2517,8 +2530,8 @@ function renderDailyQuestionsManager(){
       }).join('')}
       ${qs.length===0? `<p class="muted">ما فيه أسئلة — أضيفي أول سؤال.</p>`:''}
       <button type="button" class="btn ghost btn-block" style="margin-top:10px;" id="dqAddNew">+ إضافة سؤال</button>
-      <p class="muted" style="margin-top:8px;font-size:12px;">✅ نشط يظهر بصفحة اليوم · ⭕ غير نشط يختفي ويحتفظ بإجاباته. تحت كل سؤال بصفحة اليوم مساحة تعليق اختيارية مطوية.</p>
-      <p class="muted" style="margin-top:4px;font-size:12px;">💡 إجاباتك محفوظة لكل سؤال على حدة، فتعديل الترتيب أو النص ما يخلط إجابات الأيام السابقة. حذف سؤال يخفي إجاباته من العرض فقط.</p>
+      <p class="muted" style="margin-top:8px;font-size:12px;">✅ نشط يظهر بصفحة اليوم · ⭕ غير نشط يختفي ويحتفظ بما كتبتيه. تحت كل سؤال مساحة تعليق مطوية تكتبين فيها.</p>
+      <p class="muted" style="margin-top:4px;font-size:12px;">💡 اللي تكتبينه محفوظ لكل سؤال على حدة، فتعديل الترتيب أو النص ما يخلط كتابات الأيام السابقة. حذف سؤال يخفي كتاباته من العرض فقط.</p>
     </div>
   </details>`;
 }
@@ -6026,13 +6039,6 @@ document.querySelectorAll('[data-qnote]').forEach(ta=>{
     ta.onchange = ()=>{
       const log = getLog(selectedDate);
       log.commentsById[ta.dataset.qnote] = ta.value;
-      saveState();
-    };
-  });
-  document.querySelectorAll('[data-qid]').forEach(ta=>{
-    ta.onchange = ()=>{
-      const log = getLog(selectedDate);
-      log.answersById[ta.dataset.qid] = ta.value;
       saveState();
     };
   });
