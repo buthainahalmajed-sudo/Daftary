@@ -762,7 +762,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 19';
+const APP_BUILD = '2026-08-17 · 20';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -3702,6 +3702,16 @@ function renderFinancePage(){
   if(financeSetupDraft || !fg || !fg.configured) return renderFinanceSetup();
   if(!fg.paths) fg.paths = [];
   if(!fg.customPaths) fg.customPaths = [];
+  /* paths she added herself started as just a name; give the older ones the same
+     fields the built-in paths have so they render and behave identically */
+  fg.customPaths.forEach(cp=>{
+    if(cp.icon===undefined) cp.icon = '✏️';
+    if(cp.target===undefined) cp.target = '';
+    if(cp.earned===undefined) cp.earned = '';
+    if(cp.successCriteria===undefined) cp.successCriteria = '';
+    if(cp.note===undefined) cp.note = '';
+    if(!Array.isArray(cp.steps)) cp.steps = [];
+  });
   if(!fg.pathSetup) fg.pathSetup = {};
   if(!fg.pathProgress) fg.pathProgress = {};
   return renderFinanceDashboard();
@@ -3792,15 +3802,71 @@ function renderFinancePathsCard(fg){
         </details>`;
       }).join('')}
 
-      ${fg.customPaths.length? `
-      <div class="path-block path-block-static">
-        <div class="path-head"><span class="path-icon">✏️</span><span class="path-name">طرق من عندك</span></div>
-        ${fg.customPaths.map(cp=>`
-          <div class="inbox-row" style="padding:7px 2px;">
-            <span class="dot"></span><span class="txt">${escapeHtml(cp.label)}</span>
-            <button class="icon-btn" data-custompath-del="${cp.id}">✕</button>
-          </div>`).join('')}
-      </div>`:''}
+      ${fg.customPaths.map(cp=>{
+        const target = parseFloat(cp.target)||0;
+        const earned = parseFloat(cp.earned)||0;
+        const steps = cp.steps||[];
+        const doneSteps = steps.filter(s=>s.done).length;
+        /* progress reads off the money target when she set one, otherwise off her
+           own steps, so the bar always means something */
+        const pct = target>0 ? Math.min(100, Math.round(earned/target*100))
+                  : (steps.length? Math.round(doneSteps/steps.length*100) : 0);
+        const key = 'customPath:'+cp.id;
+        const open = openSections[key]!==undefined? openSections[key] : (fg.customPaths.length===1 && !selected.length);
+        const nextStep = steps.find(s=>!s.done);
+        return `
+        <details class="path-block" data-sec="${key}" ${open?'open':''}>
+          <summary>
+            <div class="path-head">
+              <span class="path-icon">${escapeHtml(cp.icon||'✏️')}</span>
+              <span class="path-name">${escapeHtml(cp.label)}</span>
+              <span class="path-count">${target>0? plFmt(earned)+' / '+plFmt(target)+' ريال' : (steps.length? doneSteps+' / '+steps.length : 'من عندك')}</span>
+              <span class="path-chev">▾</span>
+            </div>
+            <div class="path-bar"><span style="width:${pct}%;"></span></div>
+          </summary>
+          <div class="path-body">
+            ${nextStep? `<p class="path-tip">${escapeHtml(nextStep.text)}</p>
+              <div class="path-actions">
+                <button class="btn sm" data-cp-step-done="${cp.id}|${nextStep.id}">✅ خلّصتها</button>
+                <button class="btn ghost sm" data-cp-step-task="${cp.id}|${nextStep.id}">📌 ضيفيها لمهامي</button>
+              </div>`
+            : `<p class="muted" style="margin:6px 0 10px;">${steps.length? 'خلّصتي كل خطواتك هنا 🎉' : 'ما فيه خطوات بعد — أضيفيها من التفاصيل تحت.'}</p>`}
+
+            <details class="path-extra" data-sec="cpInfo:${cp.id}" ${openSections['cpInfo:'+cp.id]?'open':''}>
+              <summary>تفاصيل هالطريقة</summary>
+              <div class="details-body">
+                <div class="card-grid" style="margin-bottom:10px;">
+                  <div><label>اسم الطريقة</label><input type="text" data-cp-label="${cp.id}" value="${escapeHtml(cp.label)}" placeholder="اسم الطريقة"/></div>
+                  <div><label>رمز</label><input type="text" data-cp-icon="${cp.id}" value="${escapeHtml(cp.icon||'✏️')}" placeholder="✏️" style="text-align:center;"/></div>
+                </div>
+                <div class="card-grid" style="margin-bottom:10px;">
+                  <div><label>الهدف الرقمي (ريال)</label><input type="number" min="0" step="0.01" data-cp-target="${cp.id}" value="${cp.target||''}" placeholder="مثال: 20000"/></div>
+                  <div><label>اللي حققتيه</label><input type="number" min="0" step="0.01" data-cp-earned="${cp.id}" value="${cp.earned||''}" placeholder="0"/></div>
+                </div>
+                ${target>0? `<p class="muted" style="margin-bottom:10px;font-size:12.5px;">باقي <b style="color:var(--petrol-dark);">${plFmt(Math.max(0,target-earned))} ريال</b> للوصول لهدف هالطريقة.</p>`:''}
+                <div style="margin-bottom:10px;"><label>نجاحك يعني</label><input type="text" data-cp-success="${cp.id}" value="${escapeHtml(cp.successCriteria||'')}" placeholder="وش شكل النجاح بهالطريقة؟"/></div>
+                <div style="margin-bottom:10px;"><label>تفاصيل وملاحظات</label><textarea data-cp-note="${cp.id}" placeholder="أدوات تحتاجينها، أفكار، أي شي يخص هالطريقة…" style="min-height:60px;">${escapeHtml(cp.note||'')}</textarea></div>
+
+                <p class="muted" style="margin-bottom:6px;font-size:12.5px;">خطواتك (${doneSteps} من ${steps.length})</p>
+                ${steps.map(s=>`
+                  <div class="habit-item">
+                    <button type="button" class="hbox ${s.done?'done':''}" data-cp-step-toggle="${cp.id}|${s.id}">${s.done?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
+                    <input type="text" data-cp-step-text="${cp.id}|${s.id}" value="${escapeHtml(s.text)}" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--paper);font-size:14px;${s.done?'text-decoration:line-through;color:#9aa6a4;':''}"/>
+                    <button type="button" class="icon-btn" title="أضيفيها لمهامي" data-cp-step-task="${cp.id}|${s.id}">📌</button>
+                    <button type="button" class="icon-btn" data-cp-step-del="${cp.id}|${s.id}">✕</button>
+                  </div>`).join('')}
+                <div style="display:flex;gap:8px;margin-top:8px;">
+                  <input type="text" data-cp-step-new="${cp.id}" placeholder="خطوة جديدة…" style="flex:1;"/>
+                  <button type="button" class="btn sm" data-cp-step-add="${cp.id}">إضافة</button>
+                </div>
+
+                <button class="btn ghost sm" style="margin-top:12px;" data-custompath-del="${cp.id}">✕ احذفي هالطريقة</button>
+              </div>
+            </details>
+          </div>
+        </details>`;
+      }).join('')}
 
       <details class="path-add" data-sec="finAddPath" ${(openSections.finAddPath || selected.length===0)?'open':''}>
         <summary>+ إضافة طريقة</summary>
@@ -4160,15 +4226,85 @@ function attachFinanceEvents(){
     const inp = document.getElementById('customPathInput');
     const val = inp.value.trim();
     if(!val) return;
-    fg.customPaths.push({id:uid(), label:val});
+    fg.customPaths.push({id:uid(), label:val, icon:'✏️', target:'', earned:'', successCriteria:'', note:'', steps:[]});
+    inp.value = '';
     saveState(); render();
   };
   document.querySelectorAll('[data-custompath-del]').forEach(b=> b.onclick=()=>{
     const fg = state.financialGoal;
     const cp = fg.customPaths.find(x=>x.id===b.dataset.custompathDel);
-    if(!confirm(`تحذفين طريقة "${cp? cp.label : ''}"؟`)) return;
+    if(!confirm(`تحذفين طريقة "${cp? cp.label : ''}"؟ خطواتها وأرقامها بتنمسح معها.`)) return;
     fg.customPaths = fg.customPaths.filter(x=>x.id!==b.dataset.custompathDel);
     saveState(); render();
+  });
+
+  /* ---- her own income paths: same shape as the built-in ones ---- */
+  const cpOf = id => (state.financialGoal.customPaths||[]).find(x=>x.id===id);
+  const cpStepOf = (pair)=>{
+    const [cid, sid] = pair.split('|');
+    const cp = cpOf(cid);
+    return {cp, step: cp && (cp.steps||[]).find(s=>s.id===sid)};
+  };
+  const cpField = (attr, prop, isNumber)=>{
+    document.querySelectorAll('['+attr+']').forEach(inp=>{
+      inp.onchange = ()=>{
+        const cp = cpOf(inp.getAttribute(attr));
+        if(!cp) return;
+        const v = inp.value.trim();
+        if(prop==='label' && !v) return; /* a path with no name can't be found again */
+        cp[prop] = isNumber? (v===''? '' : v) : v;
+        saveState(); render();
+      };
+    });
+  };
+  cpField('data-cp-label','label');
+  cpField('data-cp-icon','icon');
+  cpField('data-cp-success','successCriteria');
+  cpField('data-cp-note','note');
+  cpField('data-cp-target','target', true);
+  cpField('data-cp-earned','earned', true);
+
+  document.querySelectorAll('[data-cp-step-toggle]').forEach(b=> b.onclick=()=>{
+    const {step} = cpStepOf(b.dataset.cpStepToggle);
+    if(step){ step.done = !step.done; saveState(); render(); }
+  });
+  document.querySelectorAll('[data-cp-step-done]').forEach(b=> b.onclick=()=>{
+    const {step} = cpStepOf(b.dataset.cpStepDone);
+    if(step){ step.done = true; saveState(); popStamp('خطوة خلصت','ماشاءالله'); render(); }
+  });
+  document.querySelectorAll('[data-cp-step-text]').forEach(inp=>{
+    inp.onchange = ()=>{
+      const {step} = cpStepOf(inp.dataset.cpStepText);
+      if(step){ step.text = inp.value.trim() || step.text; saveState(); render(); }
+    };
+  });
+  document.querySelectorAll('[data-cp-step-del]').forEach(b=> b.onclick=()=>{
+    const [cid, sid] = b.dataset.cpStepDel.split('|');
+    const cp = cpOf(cid);
+    if(!cp) return;
+    cp.steps = (cp.steps||[]).filter(s=>s.id!==sid);
+    saveState(); render();
+  });
+  document.querySelectorAll('[data-cp-step-add]').forEach(b=> b.onclick=()=>{
+    const cp = cpOf(b.dataset.cpStepAdd);
+    const inp = document.querySelector('[data-cp-step-new="'+b.dataset.cpStepAdd+'"]');
+    if(!cp || !inp) return;
+    const val = inp.value.trim();
+    if(!val) return;
+    if(!cp.steps) cp.steps = [];
+    cp.steps.push({id:uid(), text:val, done:false});
+    saveState(); render();
+  });
+  /* mirrors the built-in paths' "add to my tasks" — lands in the same task list,
+     tagged business, so it flows through the day views like any other task */
+  document.querySelectorAll('[data-cp-step-task]').forEach(b=> b.onclick=()=>{
+    const {cp, step} = cpStepOf(b.dataset.cpStepTask);
+    if(!cp || !step) return;
+    state.tasks.push({
+      id:uid(), title:step.text, goalId:null, category:'business', priority:'متوسطة',
+      period:null, due:todayStr(), link:null, done:false, createdAt:todayStr()
+    });
+    saveState(); popStamp('انضافت لمهامك','بالتوفيق'); render();
   });
 
   document.querySelectorAll('[data-tip-skip]').forEach(b=> b.onclick=()=>{
