@@ -114,6 +114,14 @@ details.card > .details-body{padding:0 18px 18px;}
   border:1px solid var(--line);border-radius:12px;background:var(--parchment);
   padding:12px 14px;margin-bottom:10px;
 }
+/* the whole path folds: its name and progress stay on the summary line so a list
+   of several paths reads at a glance, and the step, actions and details live
+   inside. A static block (her own paths) keeps the same frame without folding. */
+details.path-block > summary{cursor:pointer;list-style:none;user-select:none;}
+details.path-block > summary::-webkit-details-marker{display:none;}
+.path-chev{color:var(--petrol);font-size:13px;flex-shrink:0;transition:transform .15s ease;}
+details.path-block[open] .path-chev{transform:rotate(180deg);}
+.path-body{padding-top:2px;}
 .path-head{display:flex;align-items:center;gap:8px;}
 .path-icon{font-size:17px;flex-shrink:0;}
 .path-name{flex:1;min-width:0;font-size:14.5px;font-weight:700;color:var(--petrol-dark);}
@@ -754,7 +762,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 18';
+const APP_BUILD = '2026-08-17 · 19';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -3722,14 +3730,25 @@ function renderFinancePathsCard(fg){
         const pending = pendingTipAdd && pendingTipAdd.methodId===pid;
         const defaultSpacing = defaultSpacingDays(setup.timeline);
         const pct = seq.length? Math.round(idx/seq.length*100) : 0;
+        /* a single path opens on its own so its next step is right there; with
+           several chosen they start folded and the list stays scannable. Always
+           open while she is mid-way through scheduling one of its steps. */
+        const blockKey = 'pathBlock:'+pid;
+        const blockOpen = openSections[blockKey]!==undefined
+          ? openSections[blockKey]
+          : (pending || selected.length===1);
         return `
-        <div class="path-block">
-          <div class="path-head">
-            <span class="path-icon">${p.icon}</span>
-            <span class="path-name">${escapeHtml(p.label)}</span>
-            <span class="path-count">${idx} / ${seq.length}</span>
-          </div>
-          <div class="path-bar"><span style="width:${pct}%;"></span></div>
+        <details class="path-block" data-sec="${blockKey}" ${(blockOpen||pending)?'open':''}>
+          <summary>
+            <div class="path-head">
+              <span class="path-icon">${p.icon}</span>
+              <span class="path-name">${escapeHtml(p.label)}</span>
+              <span class="path-count">${idx} / ${seq.length}</span>
+              <span class="path-chev">▾</span>
+            </div>
+            <div class="path-bar"><span style="width:${pct}%;"></span></div>
+          </summary>
+          <div class="path-body">
           ${tip? `
             <p class="path-tip">${escapeHtml(tip)}</p>
             ${pending? `
@@ -3769,11 +3788,12 @@ function renderFinancePathsCard(fg){
               <button class="btn ghost sm" data-path-remove="${pid}">✕ احذفي هالطريقة</button>
             </div>
           </details>
-        </div>`;
+          </div>
+        </details>`;
       }).join('')}
 
       ${fg.customPaths.length? `
-      <div class="path-block">
+      <div class="path-block path-block-static">
         <div class="path-head"><span class="path-icon">✏️</span><span class="path-name">طرق من عندك</span></div>
         ${fg.customPaths.map(cp=>`
           <div class="inbox-row" style="padding:7px 2px;">
