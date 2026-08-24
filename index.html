@@ -737,7 +737,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 15';
+const APP_BUILD = '2026-08-17 · 16';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -883,6 +883,9 @@ function hydrateState(parsed){
     if(t.longNote===undefined) t.longNote = '';
     if(!t.attachments) t.attachments = [];
   });
+  /* after recurType has been filled in above, so a legacy weekly task isn't
+     mistaken for a one-off and stripped of its date */
+  releaseLapsedTasks();
   if((parsed.todayMood && parsed.todayMood.length) || parsed.reflection){
     const d = parsed.lastActiveDate || todayStr();
     const log = getLog(d);
@@ -1268,6 +1271,8 @@ function monthlyRecurHitsDate(t, dateStr){
 function taskDoneToday(t){ return taskDoneOnDate(t, todayStr()); }
 function taskActiveToday(t){
   if(!t.recurType){
+    /* parked after missing its day — it waits in its goal's list, not in today's */
+    if(taskAwaitingDate(t)) return false;
     /* a task explicitly scheduled for a future date isn't today's business yet —
        only surface it once its due date arrives (or if it's overdue, or dateless) */
     if(t.due && t.due > todayStr()) return false;
@@ -1294,6 +1299,7 @@ function tasksPlannedForDate(dateStr){
       return false;
     }
     if(t.due) return t.due === dateStr;
+    if(taskAwaitingDate(t)) return false; /* parked until she re-dates it */
     /* no explicit due date: a task just tagged to a time-of-day slot (صباح/ظهر/مساء) is
        still meant for today, same as how "جدول يومك" surfaces it by period */
     if(!t.period || dateStr!==todayStr()) return false;
@@ -1303,20 +1309,60 @@ function tasksPlannedForDate(dateStr){
 function tasksDoneCountForDate(dateStr, planned){
   return planned.filter(t=> t.recurType? t.lastDoneDate===dateStr : (t.done && t.doneAt===dateStr)).length;
 }
+/* what a browsed day actually lists. A recurring task is a standing commitment
+   going forward, not a record of the past — offering one on a day that has
+   already gone by invites ticking a box for a day she can no longer act on. So
+   past days show only dated tasks. The progress stats keep reading
+   tasksPlannedForDate, where a missed recurrence still counts as planned. */
+function tasksShownForDate(dateStr){
+  const isPast = dateStr < todayStr();
+  return tasksPlannedForDate(dateStr).filter(t=> !(isPast && t.recurType));
+}
+/* a non-urgent task that slipped past its day is parked without a date until she
+   gives it a new one, so it stops appearing in any day view meanwhile */
+function taskAwaitingDate(t){ return !!t.lapsedFrom && !t.due; }
+/* Urgent tasks are meant to nag, so they keep their overdue behaviour. Everything
+   else that missed its day loses the date rather than piling into today and
+   tomorrow; the day it slipped from is kept so the row can say so. */
+function releaseLapsedTasks(){
+  const today = todayStr();
+  let changed = false;
+  (state.tasks||[]).forEach(t=>{
+    if(t.recurType || t.done || t.priority==='عالية') return;
+    if(t.due && t.due < today){
+      t.lapsedFrom = t.due;
+      t.due = null;
+      changed = true;
+    }
+  });
+  return changed;
+}
 /* "أهم 3 مهام لليوم" only ever shows real عالية-priority tasks — no padding
    with متوسطة/منخفضة ones just to fill 3 slots */
+function urgentOpenToday(){
+  return state.tasks.filter(t=> !taskDoneToday(t) && taskActiveToday(t) && t.priority==='عالية');
+}
+/* ordered by where they fall in the day (صباح ← ظهر ← مساء) so the three read as
+   a route through the day rather than a ranking; anything with no time box sits
+   last, and score only separates tasks sharing a box */
+function periodRank(t){
+  const i = state.timeBoxes.findIndex(b=>b.id===t.period);
+  return i<0? 99 : i;
+}
+function byDayOrder(a,b){ return (periodRank(a)-periodRank(b)) || (scoreTask(b)-scoreTask(a)); }
 function topTasks(){
   const log = getLog(todayStr());
   if(log.pinnedTop3 && log.pinnedTop3.length){
     const pinned = log.pinnedTop3.map(id=> state.tasks.find(t=>t.id===id && !taskDoneToday(t))).filter(Boolean);
-    if(pinned.length) return pinned;
+    if(pinned.length) return pinned.slice().sort(byDayOrder);
   }
-  return state.tasks.filter(t=>!taskDoneToday(t) && taskActiveToday(t) && t.priority==='عالية').sort((a,b)=>scoreTask(b)-scoreTask(a)).slice(0,3);
+  return urgentOpenToday().sort(byDayOrder).slice(0,3);
 }
 function topTasksHasTie(){
-  const undone = state.tasks.filter(t=>!taskDoneToday(t) && taskActiveToday(t) && t.priority==='عالية').sort((a,b)=>scoreTask(b)-scoreTask(a));
+  const undone = urgentOpenToday().sort(byDayOrder);
   if(undone.length<4) return false;
-  return scoreTask(undone[2]) === scoreTask(undone[3]);
+  /* only a real toss-up if the fourth sits in the same box with the same score */
+  return periodRank(undone[2])===periodRank(undone[3]) && scoreTask(undone[2])===scoreTask(undone[3]);
 }
 /* only worth surfacing "أهم 3 مهام" when something's actually urgent — a real
    high-priority task, or a top-3 she pinned herself (her own judgment stands
@@ -2200,7 +2246,7 @@ function renderTasksForDate(isToday){
      recurring tasks landing on it, not just tasks with a matching due date.
      Reuses tasksPlannedForDate so the recurrence rule lives in one place. */
   const list = isToday? topTasks()
-    : tasksPlannedForDate(selectedDate).sort((a,b)=>(PRIORITY_WEIGHT[b.priority]||0)-(PRIORITY_WEIGHT[a.priority]||0));
+    : tasksShownForDate(selectedDate).sort((a,b)=>(PRIORITY_WEIGHT[b.priority]||0)-(PRIORITY_WEIGHT[a.priority]||0));
   if(list.length===0){
     return `<div class="empty">${isToday? 'ما فيه مهام بعد.':'ما فيه مهام مجدولة لهذا التاريخ.'}</div>`;
   }
@@ -2276,6 +2322,7 @@ function taskRowHtml(t, opts){
         ${g? `<span class="tag">${CAT_MAP[g.cat]?.icon||''} ${escapeHtml(g.title)}</span>`:''}
         ${t.period? `<span class="tag" ${timeBoxTagStyle(box)}>${box? escapeHtml(box.label) : escapeHtml(t.period)}</span>`:''}
         ${t.due? `<span class="tag">🗓️ ${t.due}</span>`:''}
+        ${taskAwaitingDate(t)? `<span class="tag" style="background:rgba(178,76,99,.13);color:var(--rose-dark);" title="فاتت بلا إنجاز، فرفعت عنها التاريخ — حددي لها موعدًا جديدًا وترجع ليومك">⏳ بلا تاريخ · فاتت ${t.lapsedFrom}</span>`:''}
         ${t.recurType? `<span class="tag">🔁 ${recurLabel(t)}</span>`:''}
         ${t.link? `<a href="${escapeHtml(t.link)}" target="_blank" rel="noopener" class="tag" style="text-decoration:none;">🔗 رابط مساعد</a>`:''}
       </div>
@@ -2312,7 +2359,7 @@ function renderScheduleCard(){
      included — same split renderTasksForDate already uses */
   const pool = isToday
     ? state.tasks.filter(t=> !taskDoneToday(t) && taskActiveToday(t))
-    : tasksPlannedForDate(dateStr).filter(t=> !taskDoneOnDate(t, dateStr));
+    : tasksShownForDate(dateStr).filter(t=> !taskDoneOnDate(t, dateStr));
   const countIn = id => pool.filter(t=>t.period===id).length;
   /* the schedule is strictly the day laid out by time box. A task with no period
      (or one pointing at a box she deleted) has no place on that map, so it stays
@@ -5565,6 +5612,8 @@ function attachTaskDraftEvents(){
         t.priority = taskDraft.priority;
         t.period = taskDraft.period||null;
         t.due = taskDraft.due||null;
+        /* giving it a date again un-parks it, so it rejoins the day views */
+        if(t.due || t.recurType) t.lapsedFrom = null;
         t.link = taskDraft.link||null;
         t.device = taskDraft.device||null;
         t.actionType = taskDraft.actionType||null;
