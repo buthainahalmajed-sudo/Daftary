@@ -306,7 +306,11 @@ details.path-block > summary::-webkit-details-marker{display:none;}
 .safety-calc .result-hero{border-radius:16px;padding:20px;text-align:center;margin-bottom:14px;background:var(--petrol-dark);}
 .safety-calc .result-hero .lbl{font-size:var(--t2);color:#c9c3af;margin-bottom:6px;}
 .safety-calc .result-hero .val{font-size:28px;font-weight:900;color:#fff;font-family:'IBM Plex Sans Arabic',sans-serif;}
-.safety-calc .result-hero .sub{font-size:var(--t1);color:#a9c9bb;margin-top:8px;line-height:1.6;}
+.safety-calc .sc-tune{display:flex;flex-wrap:wrap;gap:8px 16px;margin-bottom:14px;padding:10px 12px;border:1px dashed var(--line);border-radius:12px;background:var(--parchment);}
+.safety-calc .sc-tune label{font-size:var(--t2);color:var(--ink);display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.safety-calc .sc-tune input{width:66px;text-align:center;font-size:var(--tf);padding:5px 6px;border:1px solid var(--line);border-radius:8px;background:#fff;font-family:inherit;}
+.safety-calc .result-hero .sub{
+font-size:var(--t1);color:#a9c9bb;margin-top:8px;line-height:1.6;}
 .safety-calc .stats-grid, .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 .safety-calc .stat-box, .stat-box{border-radius:12px;padding:10px 12px;}
 .safety-calc .stat-box .p, .stat-box .p{font-size:15px;font-weight:900;}
@@ -885,7 +889,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 33';
+const APP_BUILD = '2026-08-17 · 34';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -5119,8 +5123,19 @@ function attachFinanceEvents(){
 }
 
 /* ============ standalone Financial Safety Point calculator ============ */
-const SC_COVERAGE_YEARS = 5;
+const SC_COVERAGE_YEARS = 5;    /* default only — she can change it, see scCoverageYears() */
 const SC_INFLATION_RATE = 0.02;
+const SC_GROWTH_RATE    = 0.04; /* default real (after-inflation) return on invested assets */
+/* Both of these are hers to set on the safety page; the constants above are
+   only the starting point for someone who never opens those fields. */
+function scCoverageYears(){
+  const v = parseFloat((state.safety||{}).coverageYears);
+  return (isFinite(v) && v >= 1 && v <= 30) ? v : SC_COVERAGE_YEARS;
+}
+function scGrowthRate(){
+  const v = parseFloat((state.safety||{}).growthRate);
+  return (isFinite(v) && v >= 0 && v <= 20) ? v/100 : SC_GROWTH_RATE;
+}
 const SC_CUSTOM_VALUE = "__custom__";
 const SC_ASSET_OPTIONS = ["أرض","منزل","ذهب","ذهب سبائك","فضة","حساب توفير (الرصيد الحالي)","أسهم","ودائع","برنامج استثماري (تكافل)","ممتلكات أخرى"];
 const SC_INCOME_OPTIONS = ["راتب شهري","عقار للإيجار (المبلغ الشهري)","مشروع ربحي","تجارة منزلية","مشروع إلكتروني","عائد برنامج استثماري (تكافل)","أرباح الودائع السنوية","دعم من الدولة","مكافآت مالية"];
@@ -5175,6 +5190,72 @@ function scActiveList(rows){
   })).filter(x=>x.name && x.amount>0);
 }
 
+/* The single place the safety numbers are worked out. The safety page and the
+   financial-ease indicator on the expenses page both read from here, so they
+   can't drift into telling her two different stories about the same money —
+   which is exactly what happened when the ease score knew nothing about her
+   assets and called a woman with 1.7 million in investments "مقلق". */
+function scPicture(){
+  if(!state.safety) state.safety = scDefaultState();
+  const sc = state.safety;
+  scSyncSharedIncome();
+  const assets   = scActiveList(sc.assets);
+  const income   = scActiveList(sc.income);
+  const expenses = scActiveList(sc.expenses);
+  const monthlyEquiv = e => e.freq==='yearly' ? e.amount/12 : e.amount;
+
+  const fastAssets  = assets.filter(e=>e.tag==='fast').reduce((s,e)=>s+e.amount,0);
+  const slowAssets  = assets.filter(e=>e.tag==='slow').reduce((s,e)=>s+e.amount,0);
+  const fixedAssets = assets.filter(e=>e.tag==='fixed').reduce((s,e)=>s+e.amount,0);
+  const liquidAssets = fastAssets + slowAssets;
+
+  const totalIncomeMonthly  = income.reduce((s,e)=> s + monthlyEquiv(e), 0);
+  const essentialMonthly    = expenses.filter(e=> isEssentialTag(e.tag)).reduce((s,e)=> s + monthlyEquiv(e), 0);
+  const nonEssentialMonthly = expenses.filter(e=> !isEssentialTag(e.tag) && !isTransferTag(e.tag)).reduce((s,e)=> s + monthlyEquiv(e), 0);
+  const transferMonthly     = expenses.filter(e=> isTransferTag(e.tag)).reduce((s,e)=> s + monthlyEquiv(e), 0);
+  const totalExpenseMonthly = essentialMonthly + nonEssentialMonthly;
+
+  const annualEssential = essentialMonthly * 12;
+  const coverageYears = scCoverageYears();
+  const coreBeforeInflation = annualEssential * coverageYears;
+  const safetyTarget = coreBeforeInflation + coreBeforeInflation * SC_INFLATION_RATE;
+
+  return {
+    assets, income, expenses,
+    totalAssets: assets.reduce((s,e)=>s+e.amount,0),
+    fastAssets, slowAssets, fixedAssets, liquidAssets,
+    totalIncomeMonthly, essentialMonthly, nonEssentialMonthly, transferMonthly, totalExpenseMonthly,
+    annualIncome: totalIncomeMonthly*12,
+    annualExpenseAll: totalExpenseMonthly*12,
+    annualNetSavings: (totalIncomeMonthly - totalExpenseMonthly) * 12,
+    annualEssential, coverageYears, safetyTarget,
+    growthRate: scGrowthRate(),
+    remaining: Math.max(0, safetyTarget - liquidAssets),
+    /* null, not zero, when there's nothing to measure against — an unknown
+       ratio must never be read as "she covers none of it" */
+    coverage: safetyTarget > 0 ? liquidAssets / safetyTarget : null,
+  };
+}
+
+/* Years until her assets reach the safety target, letting what she already has
+   earn a return instead of assuming it sits still. Stepped year by year rather
+   than solved algebraically so a zero growth rate needs no special case. */
+function scYearsToSafety(liquidAssets, safetyTarget, annualNetSavings, rate){
+  if(liquidAssets >= safetyTarget) return 0;
+  if(annualNetSavings <= 0 && liquidAssets * rate <= 0) return Infinity;
+  let pot = liquidAssets;
+  for(let y = 0; y < 60; y++){
+    const next = pot * (1 + rate) + annualNetSavings;
+    if(next <= pot) return Infinity;          /* going backwards or stuck */
+    if(next >= safetyTarget){
+      /* interpolate inside the final year so the answer reads 3.4, not 4 */
+      return y + (safetyTarget - pot) / (next - pot);
+    }
+    pot = next;
+  }
+  return Infinity;
+}
+
 function renderSafetyPage(){
   if(!state.safety) state.safety = scDefaultState();
   const sc = state.safety;
@@ -5217,6 +5298,14 @@ function renderSafetyPage(){
         <div class="val" id="scSafetyTargetVal">0 ريال</div>
         <div class="sub" id="scSafetyTargetSub"></div>
       </div>
+      <div class="sc-tune">
+        <label>أريد أماني يغطي
+          <input type="number" id="scCoverageYearsInp" min="1" max="30" step="1" value="${scCoverageYears()}">
+          سنوات من مصاريفي الأساسية</label>
+        <label>وأتوقع نمو استثماري
+          <input type="number" id="scGrowthRateInp" min="0" max="20" step="0.5" value="${(scGrowthRate()*100).toFixed(1).replace(/\.0$/,'')}">
+          % سنويًا بعد التضخم</label>
+      </div>
       <div class="stats-grid">
         <div class="stat-box" style="background:#e7f7ef;"><div class="p" style="color:#2f9e6e;" id="scEssentialAnnualVal">0 ريال</div><div class="l" style="color:#2f9e6e;">مصاريفك الأساسية سنويًا</div></div>
         <div class="stat-box" style="background:#e8effb;"><div class="p" style="color:#3f6fd1;" id="scNetSavingsVal">0 ريال</div><div class="l" style="color:#3f6fd1;">صافي ادخارك السنوي الحالي</div></div>
@@ -5227,7 +5316,7 @@ function renderSafetyPage(){
       </div>
       <details class="assumption-note" data-sec="scAssumptions" ${openSections.scAssumptions?"open":""}>
         <summary><span class="grow">كيف حُسبت هذي الأرقام؟</span><span class="chev">▾</span></summary>
-        <div class="details-body">        الافتراضات المستخدمة: كل بند دخل أو مصروف يُحوَّل لقيمته الشهرية حسب تكراره اللي حددتيه (شهري، أو سنوي فيُقسم ÷12)، وبعدها يُضرب × 12 لحساب القيم السنوية. تغطية 5 سنوات من مصاريفك الأساسية السنوية + تضخم تقديري 2%. صافي الادخار = دخلك السنوي − كل مصاريفك السنوية (أساسية وغير أساسية). بنود الادخار والاستثمار 🔵 لا تُحسب مصروفًا لأنها تحويل بين جيوبك، فتظهر ضمن فائضك لا خصمًا منه. الأصول لا تُحسب كدخل أو مصروف. الأصول ذات السيولة السريعة أو طويلة المدى (⚡🐢) تُحسب بالكامل مقابل المبلغ المستهدف؛ الأصول الثابتة (🏠 كالمسكن الأساسي) تظهر ضمن أملاكك لكن لا تُخصم من المبلغ المطلوب.</div>
+        <div class="details-body">        الافتراضات المستخدمة: كل بند دخل أو مصروف يُحوَّل لقيمته الشهرية حسب تكراره اللي حددتيه (شهري، أو سنوي فيُقسم ÷12)، وبعدها يُضرب × 12 لحساب القيم السنوية. المبلغ المستهدف = مصاريفك الأساسية السنوية × عدد سنوات التغطية اللي اخترتيها (5 افتراضيًا) + تضخم تقديري 2%. والوقت المتبقي يفترض أن أصولك السائلة تنمو بالنسبة اللي حددتيها فوق (4% افتراضيًا بعد التضخم) إضافةً لادخارك السنوي، فهي لا تُفترض جامدة. صافي الادخار = دخلك السنوي − كل مصاريفك السنوية (أساسية وغير أساسية). بنود الادخار والاستثمار 🔵 لا تُحسب مصروفًا لأنها تحويل بين جيوبك، فتظهر ضمن فائضك لا خصمًا منه. الأصول لا تُحسب كدخل أو مصروف. الأصول ذات السيولة السريعة أو طويلة المدى (⚡🐢) تُحسب بالكامل مقابل المبلغ المستهدف؛ الأصول الثابتة (🏠 كالمسكن الأساسي) تظهر ضمن أملاكك لكن لا تُخصم من المبلغ المطلوب.</div>
       </details>
     </div>
 
@@ -5554,27 +5643,16 @@ function scRenderExpenseRows(){
 
 function scUpdateSummary(){
   const sc = state.safety;
-  scSyncSharedIncome();
-  const assets = scActiveList(sc.assets);
-  const income = scActiveList(sc.income);
-  const expenses = scActiveList(sc.expenses);
+  const P = scPicture();
   const goals = scActiveList(sc.goals);
 
-  const totalAssets = assets.reduce((s,e)=>s+e.amount,0);
-  const fastAssets = assets.filter(e=>e.tag==='fast').reduce((s,e)=>s+e.amount,0);
-  const slowAssets = assets.filter(e=>e.tag==='slow').reduce((s,e)=>s+e.amount,0);
-  const fixedAssets = assets.filter(e=>e.tag==='fixed').reduce((s,e)=>s+e.amount,0);
-  const liquidAssets = fastAssets + slowAssets;
-  const monthlyEquiv = e => e.freq==='yearly' ? e.amount/12 : e.amount;
-  const totalIncomeMonthly = income.reduce((s,e)=> s + monthlyEquiv(e), 0);
+  const {assets, totalAssets, fastAssets, slowAssets, fixedAssets, liquidAssets,
+         totalIncomeMonthly} = P;
   /* أساسي/غير أساسي is derived from the shared expense tag, not stored twice.
      Savings/investment rows are transfers between her own pockets, so they're
      kept out of the expense total — counting them would shrink net savings by
      exactly the amount she saved. They're surfaced on their own line instead. */
-  const essentialMonthly    = expenses.filter(e=> isEssentialTag(e.tag)).reduce((s,e)=> s + monthlyEquiv(e), 0);
-  const nonEssentialMonthly = expenses.filter(e=> !isEssentialTag(e.tag) && !isTransferTag(e.tag)).reduce((s,e)=> s + monthlyEquiv(e), 0);
-  const transferMonthly     = expenses.filter(e=> isTransferTag(e.tag)).reduce((s,e)=> s + monthlyEquiv(e), 0);
-  const totalExpenseMonthly = essentialMonthly + nonEssentialMonthly;
+  const {essentialMonthly, nonEssentialMonthly, transferMonthly, totalExpenseMonthly} = P;
   const totalGoals = goals.reduce((s,e)=>s+e.amount,0);
 
   const el = id => document.getElementById(id);
@@ -5595,17 +5673,11 @@ function scUpdateSummary(){
   el('scExpenseBreakdown').innerHTML = expParts.join(' — ');
   el('scGoalsTotal').textContent = scFmt(totalGoals) + ' ريال';
 
-  const annualIncome = totalIncomeMonthly*12;
-  const annualExpenseAll = totalExpenseMonthly*12;
-  const annualNetSavings = annualIncome - annualExpenseAll;
-  const annualEssential = essentialMonthly*12;
-
-  const coreBeforeInflation = annualEssential * SC_COVERAGE_YEARS;
-  const safetyTarget = coreBeforeInflation + coreBeforeInflation * SC_INFLATION_RATE;
-  const remaining = Math.max(0, safetyTarget - liquidAssets);
+  const {annualIncome, annualExpenseAll, annualNetSavings, annualEssential,
+         safetyTarget, remaining, coverageYears, growthRate} = P;
 
   el('scSafetyTargetVal').textContent = scFmt(safetyTarget) + ' ريال';
-  el('scSafetyTargetSub').textContent = `= (${scFmt(annualEssential)} ريال مصاريف أساسية سنوية × ${SC_COVERAGE_YEARS} سنوات) + تضخم 2%`;
+  el('scSafetyTargetSub').textContent = `= (${scFmt(annualEssential)} ريال مصاريف أساسية سنوية × ${coverageYears} سنوات) + تضخم 2%`;
   el('scEssentialAnnualVal').textContent = scFmt(annualEssential) + ' ريال';
   el('scNetSavingsVal').textContent = scFmt(annualNetSavings) + ' ريال';
   el('scRemainingVal').textContent = scFmt(remaining) + ' ريال';
@@ -5626,22 +5698,28 @@ function scUpdateSummary(){
     statusBanner.innerHTML = ''; yearsValEl.textContent = '—';
   } else if(remaining <= 0){
     yearsValEl.textContent = '0 سنة';
-    statusBanner.innerHTML = `<div class="status-banner status-green">🎉 وصلتِ لنقطة الأمان المالي! أصولك الحالية تغطي احتياجاتك الأساسية لـ ${SC_COVERAGE_YEARS} سنوات وأكثر.</div>`;
-  } else if(annualNetSavings === 0){
-    yearsValEl.textContent = '∞ سنة';
-    statusBanner.innerHTML = `<div class="status-banner status-red">🔴 دخلك يساوي مصاريفك بالضبط — ما فيه فائض سنوي يقربك من الأمان المالي. تحتاجين دخل إضافي شهري بمقدار ${scFmt(monthlyGap>0?monthlyGap:1)} ريال على الأقل لتبدأ تتحرك نحو الهدف.</div>`;
+    statusBanner.innerHTML = `<div class="status-banner status-green">🎉 وصلتِ لنقطة الأمان المالي! أصولك الحالية تغطي احتياجاتك الأساسية لـ ${coverageYears} سنوات وأكثر.</div>`;
   } else {
-    const years = remaining / annualNetSavings;
-    const yearsText = Math.abs(years).toFixed(1) + ' سنة';
+    const years = scYearsToSafety(liquidAssets, safetyTarget, annualNetSavings, growthRate);
+    /* what the growth on her existing assets contributes on its own, so the
+       "أنتِ تبتعدين" message doesn't fire at someone whose investments are
+       covering the shortfall even while she overspends her salary */
+    const growthPerYear = liquidAssets * growthRate;
+    const via = growthPerYear > 0 && annualNetSavings > 0
+      ? ` (${scFmt(annualNetSavings)} ادخار + ${scFmt(growthPerYear)} نمو استثمارك سنويًا)`
+      : (growthPerYear > 0 ? ` (نمو استثمارك ${scFmt(growthPerYear)} ريال سنويًا)` : '');
     let cls, msg;
-    if(years < 0){
-      yearsValEl.textContent = '-' + yearsText;
-      msg = `🔴 مصاريفك تتجاوز دخلك، فأنتِ حاليًا تبتعدين عن الأمان المالي بدل الاقتراب منه. تحتاجين دخل إضافي شهري بمقدار ${scFmt(monthlyGap)} ريال على الأقل للتعادل، وأكثر من ذلك للبدء بالتقدم.`;
+    if(!isFinite(years)){
+      yearsValEl.textContent = '∞ سنة';
       cls = 'status-red';
+      msg = annualNetSavings < 0
+        ? `🔴 مصاريفك تتجاوز دخلك بأكثر مما ينمو استثمارك، فأنتِ حاليًا تبتعدين عن الأمان المالي بدل الاقتراب منه. تحتاجين دخلًا إضافيًا شهريًا بمقدار ${scFmt(monthlyGap)} ريال على الأقل للتعادل.`
+        : `🔴 ما فيه فائض سنوي ولا نمو يقربك من الأمان المالي. تحتاجين دخلًا إضافيًا شهريًا بمقدار ${scFmt(monthlyGap>0?monthlyGap:1)} ريال على الأقل لتبدئي بالتحرك نحو الهدف.`;
     } else {
+      const yearsText = years.toFixed(1) + ' سنة';
       yearsValEl.textContent = yearsText;
-      if(years <= 5){ cls='status-yellow'; msg = `🟡 أنتِ قريبة من تحقيق أمانك المالي — تحتاجين تقريبًا ${yearsText} بمعدل ادخارك الحالي.`; }
-      else { cls='status-red'; msg = `🔴 بمعدل ادخارك الحالي تحتاجين ${yearsText} تقريبًا — قد تحتاجين مصادر دخل إضافية لتسريع الوصول.`; }
+      if(years <= 5){ cls='status-yellow'; msg = `🟡 أنتِ قريبة من تحقيق أمانك المالي — تحتاجين تقريبًا ${yearsText}${via}.`; }
+      else { cls='status-red'; msg = `🔴 بمعدلك الحالي تحتاجين ${yearsText} تقريبًا${via} — قد تحتاجين مصادر دخل إضافية لتسريع الوصول.`; }
     }
     statusBanner.innerHTML = `<div class="status-banner ${cls}">${msg}</div>`;
   }
@@ -5680,6 +5758,10 @@ function scUpdateSummary(){
 function attachSafetyEvents(){
   scRenderAssetRows(); scRenderIncomeRows(); scRenderExpenseRows(); scRenderGoalRows(); scUpdateSummary();
   const sc = state.safety;
+  const yearsInp = document.getElementById('scCoverageYearsInp');
+  if(yearsInp) yearsInp.oninput = (e)=>{ sc.coverageYears = e.target.value; saveState(); scUpdateSummary(); };
+  const growthInp = document.getElementById('scGrowthRateInp');
+  if(growthInp) growthInp.oninput = (e)=>{ sc.growthRate = e.target.value; saveState(); scUpdateSummary(); };
   document.getElementById('scAddAssetBtn').onclick = ()=>{
     sc.assets.push({id:uid(), item:"", custom:"", tag:"fast", amount:""});
     saveState(); scRenderAssetRows();
@@ -6042,15 +6124,36 @@ function edRenderScore(income, totalExp, byTag, pctOfIncome){
   let score = 50;
   const wealthPct = pctOfIncome.wealth, luxuryPct = pctOfIncome.luxury, debtPct = pctOfIncome.debt;
   const notes = [];
+  /* This indicator used to read her month's cash flow and nothing else, so a
+     woman with a good salary and large investments could be told "مقلق" purely
+     for not moving money in the month she was looked at. What she has built
+     counts, not only what moved this month. */
+  const P = scPicture();
+  const coverage = P.coverage;                 /* null when there's nothing to measure against */
+  const secured  = coverage !== null && coverage >= 1;
   if(income>0){
     score += Math.min(30, wealthPct*1.5);
     score -= Math.min(30, luxuryPct*1.0);
     score -= Math.min(15, Math.max(0, debtPct-20)*0.5); /* only penalize once debt service passes ~20% of income */
-    if(totalExp > income){ score -= 25; notes.push('مصاريفك تتجاوز دخلك — هذا أكبر مؤثر سلبي على المؤشر.'); }
-    if(byTag.wealth === 0){ score -= 15; notes.push('لا يوجد مبلغ مخصص للادخار/الاستثمار هذا الشهر (غير القروض).'); }
+    if(coverage !== null){
+      const assetBonus = Math.min(20, coverage * 20);
+      score += assetBonus;
+      if(secured) notes.push(`أصولك السائلة (${edFmt(P.liquidAssets)} ريال) تغطي نقطة أمانك المالي بالكامل — وهذا محسوب لصالحك في المؤشر.`);
+      else if(assetBonus >= 4) notes.push(`أصولك السائلة تغطي ${(coverage*100).toFixed(0)}% من نقطة أمانك المالي.`);
+    }
+    if(totalExp > income){
+      /* overspending on top of a finished safety cushion is a choice she can
+         afford, not the emergency it is for someone with nothing behind her */
+      score -= secured ? 10 : 25;
+      notes.push(secured
+        ? 'مصاريفك هالشهر تتجاوز دخلك — تسحبين من رصيدك، وهذا مقبول ما دام أمانك المالي مكتملًا، بس انتبهي لا يصير عادة.'
+        : 'مصاريفك تتجاوز دخلك — هذا أكبر مؤثر سلبي على المؤشر.');
+    }
+    if(byTag.wealth === 0 && !secured){ score -= 15; notes.push('لا يوجد مبلغ مخصص للادخار/الاستثمار هذا الشهر (غير القروض).'); }
     if(wealthPct >= 15) notes.push('نسبة جيدة من دخلك تذهب لبناء الثروة 👏');
     if(luxuryPct >= 20) notes.push('نسبة الإنفاق الكمالي مرتفعة نسبيًا مقارنة بدخلك.');
     if(debtPct > 0) notes.push(`${debtPct.toFixed(0)}% من دخلك يذهب لسداد ديون وقروض هذا الشهر.`);
+    if(coverage === null) notes.push('لو عبّيتي أصولك ومصاريفك الأساسية في صفحة الأمان المالي، بيحسب المؤشر ما بنيتيه كمان — مو بس حركة هالشهر.');
   } else {
     score = 0;
     notes.push('أدخلي الدخل الشهري عشان يُحتسب المؤشر.');
