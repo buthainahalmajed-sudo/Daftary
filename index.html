@@ -173,6 +173,15 @@ details.path-block > summary::-webkit-details-marker{display:none;}
 .pl-group-head .grow{flex:1;min-width:0;font-weight:700;}
 .pl-group-head b{font-variant-numeric:tabular-nums;white-space:nowrap;}
 .pl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.pl-item{margin-inline-start:16px;}
+.pl-item-head{
+  display:flex;align-items:center;gap:8px;width:100%;
+  background:none;border:none;padding:7px 2px;
+  font-family:inherit;font-size:var(--t3);color:var(--ink);text-align:right;
+}
+.pl-item-head .grow{flex:1;min-width:0;}
+.pl-item-head b{font-variant-numeric:tabular-nums;white-space:nowrap;}
+.pl-single .inbox-row{padding-top:0;border-bottom:none;}
 .pl-group .inbox-row, .pl-group .item-card{margin-inline-start:14px;}
 .path-facts{
   margin-top:10px;padding-top:10px;
@@ -306,6 +315,15 @@ details.path-block > summary::-webkit-details-marker{display:none;}
 .safety-calc .status-green{background:#e7f7ef;color:#1e6b4a;}
 .safety-calc .status-yellow{background:#fdf6e3;color:#8a6d00;}
 .safety-calc .status-red{background:rgba(178,76,99,.13);color:var(--rose-dark);}
+/* the method behind the numbers — worth keeping, not worth reading every visit */
+.assumption-note > summary{
+  cursor:pointer;list-style:none;user-select:none;
+  display:flex;align-items:center;gap:7px;
+  font-size:var(--t2);color:var(--petrol);padding:2px 0;
+}
+.assumption-note > summary::-webkit-details-marker{display:none;}
+.assumption-note > summary .grow{flex:1;min-width:0;}
+.assumption-note > .details-body{padding:8px 0 0;}
 .safety-calc .assumption-note{font-size:var(--t1);color:#6b7a78;background:var(--parchment);border-radius:10px;padding:8px 10px;margin-top:10px;line-height:1.7;}
 .safety-calc .goals-total{border-radius:14px;padding:14px;background:#e8effb;text-align:center;margin-top:4px;}
 .safety-calc .goals-total .v{font-size:20px;font-weight:900;color:#3f6fd1;}
@@ -867,7 +885,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 32';
+const APP_BUILD = '2026-08-17 · 33';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -1078,7 +1096,7 @@ function hydrateState(parsed){
   ]);
   /* these group by a category *name*, not by an item id, so there is no id to
      outlive — sweeping them would wipe her fold choices on every load */
-  const NAME_KEYED = /^(plGroup|edGroup):/;
+  const NAME_KEYED = /^(plGroup|plPath|plItem|edGroup):/;
   const sweep = obj=>{
     Object.keys(obj||{}).forEach(k=>{
       const i = k.indexOf(':');
@@ -4510,48 +4528,77 @@ function plRowHtml(r, opts){
       <div><label>التاريخ</label><input class="inp-date" type="date" value="${r.date||todayStr()}"/></div>
     </div>
     <div style="margin-top:8px;"><label>التصنيف</label><select class="sel-cat">${cats.map(c=>`<option value="${escapeHtml(c)}" ${r.category===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select></div>
+    <div style="margin-top:8px;"><label>من أي طريقة؟</label><select class="sel-path">
+      <option value="">— بدون طريقة —</option>
+      ${plPathOptions().map(o=>`<option value="${escapeHtml(o.id)}" ${r.pathId===o.id?'selected':''}>${o.icon} ${escapeHtml(o.label)}</option>`).join('')}
+    </select></div>
     ${plRowHasData(r)? `<button type="button" class="btn ghost sm" style="margin-top:10px;" data-pl-done="${r.id}">✓ تم</button>`:''}
   </div>`;
 }
 function plRenderRows(){
   const container = document.getElementById('plRows');
   if(!container) return;
-  /* Grouped by category with its total on the header, transactions folded inside.
-     A flat list meant every single transaction was on screen at once, so reading
-     "how much went to tools" required adding the rows up by eye. A row still being
-     filled in stays out on its own, since it has no category to file under yet. */
+  /* Filed under the income path each entry came from, then by product. A path
+     shows its total, a product shows its own, and the individual transactions
+     stay folded — she reads the ledger to see what a product brought in, not to
+     scan every line. A product with a single entry needs no fold of its own. */
   const rows = state.projectLedger;
   const draft = rows.filter(r=> plEditingId===r.id || !plRowHasData(r));
   const filed = rows.filter(r=> !draft.includes(r));
-  const groups = [];
+  const paths = [];
   filed.forEach(r=>{
-    const isIncome = r.type!=='expense';
-    const key = (isIncome?'in':'ex') + '|' + (r.category||'بدون بند');
-    let g = groups.find(x=>x.key===key);
-    if(!g){ g = {key, isIncome, name:r.category||'بدون بند', rows:[], total:0}; groups.push(g); }
-    g.rows.push(r);
-    g.total += parseFloat(r.amount)||0;
+    const pid = r.pathId || '';
+    let g = paths.find(x=>x.id===pid);
+    if(!g){
+      const p = pid? plPathOf(pid) : null;
+      g = {id:pid, label:p? p.label : 'بدون طريقة', icon:p? p.icon : '🗂️', items:[], income:0, expense:0};
+      paths.push(g);
+    }
+    const amt = parseFloat(r.amount)||0;
+    if(r.type==='expense') g.expense += amt; else g.income += amt;
+    const name = (r.desc||'').trim() || 'بدون اسم';
+    let it = g.items.find(x=>x.name===name && x.isIncome===(r.type!=='expense'));
+    if(!it){ it = {name, isIncome:r.type!=='expense', rows:[], total:0}; g.items.push(it); }
+    it.rows.push(r);
+    it.total += amt;
   });
-  groups.sort((a,b)=> (a.isIncome===b.isIncome? b.total-a.total : (a.isIncome? -1 : 1)));
+  paths.forEach(g=> g.items.sort((a,b)=> (a.isIncome===b.isIncome? b.total-a.total : (a.isIncome? -1 : 1))));
+  paths.sort((a,b)=> (b.income-b.expense) - (a.income-a.expense));
 
   container.innerHTML = rows.length? (
-    groups.map(g=>{
-      const collapsed = state.collapsed['plGroup:'+g.key] !== false;
+    paths.map(g=>{
+      const pKey = 'plPath:'+(g.id||'none');
+      const pClosed = state.collapsed[pKey] !== false;
+      const net = g.income - g.expense;
       return `
       <div class="pl-group">
-        <button type="button" class="pl-group-head" data-toggle-collapse="plGroup:${g.key}">
-          <span class="chev ${collapsed?'':'open'}">▾</span>
-          <span class="pl-dot" style="background:${g.isIncome?'#2f9e6e':'var(--rose)'};"></span>
-          <span class="grow">${escapeHtml(g.name)} <span class="muted" style="font-weight:400;">(${g.rows.length})</span></span>
-          <b style="color:${g.isIncome?'#2f9e6e':'var(--rose-dark)'};">${plFmt(g.total)} ريال</b>
+        <button type="button" class="pl-group-head" data-toggle-collapse="${pKey}">
+          <span class="chev ${pClosed?'':'open'}">▾</span>
+          <span style="flex-shrink:0;">${g.icon}</span>
+          <span class="grow">${escapeHtml(g.label)} <span class="muted" style="font-weight:400;">(${g.items.length})</span></span>
+          <b style="color:${net<0?'var(--rose-dark)':'#2f9e6e'};">${plFmt(Math.abs(net))} ريال${net<0?' −':''}</b>
         </button>
-        ${collapsed? "" : g.rows.map(x=>plRowHtml(x,{inGroup:true})).join("")}
+        ${pClosed? '' : g.items.map(it=>{
+          const iKey = 'plItem:'+(g.id||'none')+'|'+it.name;
+          const single = it.rows.length===1;
+          const iClosed = state.collapsed[iKey] !== false;
+          /* one entry needs no header of its own — the row already carries the
+             name, the date and the amount, and repeating the name reads as noise */
+          if(single) return `<div class="pl-item">${plRowHtml(it.rows[0],{inGroup:true})}</div>`;
+          return `
+          <div class="pl-item">
+            <button type="button" class="pl-item-head" data-toggle-collapse="${iKey}">
+              <span class="chev ${iClosed?'':'open'}">▾</span>
+              <span class="grow">${escapeHtml(it.name)} <span class="muted" style="font-weight:400;">(${it.rows.length})</span></span>
+              <b style="color:${it.isIncome?'#2f9e6e':'var(--rose-dark)'};">${plFmt(it.total)} ريال</b>
+            </button>
+            ${iClosed? '' : it.rows.map(x=>plRowHtml(x,{inGroup:true})).join('')}
+          </div>`;
+        }).join('')}
       </div>`;
     }).join('') + draft.map(plRowHtml).join('')
   ) : `<div class="empty tight">ما فيه عمليات مسجلة بعد<span class="hint">اضغطي "إضافة عملية جديدة"</span></div>`;
 
-  /* this container is rebuilt on its own, so the global fold handler never reaches
-     these headers — they are wired here instead */
   container.querySelectorAll('[data-toggle-collapse]').forEach(el=> el.onclick=()=>{
     const key = el.dataset.toggleCollapse;
     state.collapsed[key] = state.collapsed[key]===false;
@@ -4586,6 +4633,8 @@ function plRenderRows(){
     if(dateInp) dateInp.onchange = (e)=>{ row.date = e.target.value; saveState(); };
     const catSel = rowEl.querySelector('.sel-cat');
     if(catSel) catSel.onchange = (e)=>{ row.category = e.target.value; saveState(); };
+    const pathSel = rowEl.querySelector('.sel-path');
+    if(pathSel) pathSel.onchange = (e)=>{ row.pathId = e.target.value || null; saveState(); plRenderRows(); };
     rowEl.querySelector('.del-row').onclick = ()=>{
       if(!confirm('تحذفين هذي العملية؟')) return;
       state.projectLedger = state.projectLedger.filter(x=>x!==row);
@@ -4593,6 +4642,18 @@ function plRenderRows(){
     };
   });
 }
+/* the income paths she actually chose — built-in and her own — so a ledger entry
+   can say which one it came from */
+function plPathOptions(){
+  const fg = state.financialGoal || {};
+  const built = (fg.paths||[]).map(id=>{
+    const p = FINANCE_PATHS.find(x=>x.id===id);
+    return p? {id:p.id, label:p.label, icon:p.icon} : null;
+  }).filter(Boolean);
+  const own = (fg.customPaths||[]).map(c=>({id:c.id, label:c.label, icon:c.icon||'✏️'}));
+  return built.concat(own);
+}
+function plPathOf(id){ return plPathOptions().find(o=>o.id===id) || null; }
 function plNet(){
   const income = state.projectLedger.filter(r=>r.type!=='expense').reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
   const expense = state.projectLedger.filter(r=>r.type==='expense').reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
@@ -5164,9 +5225,10 @@ function renderSafetyPage(){
         <div class="stat-box" style="background:rgba(178,76,99,.13); grid-column:1 / -1; text-align:center;"><div class="p" style="color:var(--rose-dark); font-size:19px;" id="scMonthlyGapVal">0 ريال</div><div class="l" style="color:var(--rose-dark);">الدخل الإضافي المطلوب شهريًا للتعادل</div></div>
         <div class="stat-box" style="background:var(--parchment); grid-column:1 / -1; text-align:center;"><div class="p" id="scYearsVal" style="font-size:19px;">—</div><div class="l">الوقت المتبقي حتى نقطة الأمان المالي</div></div>
       </div>
-      <div class="assumption-note">
-        الافتراضات المستخدمة: كل بند دخل أو مصروف يُحوَّل لقيمته الشهرية حسب تكراره اللي حددتيه (شهري، أو سنوي فيُقسم ÷12)، وبعدها يُضرب × 12 لحساب القيم السنوية. تغطية 5 سنوات من مصاريفك الأساسية السنوية + تضخم تقديري 2%. صافي الادخار = دخلك السنوي − كل مصاريفك السنوية (أساسية وغير أساسية). بنود الادخار والاستثمار 🔵 لا تُحسب مصروفًا لأنها تحويل بين جيوبك، فتظهر ضمن فائضك لا خصمًا منه. الأصول لا تُحسب كدخل أو مصروف. الأصول ذات السيولة السريعة أو طويلة المدى (⚡🐢) تُحسب بالكامل مقابل المبلغ المستهدف؛ الأصول الثابتة (🏠 كالمسكن الأساسي) تظهر ضمن أملاكك لكن لا تُخصم من المبلغ المطلوب.
-      </div>
+      <details class="assumption-note" data-sec="scAssumptions" ${openSections.scAssumptions?"open":""}>
+        <summary><span class="grow">كيف حُسبت هذي الأرقام؟</span><span class="chev">▾</span></summary>
+        <div class="details-body">        الافتراضات المستخدمة: كل بند دخل أو مصروف يُحوَّل لقيمته الشهرية حسب تكراره اللي حددتيه (شهري، أو سنوي فيُقسم ÷12)، وبعدها يُضرب × 12 لحساب القيم السنوية. تغطية 5 سنوات من مصاريفك الأساسية السنوية + تضخم تقديري 2%. صافي الادخار = دخلك السنوي − كل مصاريفك السنوية (أساسية وغير أساسية). بنود الادخار والاستثمار 🔵 لا تُحسب مصروفًا لأنها تحويل بين جيوبك، فتظهر ضمن فائضك لا خصمًا منه. الأصول لا تُحسب كدخل أو مصروف. الأصول ذات السيولة السريعة أو طويلة المدى (⚡🐢) تُحسب بالكامل مقابل المبلغ المستهدف؛ الأصول الثابتة (🏠 كالمسكن الأساسي) تظهر ضمن أملاكك لكن لا تُخصم من المبلغ المطلوب.</div>
+      </details>
     </div>
 
     <details class="card" data-sec="scWishes" ${openSections.scWishes!==false?'open':''}>
