@@ -531,10 +531,20 @@ const TIPS = {
   other:['قسمي هدفك إلى خطوة صغيرة تسويها اليوم.','راجعي تقدمك في هذا الهدف هالأسبوع.','اكتبي سبب أهمية هالهدف لك.'],
 };
 
+/* the starting feelings. Editable from the الأساس tab and stored in state.moods.
+   An id is fixed once created — a day's log records the id, so renaming a feeling
+   must never orphan the days it was picked on. */
 const MOODS = [
-  {id:'مركزة',e:'🎯'},{id:'هادئة',e:'🌿'},{id:'نشيطة',e:'⚡'},
-  {id:'مرتاحة',e:'☁️'},{id:'متحمسة',e:'✨'},{id:'ممتنة',e:'🌸'},
+  {id:'مركزة', label:'مركزة', icon:'🎯'},
+  {id:'هادئة', label:'هادئة', icon:'🌿'},
+  {id:'نشيطة', label:'نشيطة', icon:'⚡'},
+  {id:'مرتاحة',label:'مرتاحة',icon:'☁️'},
+  {id:'متحمسة',label:'متحمسة',icon:'✨'},
+  {id:'ممتنة', label:'ممتنة', icon:'🌸'},
 ];
+const DEFAULT_MOOD_TITLE = 'شلون تبين تحسين هالليوم؟';
+function moodOf(id){ return (state.moods||[]).find(m=>m.id===id) || null; }
+function activeMoods(){ return (state.moods||[]).filter(m=>m.active!==false); }
 const PRIORITIES = ['عالية','متوسطة','منخفضة'];
 /* the physical/mental "verb" a task actually requires — separate from its
    category or priority, so a quick glance at the list shows what kind of
@@ -762,7 +772,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 21';
+const APP_BUILD = '2026-08-17 · 22';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -919,6 +929,15 @@ function hydrateState(parsed){
     if(q.active===undefined) q.active = true;
   });
   if(state.questionsTitle===undefined) state.questionsTitle = DEFAULT_QUESTIONS_TITLE;
+  if(!state.moods || !state.moods.length) state.moods = MOODS.map(m=>({...m, active:true}));
+  state.moods.forEach(m=>{
+    if(!m.id) m.id = uid();
+    if(m.label===undefined) m.label = m.id;
+    if(m.icon===undefined) m.icon = m.e || '🌿'; /* 'e' was the original field name */
+    if(m.active===undefined) m.active = true;
+  });
+  if(state.moodTitle===undefined) state.moodTitle = DEFAULT_MOOD_TITLE;
+  if(state.moodSectionOn===undefined) state.moodSectionOn = true;
   if(!state.actionTypes || !state.actionTypes.length) state.actionTypes = ACTION_TYPES.slice();
   /* answers used to be a positional array, so editing or reordering the question
      list would have re-pointed every past answer at the wrong question. They are
@@ -2107,7 +2126,7 @@ function attachSettingsEvents(){
 /* ============ topbar ============ */
 function renderTopbar(){
   const d = new Date();
-  const todayMoodEmojis = getLog(todayStr()).mood.map(mid=> MOODS.find(m=>m.id===mid)?.e || '').join('');
+  const todayMoodEmojis = getLog(todayStr()).mood.map(mid=> moodOf(mid)?.icon || '').join('');
   return `
   <div class="topbar">
     <div class="brand"><div class="seal">د</div><h1 style="font-size:17px;">دفتري للأمان المالي</h1></div>
@@ -2126,7 +2145,7 @@ function renderTopbar(){
 function renderDateNav(){
   const dow = dowOf(selectedDate);
   const isToday = selectedDate === todayStr();
-  const moodEmojis = getLog(selectedDate).mood.map(mid=> MOODS.find(m=>m.id===mid)?.e || '').join(' ');
+  const moodEmojis = getLog(selectedDate).mood.map(mid=> moodOf(mid)?.icon || '').join(' ');
   return `
   <div class="date-nav">
     <button type="button" class="arrow" id="prevDay">‹</button>
@@ -2195,14 +2214,15 @@ function renderHome(){
   ${renderHabitsCard(tpl, log, dow)}
   ${renderQuestionsCard(log)}
 
+  ${state.moodSectionOn===false? '' : `
   <div class="card">
-    <div class="card-title"><h3 style="cursor:pointer;flex:1;" data-toggle-collapse="mood">${state.collapsed.mood?'▸':'▾'} شلون تبين تحسين هالليوم؟</h3></div>
-    ${state.collapsed.mood? '' : `
+    <div class="card-title"><h3 style="cursor:pointer;flex:1;" data-toggle-collapse="mood">${state.collapsed.mood?'▸':'▾'} ${escapeHtml(state.moodTitle || DEFAULT_MOOD_TITLE)}</h3></div>
+    ${state.collapsed.mood? '' : (activeMoods().length? `
     <div class="mood-scale">
-      ${MOODS.map(m=>`<button type="button" class="mood-dot ${log.mood.includes(m.id)?'selected':''}" data-mood="${m.id}">${m.e}<span class="ml">${m.id}</span></button>`).join('')}
+      ${activeMoods().map(m=>`<button type="button" class="mood-dot ${log.mood.includes(m.id)?'selected':''}" data-mood="${m.id}">${escapeHtml(m.icon)}<span class="ml">${escapeHtml(m.label)}</span></button>`).join('')}
     </div>
-    `}
-  </div>
+    ` : `<p class="muted">ما فيه مشاعر نشطة — فعّلي أو أضيفي من تبويب "الأساس".</p>`)}
+  </div>`}
 
   ${isToday && !hasUrgentToday()? `
   <div class="card" style="text-align:center;">
@@ -2501,6 +2521,46 @@ function renderGoalPillarManager(){
           <button type="button" class="icon-btn" data-pillar-del="${p.id}">✕</button>
         </div>`).join('')}
       <button type="button" class="btn ghost btn-block" style="margin-top:10px;" id="pillarAddNew">+ إضافة بند جديد</button>
+    </div>
+  </details>`;
+}
+function renderMoodManager(){
+  const ms = state.moods || [];
+  const off = state.moodSectionOn === false;
+  return `
+  <details class="card" data-sec="moods" ${openSections.moods?'open':''} style="margin-bottom:14px;">
+    <summary><h3>🌸 شعور اليوم <span class="chev">▾</span></h3></summary>
+    <div class="details-body">
+      <p class="muted" style="margin-bottom:10px;">المشاعر اللي تختارين منها كل يوم. عدّلي الرمز والاسم، أوقفي اللي ما يناسبك، أو أخفي القسم كله.</p>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+        <button type="button" class="btn ghost sm" id="moodSectionToggle">${off? '▶️ رجّعي القسم' : '🚫 أخفي القسم كله'}</button>
+        <span class="muted" style="font-size:12px;">${off? 'القسم مخفي من صفحة اليوم.' : 'القسم يظهر بصفحة اليوم.'}</span>
+      </div>
+      <div class="field" style="margin-bottom:12px;">
+        <label>اسم القسم</label>
+        <input type="text" id="moodTitle" value="${escapeHtml(state.moodTitle || DEFAULT_MOOD_TITLE)}" placeholder="${escapeHtml(DEFAULT_MOOD_TITLE)}"/>
+      </div>
+      ${ms.map((m,i)=>{
+        const dim = m.active===false;
+        return `
+        <div class="tcat-row" data-mood-row="${m.id}" style="${dim?'opacity:.6;':''}">
+          <div style="display:flex;flex-direction:column;gap:1px;flex-shrink:0;">
+            <button type="button" class="icon-btn" style="padding:1px 6px;font-size:12px;" data-mood-up="${m.id}" ${i===0?'disabled':''}>▲</button>
+            <button type="button" class="icon-btn" style="padding:1px 6px;font-size:12px;" data-mood-down="${m.id}" ${i===ms.length-1?'disabled':''}>▼</button>
+          </div>
+          <button type="button" class="icon-btn" data-mood-active="${m.id}" title="${dim?'موقوف — اضغطي للتفعيل':'نشط — اضغطي للإيقاف'}" style="flex-shrink:0;">${dim?'⭕':'✅'}</button>
+          <input type="text" data-mood-icon="${m.id}" value="${escapeHtml(m.icon)}" placeholder="🌿" style="width:52px;text-align:center;flex-shrink:0;"/>
+          <input type="text" data-mood-label="${m.id}" value="${escapeHtml(m.label)}" placeholder="اسم الشعور" style="flex:1;${dim?'font-style:italic;':''}"/>
+          <button type="button" class="icon-btn" data-mood-del="${m.id}">✕</button>
+        </div>`;
+      }).join('')}
+      ${ms.length===0? `<p class="muted">ما فيه مشاعر — أضيفي أول وحدة.</p>`:''}
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <input type="text" id="moodNewIcon" placeholder="🌿" style="width:52px;text-align:center;"/>
+        <input type="text" id="moodNewLabel" placeholder="شعور جديد…" style="flex:1;"/>
+        <button type="button" class="btn sm" id="moodAdd">إضافة</button>
+      </div>
+      <p class="muted" style="margin-top:8px;font-size:12px;">💡 أيامك السابقة تحتفظ بالشعور اللي اخترتيه فيها حتى لو غيّرتِ اسمه أو أوقفتيه — الرمز يظل يظهر بشريط التاريخ.</p>
     </div>
   </details>`;
 }
@@ -3075,6 +3135,7 @@ function renderGoals(){
   ${renderTaskCategoryManager()}
   ${renderActionTypeManager()}
   ${renderDailyQuestionsManager()}
+  ${renderMoodManager()}
   `;
 }
 function renderFinanceGoalLink(){
@@ -6344,6 +6405,60 @@ document.querySelectorAll('[data-qnote]').forEach(ta=>{
   };
   document.querySelectorAll('[data-dq-up]').forEach(b=> b.onclick=()=> moveQuestion(b.dataset.dqUp, -1));
   document.querySelectorAll('[data-dq-down]').forEach(b=> b.onclick=()=> moveQuestion(b.dataset.dqDown, 1));
+  /* ---- feelings ---- */
+  const moodSectionToggle = document.getElementById('moodSectionToggle');
+  if(moodSectionToggle) moodSectionToggle.onclick = ()=>{
+    state.moodSectionOn = state.moodSectionOn === false;
+    saveState(); render();
+  };
+  const moodTitleInp = document.getElementById('moodTitle');
+  if(moodTitleInp) moodTitleInp.onchange = ()=>{
+    state.moodTitle = moodTitleInp.value.trim() || DEFAULT_MOOD_TITLE;
+    saveState(); render();
+  };
+  const moodField = (attr, prop)=>{
+    document.querySelectorAll('['+attr+']').forEach(inp=>{
+      inp.onchange = ()=>{
+        const m = moodOf(inp.getAttribute(attr));
+        if(!m) return;
+        m[prop] = inp.value.trim() || m[prop]; /* an empty name would leave an unnamed dot */
+        saveState(); render();
+      };
+    });
+  };
+  moodField('data-mood-icon','icon');
+  moodField('data-mood-label','label');
+  document.querySelectorAll('[data-mood-active]').forEach(b=> b.onclick=()=>{
+    const m = moodOf(b.dataset.moodActive);
+    if(!m) return;
+    m.active = m.active===false;
+    saveState(); render();
+  });
+  document.querySelectorAll('[data-mood-del]').forEach(b=> b.onclick=()=>{
+    const m = moodOf(b.dataset.moodDel);
+    if(!confirm(`تحذفين شعور "${m? m.label : ''}"؟ الأيام اللي اخترتيه فيها بتحتفظ فيه، بس ما يظهر بالاختيارات. لو تبين تخفينه بس، أوقفيه بدل الحذف.`)) return;
+    state.moods = state.moods.filter(x=>x.id!==b.dataset.moodDel);
+    saveState(); render();
+  });
+  const moveMood = (id, dir)=>{
+    const ms = state.moods;
+    const i = ms.findIndex(x=>x.id===id);
+    const j = i + dir;
+    if(i<0 || j<0 || j>=ms.length) return;
+    [ms[i], ms[j]] = [ms[j], ms[i]];
+    saveState(); render();
+  };
+  document.querySelectorAll('[data-mood-up]').forEach(b=> b.onclick=()=> moveMood(b.dataset.moodUp, -1));
+  document.querySelectorAll('[data-mood-down]').forEach(b=> b.onclick=()=> moveMood(b.dataset.moodDown, 1));
+  const moodAdd = document.getElementById('moodAdd');
+  if(moodAdd) moodAdd.onclick = ()=>{
+    const label = (document.getElementById('moodNewLabel').value||'').trim();
+    const icon = (document.getElementById('moodNewIcon').value||'').trim() || '🌿';
+    if(!label) return;
+    state.moods.push({id:uid(), label, icon, active:true});
+    saveState(); render();
+  };
+
   document.querySelectorAll('[data-dq-active]').forEach(b=> b.onclick=()=>{
     const q = (state.dailyQuestions||[]).find(x=>x.id===b.dataset.dqActive);
     if(!q) return;
