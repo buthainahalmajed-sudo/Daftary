@@ -553,6 +553,14 @@ function defaultTaskCategories(){
   return CATS.map(c=>({...c}));
 }
 function tcatOf(id){ return state.taskCategories.find(c=>c.id===id) || null; }
+/* The one place a category's name and icon come from. Her edited list wins; the
+   built-in definition is only a fallback so a goal whose domain she removed from
+   the list still renders instead of going blank. Goals used to read the frozen
+   CATS directly, so renaming a category left the tasks page showing the new name
+   while the goal wizard and every goal tag still showed the old one. */
+function catOf(id){ return tcatOf(id) || CAT_MAP[id] || null; }
+function catIcon(id){ return (catOf(id)||{}).icon || ''; }
+function catLabel(id){ return (catOf(id)||{}).label || ''; }
 
 const QUESTIONS = {
   health:['وش أول خطوة صغيرة تقدرين تبدئين فيها هالأسبوع؟','كم مرة بالأسبوع تبين تخصصين وقت لها؟'],
@@ -840,7 +848,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 28';
+const APP_BUILD = '2026-08-17 · 29';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -865,13 +873,38 @@ function hydrateState(parsed){
      her call from the category editor. */
   {
     const have = new Set(state.taskCategories.map(c=>c.id));
-    CATS.forEach(c=>{ if(!have.has(c.id)) state.taskCategories.push({...c}); });
+    /* seeding used to re-add every built-in domain that was missing, which quietly
+       undid her deletions — a category she removed was back the next time the app
+       opened. Ones she deleted on purpose are remembered and stay gone. */
+    if(!Array.isArray(state.removedCats)) state.removedCats = [];
+    const removed = new Set(state.removedCats);
+    CATS.forEach(c=>{ if(!have.has(c.id) && !removed.has(c.id)) state.taskCategories.push({...c}); });
+    /* a time box remembers which categories belong to it. Deleting a category
+       left its id sitting in that list for good — invisible in the editor, so
+       there was no way to see it or clear it. */
+    const live = new Set(state.taskCategories.map(c=>c.id));
+    state.timeBoxes.forEach(b=>{
+      if(Array.isArray(b.categoryIds)) b.categoryIds = b.categoryIds.filter(id=>live.has(id));
+    });
   }
   if(!state.goalPillars || !state.goalPillars.length) state.goalPillars = defaultGoalPillars();
   (state.goals||[]).forEach(g=>{
     if(g.pillarId && !g.pillarIds){ g.pillarIds = [g.pillarId]; delete g.pillarId; }
     if(!g.pillarIds) g.pillarIds = [];
     if(!g.customPillars) g.customPillars = [];
+    /* pillars she typed were held as loose text that displayed but grouped
+       nothing. Each distinct wording becomes a real pillar, shared by every goal
+       that used it, so goals she meant to file together finally sit together. */
+    if(g.customPillars.length){
+      g.customPillars.forEach(text=>{
+        const val = String(text||'').trim();
+        if(!val) return;
+        let p = state.goalPillars.find(x=> x.label.trim() === val);
+        if(!p){ p = {id:uid(), label:val, icon:'✨'}; state.goalPillars.push(p); }
+        if(!g.pillarIds.includes(p.id)) g.pillarIds.push(p.id);
+      });
+      g.customPillars = [];
+    }
     if(g.notes===undefined) g.notes = '';
     if(!g.attachments) g.attachments = [];
   });
@@ -1739,7 +1772,7 @@ function renderGoalWizard(){
       <div class="field">
         <label>يندرج تحت</label>
         <div class="chip-row" id="gwCats">
-          ${CATS.map(c=>`<button type="button" class="chip cat ${goalWizard.cat===c.id?'selected':''}" data-cat="${c.id}">${c.icon} ${c.label}</button>`).join('')}
+          ${state.taskCategories.map(c=>`<button type="button" class="chip cat ${goalWizard.cat===c.id?'selected':''}" data-cat="${c.id}">${c.icon} ${c.label}</button>`).join('')}
         </div>
       </div>
       <hr style="border:none;border-top:1px dashed var(--line);margin:16px 0;">
@@ -1801,9 +1834,16 @@ function attachGoalWizardEvents(){
     const inp = document.getElementById('gwCustomPillarInput');
     const val = inp.value.trim();
     if(!val) return;
-    goalWizard.customPillars = goalWizard.customPillars || [];
-    if(!goalWizard.customPillars.includes(val)) goalWizard.customPillars.push(val);
-    render();
+    /* a pillar she types becomes a real pillar. It used to be kept as loose text
+       on the goal, which displayed but grouped nothing — two goals carrying the
+       identical wording both landed under "بدون بند" instead of together. */
+    const existing = state.goalPillars.find(p=> p.label.trim() === val);
+    const pillar = existing || {id:uid(), label:val, icon:'✨'};
+    if(!existing) state.goalPillars.push(pillar);
+    goalWizard.pillarIds = goalWizard.pillarIds || [];
+    if(!goalWizard.pillarIds.includes(pillar.id)) goalWizard.pillarIds.push(pillar.id);
+    inp.value = '';
+    saveState(); render();
   };
   document.querySelectorAll('[data-custompillar-del]').forEach(b=>{
     b.onclick = ()=>{
@@ -2148,8 +2188,22 @@ function attachManagerEvents(){
   document.querySelectorAll('[data-tcat-del]').forEach(btn=> btn.onclick=()=>{
     if(state.taskCategories.length<=1) return;
     const cat = tcatOf(btn.dataset.tcatDel);
-    if(!confirm(`تحذفين تصنيف "${cat? cat.label : ''}"؟`)) return;
-    state.taskCategories = state.taskCategories.filter(c=>c.id!==btn.dataset.tcatDel);
+    const id = btn.dataset.tcatDel;
+    const usedBy = (state.tasks||[]).filter(t=>t.category===id).length;
+    const boxes = state.timeBoxes.filter(b=>(b.categoryIds||[]).includes(id)).map(b=>b.label);
+    if(!confirm(`تحذفين تصنيف "${cat? cat.label : ''}"؟`
+      + (usedBy? `\n\n${usedBy} مهمة مصنّفة فيه — بتنتقل لمجموعة "تصنيف محذوف" بصفحة المهام.` : '')
+      + (boxes.length? `\nوبينشال من صناديق: ${boxes.join('، ')}.` : ''))) return;
+    state.taskCategories = state.taskCategories.filter(c=>c.id!==id);
+    /* remember a built-in she removed, so seeding doesn't hand it back on reload */
+    if(CATS.some(c=>c.id===id)){
+      if(!Array.isArray(state.removedCats)) state.removedCats = [];
+      if(!state.removedCats.includes(id)) state.removedCats.push(id);
+    }
+    /* drop it from the boxes that pointed at it, so no box keeps a dead id */
+    state.timeBoxes.forEach(b=>{
+      if(Array.isArray(b.categoryIds)) b.categoryIds = b.categoryIds.filter(x=>x!==id);
+    });
     saveState(); render();
   });
   const tcatAddNew = document.getElementById('tcatAddNew');
@@ -2741,7 +2795,7 @@ function taskRowHtml(t, opts){
         <span class="tag p-${t.priority}">${t.priority}</span>
         ${t.actionType? `<span class="tag">🔸 ${escapeHtml(t.actionType)}</span>`:''}
         ${t.category? `<span class="tag">${tcatOf(t.category)?.icon||''} ${tcatOf(t.category)?.label||''}</span>`:''}
-        ${g? `<span class="tag">${CAT_MAP[g.cat]?.icon||''} ${escapeHtml(g.title)}</span>`:''}
+        ${g? `<span class="tag">${catIcon(g.cat)} ${escapeHtml(g.title)}</span>`:''}
         ${t.period? `<span class="tag" ${timeBoxTagStyle(box)}>${box? escapeHtml(box.label) : escapeHtml(t.period)}</span>`:''}
         ${t.due? `<span class="tag">🗓️ ${t.due}</span>`:''}
         ${taskAwaitingDate(t)? `<span class="tag" style="background:rgba(178,76,99,.13);color:var(--rose-dark);" title="فاتت بلا إنجاز، فرفعت عنها التاريخ — حددي لها موعدًا جديدًا وترجع ليومك">⏳ بلا تاريخ · فاتت ${t.lapsedFrom}</span>`:''}
@@ -3026,7 +3080,7 @@ function renderSuggestionsCard(){
     <div class="card">
       <div class="card-title"><h3 style="cursor:pointer;flex:1;display:flex;align-items:center;gap:7px;" data-toggle-collapse="suggestion"><span style="flex:1;">مقترح اليوم</span><span class="chev ${collapsed?"":"open"}">▾</span></h3></div>
       ${collapsed? '' : `
-      <p class="muted" style="margin-bottom:8px;">مبني على هدفك: <b style="color:var(--petrol-dark);">${CAT_MAP[g.cat]?.icon||''} ${escapeHtml(g.title)}</b>${state.goals.length>1? ` <span class="muted">(هدف ${(( state.tipGoalIndex||0)%state.goals.length)+1} من ${state.goals.length})</span>`:''}</p>
+      <p class="muted" style="margin-bottom:8px;">مبني على هدفك: <b style="color:var(--petrol-dark);">${catIcon(g.cat)} ${escapeHtml(g.title)}</b>${state.goals.length>1? ` <span class="muted">(هدف ${(( state.tipGoalIndex||0)%state.goals.length)+1} من ${state.goals.length})</span>`:''}</p>
       ${entry.personal? `<p class="muted" style="margin-bottom:4px;">🎯 من إجابتك أنتِ:</p>`:''}
       <p style="font-size:var(--t4);margin-bottom:12px;">${escapeHtml(entry.text)}</p>
       <div style="display:flex;gap:8px;">
@@ -3072,7 +3126,7 @@ function renderJournalEntryRow(j){
       </div>
     </div>`;
   }
-  const c = j.cat? CAT_MAP[j.cat] : null;
+  const c = j.cat? catOf(j.cat) : null;
   return `<div class="inbox-row" data-journal-row="${j.id}">
     <span class="dot"></span>
     <div style="flex:1;">
@@ -3091,7 +3145,7 @@ function renderJournalEntryRow(j){
    sliced the same way her goals and tasks are. */
 function journalCatPicker(kind, selected){
   return `<div class="chip-row" style="margin-bottom:10px;">
-    ${CATS.map(c=>`<button type="button" class="chip cat ${selected===c.id?'selected':''}" data-journal-cat="${kind}" data-cat="${c.id}">${c.icon} ${c.label}</button>`).join('')}
+    ${state.taskCategories.map(c=>`<button type="button" class="chip cat ${selected===c.id?'selected':''}" data-journal-cat="${kind}" data-cat="${c.id}">${c.icon} ${c.label}</button>`).join('')}
   </div>`;
 }
 function renderJournalPage(){
@@ -3103,7 +3157,7 @@ function renderJournalPage(){
   const personalEntries = state.journal.filter(j=>j.category==='personal' && inYear(j) && matchesCat(j)).sort((a,b)=>b.date.localeCompare(a.date));
   /* only offer domains she's actually tagged something with, so the filter row
      doesn't show nine chips that mostly lead to an empty list */
-  const usedCats = CATS.filter(c=> state.journal.some(j=> inYear(j) && j.cat===c.id));
+  const usedCats = state.taskCategories.filter(c=> state.journal.some(j=> inYear(j) && j.cat===c.id));
   return `
   <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:4px;">📖 يومياتي</h2>
   <p class="muted" style="margin-bottom:16px;">سجّلي إنجازاتك بحرية، عدّليها متى ما بغيتِ، واستخلصيها بنهاية السنة بضغطة وحدة.</p>
@@ -3435,7 +3489,7 @@ function renderGoalCard(g){
   return `
   <div class="card goal-card">
     <div class="card-title" style="justify-content:space-between;">
-      <h3>${CAT_MAP[g.cat]?.icon||''} ${escapeHtml(g.title)}</h3>
+      <h3>${catIcon(g.cat)} ${escapeHtml(g.title)}</h3>
       <div style="display:flex;gap:2px;">
         <button class="icon-btn" data-goal-up="${i}" ${i===0?'disabled':''}>▲</button>
         <button class="icon-btn" data-goal-down="${i}" ${i===state.goals.length-1?'disabled':''}>▼</button>
@@ -6154,7 +6208,7 @@ function renderTaskDraft(){
         <label>مرتبطة بهدف؟ (اختياري)</label>
         <select id="tdGoal">
           <option value="">بدون هدف محدد</option>
-          ${state.goals.map(g=>`<option value="${g.id}" ${d.goalId===g.id?'selected':''}>${CAT_MAP[g.cat]?.icon||''} ${escapeHtml(g.title)}</option>`).join('')}
+          ${state.goals.map(g=>`<option value="${g.id}" ${d.goalId===g.id?'selected':''}>${catIcon(g.cat)} ${escapeHtml(g.title)}</option>`).join('')}
         </select>
       </div>
       <div class="field">
