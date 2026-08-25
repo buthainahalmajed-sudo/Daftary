@@ -159,6 +159,13 @@ details.path-block > summary::-webkit-details-marker{display:none;}
   background:var(--paper);border-radius:8px;padding:10px 12px;margin:0 0 10px;
 }
 .path-actions{display:flex;gap:8px;flex-wrap:wrap;}
+/* Everything a path knows, in the open path itself. It used to sit behind a third
+   fold labelled "تفاصيل هالطريقة" — a heading that repeated where she already was,
+   and buried the money target whose number was showing in the summary line above. */
+.path-facts{
+  margin-top:10px;padding-top:10px;
+  border-top:1px dashed var(--line);
+}
 .path-extra, .path-add{margin-top:10px;}
 .path-extra > summary, .path-add > summary{
   cursor:pointer;list-style:none;font-size:var(--t2);color:var(--petrol);
@@ -848,7 +855,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 30';
+const APP_BUILD = '2026-08-17 · 31';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -4318,18 +4325,16 @@ function renderFinancePathsCard(fg){
             `}
           `:`<p class="muted" style="margin:6px 0 10px;">خلّصتي كل مقترحات هالطريقة 🎉</p>`}
 
-          <details class="path-extra" data-sec="pathInfo:${pid}" ${openSections['pathInfo:'+pid]?'open':''}>
-            <summary><span class="grow">تفاصيل هالطريقة</span><span class="chev">▾</span></summary>
-            <div class="details-body">
-              ${setup.successCriteria? `<p class="muted" style="margin-bottom:8px;">🎯 نجاحك يعني: <b style="color:var(--petrol-dark);">${escapeHtml(setup.successCriteria)}</b></p>`:''}
-              ${(p.tools&&p.tools.length)? `<p class="muted" style="margin-bottom:4px;">🧰 تحتاجين:</p><ul style="margin:0 0 10px;padding-inline-start:18px;font-size:var(--t3);line-height:1.9;">${p.tools.map(t=>`<li>${escapeHtml(t)}</li>`).join('')}</ul>`:''}
-              ${tip? `
-                <p class="muted" style="margin-bottom:4px;">تعديل نص المقترح الحالي:</p>
-                <textarea data-tip-edit="${pid}|${idx}" style="width:100%;padding:9px 11px;border:1.5px solid var(--line);border-radius:8px;background:var(--paper);font-size:var(--tf);margin-bottom:10px;min-height:44px;resize:vertical;">${escapeHtml(tip)}</textarea>
-              `:''}
-              <button class="btn ghost sm" data-path-remove="${pid}">✕ احذفي هالطريقة</button>
-            </div>
-          </details>
+          ${(setup.successCriteria || (p.tools&&p.tools.length) || tip)? `
+          <div class="path-facts">
+            ${setup.successCriteria? `<p class="muted" style="margin-bottom:8px;">🎯 نجاحك يعني: <b style="color:var(--petrol-dark);">${escapeHtml(setup.successCriteria)}</b></p>`:''}
+            ${(p.tools&&p.tools.length)? `<p class="muted" style="margin-bottom:4px;">🧰 تحتاجين:</p><ul style="margin:0 0 10px;padding-inline-start:18px;font-size:var(--t3);line-height:1.9;">${p.tools.map(t=>`<li>${escapeHtml(t)}</li>`).join('')}</ul>`:''}
+            ${tip? `
+              <p class="muted" style="margin-bottom:4px;font-size:var(--t2);">✎ تعديل نص المقترح</p>
+              <textarea data-tip-edit="${pid}|${idx}" style="width:100%;padding:9px 11px;border:1.5px solid var(--line);border-radius:8px;background:var(--paper);font-size:var(--tf);margin-bottom:10px;min-height:44px;resize:vertical;">${escapeHtml(tip)}</textarea>
+            `:''}
+            <button class="btn ghost sm" data-path-remove="${pid}">✕ احذفي هالطريقة</button>
+          </div>`:''}
           </div>
         </details>`;
       }).join('')}
@@ -4365,13 +4370,7 @@ function renderFinancePathsCard(fg){
               </div>`
             : `<p class="muted" style="margin:6px 0 10px;">${steps.length? 'خلّصتي كل خطواتك هنا 🎉' : 'ما فيه خطوات بعد — أضيفيها من التفاصيل تحت.'}</p>`}
 
-            <details class="path-extra" data-sec="cpInfo:${cp.id}" ${openSections['cpInfo:'+cp.id]?'open':''}>
-              <summary><span class="grow">تفاصيل هالطريقة</span><span class="chev">▾</span></summary>
-              <div class="details-body">
-                <div class="card-grid" style="margin-bottom:10px;">
-                  <div><label>اسم الطريقة</label><input type="text" data-cp-label="${cp.id}" value="${escapeHtml(cp.label)}" placeholder="اسم الطريقة"/></div>
-                  <div><label>رمز</label><input type="text" data-cp-icon="${cp.id}" value="${escapeHtml(cp.icon||'✏️')}" placeholder="✏️" style="text-align:center;"/></div>
-                </div>
+            <div class="path-facts">
                 <div class="card-grid" style="margin-bottom:10px;">
                   <div><label>الهدف الرقمي (ريال)</label><input type="number" min="0" step="0.01" data-cp-target="${cp.id}" value="${cp.target||''}" placeholder="مثال: 20000"/></div>
                   <div><label>اللي حققتيه</label><input type="number" min="0" step="0.01" data-cp-earned="${cp.id}" value="${cp.earned||''}" placeholder="0"/></div>
@@ -4393,9 +4392,12 @@ function renderFinancePathsCard(fg){
                   <button type="button" class="btn sm" data-cp-step-add="${cp.id}">إضافة</button>
                 </div>
 
+                <div class="card-grid" style="margin-bottom:10px;">
+                  <div><label>اسم الطريقة</label><input type="text" data-cp-label="${cp.id}" value="${escapeHtml(cp.label)}" placeholder="اسم الطريقة"/></div>
+                  <div><label>رمز</label><input type="text" data-cp-icon="${cp.id}" value="${escapeHtml(cp.icon||'✏️')}" placeholder="✏️" style="text-align:center;"/></div>
+                </div>
                 <button class="btn ghost sm" style="margin-top:12px;" data-custompath-del="${cp.id}">✕ احذفي هالطريقة</button>
-              </div>
-            </details>
+            </div>
           </div>
         </details>`;
       }).join('')}
