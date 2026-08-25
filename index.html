@@ -748,7 +748,11 @@ let journalExportText = '';
 let journalEditingId = null; /* id of the one journal entry currently shown as an editable textarea */
 let journalEditDraft = '';
 let textScale = 1;
-let openSections = {}; /* sectionKey -> bool, remembers manually-toggled <details> panels across the re-renders that follow every click inside them */
+/* sectionKey -> bool for <details> panels. Kept in memory during a render pass,
+   but mirrored into state.openSections so a panel she opened is still open when
+   she comes back tomorrow — half the app's folds were remembered and half were
+   forgotten on reload purely because they used different stores. */
+let openSections = {};
 let voiceCardOpen = false;
 let voiceDraftText = '';
 let voicePlan = null; /* array of {id, text, category, priority, period, due, include} once analyzed */
@@ -780,7 +784,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 23';
+const APP_BUILD = '2026-08-17 · 24';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -946,6 +950,32 @@ function hydrateState(parsed){
   });
   if(state.moodTitle===undefined) state.moodTitle = DEFAULT_MOOD_TITLE;
   if(state.moodSectionOn===undefined) state.moodSectionOn = true;
+
+  /* fold state survives a reload now, so it also has to be swept: a key is
+     "<kind>:<id>" and the id can be deleted long after the key was written. */
+  openSections = Object.assign({}, state.openSections || {});
+  const liveIds = new Set([
+    ...(state.goals||[]).map(g=>g.id),
+    ...(state.habits||[]).map(h=>h.id),
+    ...(state.dailyQuestions||[]).map(q=>q.id),
+    ...(state.taskCategories||[]).map(c=>c.id),
+    ...(state.goalPillars||[]).map(p=>p.id),
+    ...(((state.financialGoal||{}).customPaths)||[]).map(c=>c.id),
+    ...(state.tasks||[]).map(t=>t.id),
+  ]);
+  const sweep = obj=>{
+    Object.keys(obj||{}).forEach(k=>{
+      const i = k.indexOf(':');
+      if(i<0) return;                       /* a fixed section, not a per-item key */
+      const id = k.slice(i+1);
+      if(id==='__none__' || id==='') return; /* the catch-all buckets are permanent */
+      if(/^\d{4}-\d{2}-\d{2}$/.test(id)) return; /* date-keyed groups age out on their own */
+      if(!liveIds.has(id) && !FINANCE_PATHS.some(p=>p.id===id)) delete obj[k];
+    });
+  };
+  sweep(openSections);
+  sweep(state.collapsed);
+  state.openSections = openSections;
   if(!state.actionTypes || !state.actionTypes.length) state.actionTypes = ACTION_TYPES.slice();
   /* answers used to be a positional array, so editing or reordering the question
      list would have re-pointed every past answer at the wrong question. They are
@@ -6027,7 +6057,11 @@ function attachGlobalEvents(){
   /* remember which <details> panels the user opened, so clicking anything inside them
      (which triggers a render()) doesn't snap the panel shut again */
   document.querySelectorAll('details[data-sec]').forEach(d=>{
-    d.ontoggle = ()=>{ openSections[d.dataset.sec] = d.open; };
+    d.ontoggle = ()=>{
+      openSections[d.dataset.sec] = d.open;
+      state.openSections = openSections;
+      saveState();
+    };
   });
 
   /* task search: only refresh the task-list card, never the whole page, so the search
