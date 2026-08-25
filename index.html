@@ -330,6 +330,18 @@ details.path-block > summary::-webkit-details-marker{display:none;}
 .period-tab{flex:1;text-align:center;padding:7px;border-radius:8px;background:var(--parchment);border:1px solid var(--line);font-size:var(--t2);font-weight:700;color:#6b7a78;}
 .period-tab.active{background:var(--petrol);color:#fff;border-color:var(--petrol);}
 /* how many tasks sit in each box, so a day's workload reads without tabbing through */
+/* the three that matter most, sitting above the day's periods in the same card
+   so a task is never listed twice on one screen */
+.focus-strip{
+  border:1.5px solid var(--sage);border-radius:12px;
+  background:rgba(143,169,152,.09);
+  padding:10px 12px;margin-bottom:12px;
+}
+.focus-head{
+  display:flex;align-items:center;gap:6px;
+  font-size:var(--t2);font-weight:700;color:var(--petrol-dark);margin-bottom:4px;
+}
+.focus-strip .task-row:last-of-type{border-bottom:none;}
 .ptab-count{display:inline-block;min-width:16px;padding:0 4px;margin-inline-start:3px;border-radius:9px;background:rgba(46,92,90,.14);color:var(--petrol-dark);font-size:var(--t1);line-height:16px;font-weight:700;}
 .period-tab.active .ptab-count{background:rgba(255,255,255,.28);color:#fff;}
 
@@ -800,7 +812,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 25';
+const APP_BUILD = '2026-08-17 · 26';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -1996,6 +2008,10 @@ function renderSettings(){
       `}
     </div>
 
+    <h3 style="font-size:var(--t5);color:var(--petrol-dark);margin:26px 0 10px;">📋 قوائمك</h3>
+    <p class="muted" style="margin-bottom:12px;font-size:var(--t2);">القوائم اللي تُبنى عليها صفحاتك. عدّليها متى ما احتجتِ — وما راح تزحم صفحاتك اليومية.</p>
+    ${renderListManagers()}
+
     <div class="card">
       <div class="card-title"><h3>📦 تحديثات التطبيق</h3></div>
       <div class="quote-box" style="margin-bottom:10px;">
@@ -2031,8 +2047,240 @@ function renderSettings(){
     </details>
   </div>`;
 }
+/* Wiring for the list managers (time boxes, categories, action types, daily
+   questions, feelings, identity pillars). They live in Settings now, which
+   replaces the whole view and so never runs attachGlobalEvents — both entry
+   points call this instead of one of them silently losing its handlers. */
+function attachManagerEvents(){
+  document.querySelectorAll('[data-tbox-label]').forEach(inp=>{
+    inp.onchange = ()=>{
+      const b = timeBoxOf(inp.dataset.tboxLabel);
+      if(b){ b.label = inp.value.trim() || b.label; saveState(); render(); }
+    };
+  });
+  document.querySelectorAll('[data-tbox-start]').forEach(inp=>{
+    inp.onchange = ()=>{
+      const b = timeBoxOf(inp.dataset.tboxStart);
+      if(b && inp.value){ b.start = inp.value; saveState(); }
+    };
+  });
+  document.querySelectorAll('[data-tbox-end]').forEach(inp=>{
+    inp.onchange = ()=>{
+      const b = timeBoxOf(inp.dataset.tboxEnd);
+      if(b && inp.value){ b.end = inp.value; saveState(); }
+    };
+  });
+  document.querySelectorAll('[data-tbox-cat]').forEach(btn=> btn.onclick=()=>{
+    const b = timeBoxOf(btn.dataset.tboxCat);
+    if(!b) return;
+    if(!Array.isArray(b.categoryIds)) b.categoryIds = [];
+    const idx = b.categoryIds.indexOf(btn.dataset.cat);
+    if(idx>-1) b.categoryIds.splice(idx,1); else b.categoryIds.push(btn.dataset.cat);
+    saveState(); render();
+  });
+  document.querySelectorAll('[data-tbox-color]').forEach(btn=> btn.onclick=()=>{
+    const b = timeBoxOf(btn.dataset.tboxColor);
+    if(b){ b.color = btn.dataset.color; saveState(); render(); }
+  });
+  document.querySelectorAll('[data-tbox-del]').forEach(btn=> btn.onclick=()=>{
+    if(state.timeBoxes.length<=1) return;
+    const box = timeBoxOf(btn.dataset.tboxDel);
+    if(!confirm(`تحذفين صندوق "${box? box.label : ''}"؟`)) return;
+    state.timeBoxes = state.timeBoxes.filter(b=>b.id!==btn.dataset.tboxDel);
+    saveState(); render();
+  });
+  const tboxAddNew = document.getElementById('tboxAddNew');
+  if(tboxAddNew) tboxAddNew.onclick = ()=>{
+    const last = state.timeBoxes[state.timeBoxes.length-1];
+    const usedColors = state.timeBoxes.map(b=>b.color);
+    const nextColor = TIME_BOX_COLORS.find(c=>!usedColors.includes(c)) || TIME_BOX_COLORS[state.timeBoxes.length % TIME_BOX_COLORS.length];
+    const start = last? last.end : '08:00';
+    const end = pad(Math.floor((timeToMins(start)+120)/60)%24)+':'+pad((timeToMins(start)+120)%60);
+    state.timeBoxes.push({ id:uid(), label:'صندوق جديد', start, end, color: nextColor, categoryIds:[] });
+    saveState(); render();
+  };
+
+  document.querySelectorAll('[data-tcat-label]').forEach(inp=>{
+    inp.onchange = ()=>{
+      const c = tcatOf(inp.dataset.tcatLabel);
+      if(c){ c.label = inp.value.trim() || c.label; saveState(); render(); }
+    };
+  });
+  document.querySelectorAll('[data-tcat-icon]').forEach(inp=>{
+    inp.onchange = ()=>{
+      const c = tcatOf(inp.dataset.tcatIcon);
+      if(c){ c.icon = inp.value.trim() || c.icon; saveState(); render(); }
+    };
+  });
+  document.querySelectorAll('[data-tcat-del]').forEach(btn=> btn.onclick=()=>{
+    if(state.taskCategories.length<=1) return;
+    const cat = tcatOf(btn.dataset.tcatDel);
+    if(!confirm(`تحذفين تصنيف "${cat? cat.label : ''}"؟`)) return;
+    state.taskCategories = state.taskCategories.filter(c=>c.id!==btn.dataset.tcatDel);
+    saveState(); render();
+  });
+  const tcatAddNew = document.getElementById('tcatAddNew');
+  if(tcatAddNew) tcatAddNew.onclick = ()=>{
+    state.taskCategories.push({ id:uid(), label:'تصنيف جديد', icon:'🏷️' });
+    saveState(); render();
+  };
+
+  /* ---- daily questions ---- */
+  const dqTitle = document.getElementById('dqTitle');
+  if(dqTitle) dqTitle.onchange = ()=>{
+    state.questionsTitle = dqTitle.value.trim() || DEFAULT_QUESTIONS_TITLE;
+    saveState(); render();
+  };
+  document.querySelectorAll('[data-dq-text]').forEach(inp=>{
+    inp.onchange = ()=>{
+      const q = (state.dailyQuestions||[]).find(x=>x.id===inp.dataset.dqText);
+      if(q){ q.text = inp.value.trim() || q.text; saveState(); render(); }
+    };
+  });
+  document.querySelectorAll('[data-dq-del]').forEach(b=> b.onclick=()=>{
+    const q = (state.dailyQuestions||[]).find(x=>x.id===b.dataset.dqDel);
+    if(!confirm(`تحذفين سؤال "${q? q.text : ''}"؟ إجاباتك السابقة عليه تضل محفوظة، بس ما تظهر.`)) return;
+    state.dailyQuestions = state.dailyQuestions.filter(x=>x.id!==b.dataset.dqDel);
+    saveState(); render();
+  });
+  const moveQuestion = (id, dir)=>{
+    const qs = state.dailyQuestions;
+    const i = qs.findIndex(x=>x.id===id);
+    const j = i + dir;
+    if(i<0 || j<0 || j>=qs.length) return;
+    [qs[i], qs[j]] = [qs[j], qs[i]];
+    saveState(); render();
+  };
+  document.querySelectorAll('[data-dq-up]').forEach(b=> b.onclick=()=> moveQuestion(b.dataset.dqUp, -1));
+  document.querySelectorAll('[data-dq-down]').forEach(b=> b.onclick=()=> moveQuestion(b.dataset.dqDown, 1));
+  /* ---- feelings ---- */
+  const moodSectionToggle = document.getElementById('moodSectionToggle');
+  if(moodSectionToggle) moodSectionToggle.onclick = ()=>{
+    state.moodSectionOn = state.moodSectionOn === false;
+    saveState(); render();
+  };
+  const moodTitleInp = document.getElementById('moodTitle');
+  if(moodTitleInp) moodTitleInp.onchange = ()=>{
+    state.moodTitle = moodTitleInp.value.trim() || DEFAULT_MOOD_TITLE;
+    saveState(); render();
+  };
+  const moodField = (attr, prop)=>{
+    document.querySelectorAll('['+attr+']').forEach(inp=>{
+      inp.onchange = ()=>{
+        const m = moodOf(inp.getAttribute(attr));
+        if(!m) return;
+        m[prop] = inp.value.trim() || m[prop]; /* an empty name would leave an unnamed dot */
+        saveState(); render();
+      };
+    });
+  };
+  moodField('data-mood-icon','icon');
+  moodField('data-mood-label','label');
+  document.querySelectorAll('[data-mood-active]').forEach(b=> b.onclick=()=>{
+    const m = moodOf(b.dataset.moodActive);
+    if(!m) return;
+    m.active = m.active===false;
+    saveState(); render();
+  });
+  document.querySelectorAll('[data-mood-del]').forEach(b=> b.onclick=()=>{
+    const m = moodOf(b.dataset.moodDel);
+    if(!confirm(`تحذفين شعور "${m? m.label : ''}"؟ الأيام اللي اخترتيه فيها بتحتفظ فيه، بس ما يظهر بالاختيارات. لو تبين تخفينه بس، أوقفيه بدل الحذف.`)) return;
+    state.moods = state.moods.filter(x=>x.id!==b.dataset.moodDel);
+    saveState(); render();
+  });
+  const moveMood = (id, dir)=>{
+    const ms = state.moods;
+    const i = ms.findIndex(x=>x.id===id);
+    const j = i + dir;
+    if(i<0 || j<0 || j>=ms.length) return;
+    [ms[i], ms[j]] = [ms[j], ms[i]];
+    saveState(); render();
+  };
+  document.querySelectorAll('[data-mood-up]').forEach(b=> b.onclick=()=> moveMood(b.dataset.moodUp, -1));
+  document.querySelectorAll('[data-mood-down]').forEach(b=> b.onclick=()=> moveMood(b.dataset.moodDown, 1));
+  const moodAdd = document.getElementById('moodAdd');
+  if(moodAdd) moodAdd.onclick = ()=>{
+    const label = (document.getElementById('moodNewLabel').value||'').trim();
+    const icon = (document.getElementById('moodNewIcon').value||'').trim() || '🌿';
+    if(!label) return;
+    state.moods.push({id:uid(), label, icon, active:true});
+    saveState(); render();
+  };
+
+  document.querySelectorAll('[data-dq-active]').forEach(b=> b.onclick=()=>{
+    const q = (state.dailyQuestions||[]).find(x=>x.id===b.dataset.dqActive);
+    if(!q) return;
+    q.active = q.active===false;
+    saveState(); render();
+  });
+  const dqAddNew = document.getElementById('dqAddNew');
+  if(dqAddNew) dqAddNew.onclick = ()=>{
+    state.dailyQuestions.push({ id:uid(), text:'سؤال جديد', active:true });
+    saveState(); render();
+  };
+
+  /* ---- action types ---- */
+  document.querySelectorAll('[data-atype-text]').forEach(inp=>{
+    inp.onchange = ()=>{
+      const i = parseInt(inp.dataset.atypeText,10);
+      const val = inp.value.trim();
+      if(!val || !state.actionTypes[i]) return;
+      const old = state.actionTypes[i];
+      state.actionTypes[i] = val;
+      /* carry the rename onto tasks already tagged with it, so renaming a type
+         doesn't quietly orphan every task using it */
+      (state.tasks||[]).forEach(t=>{ if(t.actionType===old) t.actionType = val; });
+      saveState(); render();
+    };
+  });
+  document.querySelectorAll('[data-atype-del]').forEach(b=> b.onclick=()=>{
+    const i = parseInt(b.dataset.atypeDel,10);
+    const name = state.actionTypes[i];
+    const used = (state.tasks||[]).filter(t=>t.actionType===name).length;
+    if(!confirm(`تحذفين نوع "${name}"؟${used? ` فيه ${used} مهمة مستخدمة له — بتضل محتفظة فيه لين تغيّرينه.`:''}`)) return;
+    state.actionTypes.splice(i,1);
+    saveState(); render();
+  });
+  const atypeAdd = document.getElementById('atypeAdd');
+  if(atypeAdd) atypeAdd.onclick = ()=>{
+    const inp = document.getElementById('atypeNew');
+    const val = inp.value.trim();
+    if(!val) return;
+    if(state.actionTypes.includes(val)){ inp.value=''; return; }
+    state.actionTypes.push(val);
+    saveState(); render();
+  };
+
+  document.querySelectorAll('[data-pillar-label]').forEach(inp=>{
+    inp.onchange = ()=>{
+      const p = pillarOf(inp.dataset.pillarLabel);
+      if(p){ p.label = inp.value.trim() || p.label; saveState(); render(); }
+    };
+  });
+  document.querySelectorAll('[data-pillar-icon]').forEach(inp=>{
+    inp.onchange = ()=>{
+      const p = pillarOf(inp.dataset.pillarIcon);
+      if(p){ p.icon = inp.value.trim() || p.icon; saveState(); render(); }
+    };
+  });
+  document.querySelectorAll('[data-pillar-del]').forEach(btn=> btn.onclick=()=>{
+    const p = pillarOf(btn.dataset.pillarDel);
+    if(!confirm(`تحذفين بند "${p? p.label : ''}"؟ الأهداف تحته بترجع "بدون بند".`)) return;
+    state.goalPillars = state.goalPillars.filter(x=>x.id!==btn.dataset.pillarDel);
+    state.goals.forEach(g=>{ g.pillarIds = (g.pillarIds||[]).filter(id=>id!==btn.dataset.pillarDel); });
+    saveState(); render();
+  });
+  const pillarAddNew = document.getElementById('pillarAddNew');
+  if(pillarAddNew) pillarAddNew.onclick = ()=>{
+    state.goalPillars.push({ id:uid(), label:'بند جديد', icon:'✨' });
+    saveState(); render();
+  };
+}
+
 function attachSettingsEvents(){
   document.getElementById('closeSettings').onclick = ()=>{ settingsOpen=false; syncExportCode=''; syncMsg=null; showLinkInfo=false; render(); };
+
+  attachManagerEvents();
 
   /* read the published build straight off the server, bypassing every cache, and
      say plainly whether this device is behind — guessing was the problem */
@@ -2281,18 +2529,7 @@ function renderHome(){
   ${isToday && !hasUrgentToday()? `
   <div class="card" style="text-align:center;">
     <p style="font-size:var(--t4);color:var(--petrol-dark);line-height:1.8;margin:6px 0;">${escapeHtml(dailyPick(RELAXATION_MESSAGES, todayStr()))}</p>
-  </div>
-  ` : `
-  <div class="card">
-    <div class="card-title"><h3>${isToday? 'أهم 3 مهام لليوم': (hasUrgentOnDate(selectedDate)? '⚠️ أهم مهام هذا اليوم' : 'مهام هذا التاريخ')}</h3>
-      ${isToday? `<button class="icon-btn sm" id="refreshTop" title="إعادة الاختيار">↻</button>`:''}
-    </div>
-    ${renderTasksForDate(isToday)}
-    ${isToday && topTasksHasTie() && !getLog(todayStr()).pinnedTop3? `<p class="muted" style="margin-top:10px;color:var(--rose-dark);">🤔 عندي أكثر من مهمة بنفس مستوى الأهمية، وما أقدر أحدد وحدها بثقة. تبين تختارين الأهم ٣ بنفسك؟</p>`:''}
-    ${isToday? `<button class="btn ghost btn-block" style="margin-top:8px;" id="openTop3Picker">🗣️ ساعديني أحدد الأهم بنفسي</button>`:''}
-    ${isToday && getLog(todayStr()).pinnedTop3? `<button class="btn ghost btn-block" style="margin-top:8px;" id="resetTop3">↻ رجّعيها للاختيار التلقائي</button>`:''}
-  </div>
-  `}
+  </div>`:''}
 
   ${renderScheduleCard(selectedDate)}
   ${isToday? renderSuggestionsCard():''}
@@ -2506,18 +2743,38 @@ function renderScheduleCard(){
   const pool = isToday
     ? state.tasks.filter(t=> !taskDoneToday(t) && taskActiveToday(t))
     : tasksShownForDate(dateStr).filter(t=> !taskDoneOnDate(t, dateStr));
-  const countIn = id => pool.filter(t=>t.period===id).length;
+  /* The three that matter most are lifted out of the period lists and shown once
+     at the top. They used to sit in their own card as well as inside the schedule,
+     so the same task appeared twice on one screen and could be ticked in either. */
+  const focus = isToday? topTasks() : [];
+  const focusIds = new Set(focus.map(t=>t.id));
+  const rest = pool.filter(t=> !focusIds.has(t.id));
+  const countIn = id => rest.filter(t=>t.period===id).length;
   /* the schedule is strictly the day laid out by time box. A task with no period
      (or one pointing at a box she deleted) has no place on that map, so it stays
      out of here entirely — it is still reachable on the tasks page, under its
      category or under "غير مصنّفة". */
-  const items = pool.filter(t=>t.period===period);
+  const items = rest.filter(t=>t.period===period);
   const collapsed = state.collapsed.schedule;
   const activeBox = timeBoxOf(period);
+  const pinned = isToday && getLog(todayStr()).pinnedTop3;
   return `
   <div class="card">
-    <div class="card-title"><h3 style="cursor:pointer;flex:1;display:flex;align-items:center;gap:7px;" data-toggle-collapse="schedule"><span style="flex:1;">${isToday? 'جدول يومك' : 'جدول هذا اليوم'}</span><span class="chev ${collapsed?"":"open"}">▾</span></h3></div>
+    <div class="card-title"><h3 style="cursor:pointer;flex:1;display:flex;align-items:center;gap:7px;" data-toggle-collapse="schedule"><span style="flex:1;">${isToday? 'يومك' : 'جدول هذا اليوم'}</span><span class="chev ${collapsed?"":"open"}">▾</span></h3></div>
     ${collapsed? '' : `
+    ${focus.length? `
+    <div class="focus-strip">
+      <div class="focus-head">
+        <span style="flex:1;">⭐ أهم ${focus.length===1?'مهمة':focus.length===2?'مهمتين':focus.length+' مهام'} اليوم</span>
+        <button class="icon-btn sm" id="refreshTop" title="إعادة الاختيار">↻</button>
+      </div>
+      ${focus.map(t=>taskRowHtml(t, {date:dateStr})).join('')}
+      ${topTasksHasTie() && !pinned? `<p class="muted" style="margin-top:8px;color:var(--rose-dark);font-size:var(--t2);">🤔 فيه مهام متساوية بالأهمية — تبين تختارين الثلاث بنفسك؟</p>`:''}
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+        <button class="btn ghost sm" id="openTop3Picker">🗣️ أحددها بنفسي</button>
+        ${pinned? `<button class="btn ghost sm" id="resetTop3">↻ رجّعيها تلقائية</button>`:''}
+      </div>
+    </div>`:''}
     <div class="period-tabs">
       ${state.timeBoxes.map(b=>{
         const n = countIn(b.id);
@@ -2525,9 +2782,8 @@ function renderScheduleCard(){
       }).join('')}
     </div>
     ${activeBox? `<p class="muted" style="margin-bottom:10px;">⏰ ${activeBox.start} – ${activeBox.end}${(activeBox.categoryIds&&activeBox.categoryIds.length)? ' · '+activeBox.categoryIds.map(id=>tcatOf(id)?.label).filter(Boolean).join('، ') : ''}</p>`:''}
-    ${items.length===0? `<div class="empty">ما فيه مهام في هالصندوق. وزّعي مهامك من صفحة المهام.</div>` : items.map(t=>taskRowHtml(t, {date:dateStr})).join('')}
+    ${items.length===0? `<div class="empty tight">ما فيه مهام في هالصندوق${focus.length? '' : ''}<span class="hint">وزّعي مهامك من صفحة المهام</span></div>` : items.map(t=>taskRowHtml(t, {date:dateStr})).join('')}
     <button class="btn ghost btn-block" style="margin-top:8px;" id="goAddTaskPeriod" data-add-period="${period}">+ إضافة مهمة ${activeBox?'لـ'+escapeHtml(activeBox.label):''}</button>
-    <p class="muted" style="margin-top:8px;font-size:var(--t2);">🎨 تعديل صناديق الزمن (الاسم، الوقت، اللون) صار من تبويب "الأساس".</p>
     `}
   </div>`;
 }
@@ -3184,6 +3440,17 @@ function renderGoals(){
     </div>
   </details>
 
+  <div class="card" style="text-align:center;">
+    <p class="muted" style="margin-bottom:10px;">القوائم اللي تُبنى عليها صفحاتك — بنود الهوية، صناديق الزمن، التصنيفات، أنواع الفعل، التساؤلات، والمشاعر — انتقلت للإعدادات، عشان هالصفحة تضل لرؤيتك وأهدافك.</p>
+    <button class="btn ghost sm" id="goToLists">⚙️ افتحي قوائمك</button>
+  </div>`;
+}
+/* the six list managers. They were stacked under الأساس, where they accounted for
+   125 of that page's 138 buttons and every one of its 71 fields — a page meant for
+   her vision and her yearly goals had become a control panel. They are settings,
+   and they live with the settings now. */
+function renderListManagers(){
+  return `
   ${renderGoalPillarManager()}
   ${renderTimeBoxManager()}
   ${renderTaskCategoryManager()}
@@ -6335,6 +6602,8 @@ document.querySelectorAll('[data-qnote]').forEach(ta=>{
     view = 'money'; moneySubView = 'finance'; render();
   });
   document.querySelectorAll('[data-goto-goals]').forEach(b=> b.onclick=()=>{ view = 'goals'; render(); });
+  const goToLists = document.getElementById('goToLists');
+  if(goToLists) goToLists.onclick = ()=>{ settingsOpen = true; render(); };
 
   const conflictTakeCloud = document.getElementById('conflictTakeCloud');
   if(conflictTakeCloud) conflictTakeCloud.onclick = async ()=>{
@@ -6362,229 +6631,7 @@ document.querySelectorAll('[data-qnote]').forEach(ta=>{
     render();
   });
 
-  document.querySelectorAll('[data-tbox-label]').forEach(inp=>{
-    inp.onchange = ()=>{
-      const b = timeBoxOf(inp.dataset.tboxLabel);
-      if(b){ b.label = inp.value.trim() || b.label; saveState(); render(); }
-    };
-  });
-  document.querySelectorAll('[data-tbox-start]').forEach(inp=>{
-    inp.onchange = ()=>{
-      const b = timeBoxOf(inp.dataset.tboxStart);
-      if(b && inp.value){ b.start = inp.value; saveState(); }
-    };
-  });
-  document.querySelectorAll('[data-tbox-end]').forEach(inp=>{
-    inp.onchange = ()=>{
-      const b = timeBoxOf(inp.dataset.tboxEnd);
-      if(b && inp.value){ b.end = inp.value; saveState(); }
-    };
-  });
-  document.querySelectorAll('[data-tbox-cat]').forEach(btn=> btn.onclick=()=>{
-    const b = timeBoxOf(btn.dataset.tboxCat);
-    if(!b) return;
-    if(!Array.isArray(b.categoryIds)) b.categoryIds = [];
-    const idx = b.categoryIds.indexOf(btn.dataset.cat);
-    if(idx>-1) b.categoryIds.splice(idx,1); else b.categoryIds.push(btn.dataset.cat);
-    saveState(); render();
-  });
-  document.querySelectorAll('[data-tbox-color]').forEach(btn=> btn.onclick=()=>{
-    const b = timeBoxOf(btn.dataset.tboxColor);
-    if(b){ b.color = btn.dataset.color; saveState(); render(); }
-  });
-  document.querySelectorAll('[data-tbox-del]').forEach(btn=> btn.onclick=()=>{
-    if(state.timeBoxes.length<=1) return;
-    const box = timeBoxOf(btn.dataset.tboxDel);
-    if(!confirm(`تحذفين صندوق "${box? box.label : ''}"؟`)) return;
-    state.timeBoxes = state.timeBoxes.filter(b=>b.id!==btn.dataset.tboxDel);
-    saveState(); render();
-  });
-  const tboxAddNew = document.getElementById('tboxAddNew');
-  if(tboxAddNew) tboxAddNew.onclick = ()=>{
-    const last = state.timeBoxes[state.timeBoxes.length-1];
-    const usedColors = state.timeBoxes.map(b=>b.color);
-    const nextColor = TIME_BOX_COLORS.find(c=>!usedColors.includes(c)) || TIME_BOX_COLORS[state.timeBoxes.length % TIME_BOX_COLORS.length];
-    const start = last? last.end : '08:00';
-    const end = pad(Math.floor((timeToMins(start)+120)/60)%24)+':'+pad((timeToMins(start)+120)%60);
-    state.timeBoxes.push({ id:uid(), label:'صندوق جديد', start, end, color: nextColor, categoryIds:[] });
-    saveState(); render();
-  };
-
-  document.querySelectorAll('[data-tcat-label]').forEach(inp=>{
-    inp.onchange = ()=>{
-      const c = tcatOf(inp.dataset.tcatLabel);
-      if(c){ c.label = inp.value.trim() || c.label; saveState(); render(); }
-    };
-  });
-  document.querySelectorAll('[data-tcat-icon]').forEach(inp=>{
-    inp.onchange = ()=>{
-      const c = tcatOf(inp.dataset.tcatIcon);
-      if(c){ c.icon = inp.value.trim() || c.icon; saveState(); render(); }
-    };
-  });
-  document.querySelectorAll('[data-tcat-del]').forEach(btn=> btn.onclick=()=>{
-    if(state.taskCategories.length<=1) return;
-    const cat = tcatOf(btn.dataset.tcatDel);
-    if(!confirm(`تحذفين تصنيف "${cat? cat.label : ''}"؟`)) return;
-    state.taskCategories = state.taskCategories.filter(c=>c.id!==btn.dataset.tcatDel);
-    saveState(); render();
-  });
-  const tcatAddNew = document.getElementById('tcatAddNew');
-  if(tcatAddNew) tcatAddNew.onclick = ()=>{
-    state.taskCategories.push({ id:uid(), label:'تصنيف جديد', icon:'🏷️' });
-    saveState(); render();
-  };
-
-  /* ---- daily questions ---- */
-  const dqTitle = document.getElementById('dqTitle');
-  if(dqTitle) dqTitle.onchange = ()=>{
-    state.questionsTitle = dqTitle.value.trim() || DEFAULT_QUESTIONS_TITLE;
-    saveState(); render();
-  };
-  document.querySelectorAll('[data-dq-text]').forEach(inp=>{
-    inp.onchange = ()=>{
-      const q = (state.dailyQuestions||[]).find(x=>x.id===inp.dataset.dqText);
-      if(q){ q.text = inp.value.trim() || q.text; saveState(); render(); }
-    };
-  });
-  document.querySelectorAll('[data-dq-del]').forEach(b=> b.onclick=()=>{
-    const q = (state.dailyQuestions||[]).find(x=>x.id===b.dataset.dqDel);
-    if(!confirm(`تحذفين سؤال "${q? q.text : ''}"؟ إجاباتك السابقة عليه تضل محفوظة، بس ما تظهر.`)) return;
-    state.dailyQuestions = state.dailyQuestions.filter(x=>x.id!==b.dataset.dqDel);
-    saveState(); render();
-  });
-  const moveQuestion = (id, dir)=>{
-    const qs = state.dailyQuestions;
-    const i = qs.findIndex(x=>x.id===id);
-    const j = i + dir;
-    if(i<0 || j<0 || j>=qs.length) return;
-    [qs[i], qs[j]] = [qs[j], qs[i]];
-    saveState(); render();
-  };
-  document.querySelectorAll('[data-dq-up]').forEach(b=> b.onclick=()=> moveQuestion(b.dataset.dqUp, -1));
-  document.querySelectorAll('[data-dq-down]').forEach(b=> b.onclick=()=> moveQuestion(b.dataset.dqDown, 1));
-  /* ---- feelings ---- */
-  const moodSectionToggle = document.getElementById('moodSectionToggle');
-  if(moodSectionToggle) moodSectionToggle.onclick = ()=>{
-    state.moodSectionOn = state.moodSectionOn === false;
-    saveState(); render();
-  };
-  const moodTitleInp = document.getElementById('moodTitle');
-  if(moodTitleInp) moodTitleInp.onchange = ()=>{
-    state.moodTitle = moodTitleInp.value.trim() || DEFAULT_MOOD_TITLE;
-    saveState(); render();
-  };
-  const moodField = (attr, prop)=>{
-    document.querySelectorAll('['+attr+']').forEach(inp=>{
-      inp.onchange = ()=>{
-        const m = moodOf(inp.getAttribute(attr));
-        if(!m) return;
-        m[prop] = inp.value.trim() || m[prop]; /* an empty name would leave an unnamed dot */
-        saveState(); render();
-      };
-    });
-  };
-  moodField('data-mood-icon','icon');
-  moodField('data-mood-label','label');
-  document.querySelectorAll('[data-mood-active]').forEach(b=> b.onclick=()=>{
-    const m = moodOf(b.dataset.moodActive);
-    if(!m) return;
-    m.active = m.active===false;
-    saveState(); render();
-  });
-  document.querySelectorAll('[data-mood-del]').forEach(b=> b.onclick=()=>{
-    const m = moodOf(b.dataset.moodDel);
-    if(!confirm(`تحذفين شعور "${m? m.label : ''}"؟ الأيام اللي اخترتيه فيها بتحتفظ فيه، بس ما يظهر بالاختيارات. لو تبين تخفينه بس، أوقفيه بدل الحذف.`)) return;
-    state.moods = state.moods.filter(x=>x.id!==b.dataset.moodDel);
-    saveState(); render();
-  });
-  const moveMood = (id, dir)=>{
-    const ms = state.moods;
-    const i = ms.findIndex(x=>x.id===id);
-    const j = i + dir;
-    if(i<0 || j<0 || j>=ms.length) return;
-    [ms[i], ms[j]] = [ms[j], ms[i]];
-    saveState(); render();
-  };
-  document.querySelectorAll('[data-mood-up]').forEach(b=> b.onclick=()=> moveMood(b.dataset.moodUp, -1));
-  document.querySelectorAll('[data-mood-down]').forEach(b=> b.onclick=()=> moveMood(b.dataset.moodDown, 1));
-  const moodAdd = document.getElementById('moodAdd');
-  if(moodAdd) moodAdd.onclick = ()=>{
-    const label = (document.getElementById('moodNewLabel').value||'').trim();
-    const icon = (document.getElementById('moodNewIcon').value||'').trim() || '🌿';
-    if(!label) return;
-    state.moods.push({id:uid(), label, icon, active:true});
-    saveState(); render();
-  };
-
-  document.querySelectorAll('[data-dq-active]').forEach(b=> b.onclick=()=>{
-    const q = (state.dailyQuestions||[]).find(x=>x.id===b.dataset.dqActive);
-    if(!q) return;
-    q.active = q.active===false;
-    saveState(); render();
-  });
-  const dqAddNew = document.getElementById('dqAddNew');
-  if(dqAddNew) dqAddNew.onclick = ()=>{
-    state.dailyQuestions.push({ id:uid(), text:'سؤال جديد', active:true });
-    saveState(); render();
-  };
-
-  /* ---- action types ---- */
-  document.querySelectorAll('[data-atype-text]').forEach(inp=>{
-    inp.onchange = ()=>{
-      const i = parseInt(inp.dataset.atypeText,10);
-      const val = inp.value.trim();
-      if(!val || !state.actionTypes[i]) return;
-      const old = state.actionTypes[i];
-      state.actionTypes[i] = val;
-      /* carry the rename onto tasks already tagged with it, so renaming a type
-         doesn't quietly orphan every task using it */
-      (state.tasks||[]).forEach(t=>{ if(t.actionType===old) t.actionType = val; });
-      saveState(); render();
-    };
-  });
-  document.querySelectorAll('[data-atype-del]').forEach(b=> b.onclick=()=>{
-    const i = parseInt(b.dataset.atypeDel,10);
-    const name = state.actionTypes[i];
-    const used = (state.tasks||[]).filter(t=>t.actionType===name).length;
-    if(!confirm(`تحذفين نوع "${name}"؟${used? ` فيه ${used} مهمة مستخدمة له — بتضل محتفظة فيه لين تغيّرينه.`:''}`)) return;
-    state.actionTypes.splice(i,1);
-    saveState(); render();
-  });
-  const atypeAdd = document.getElementById('atypeAdd');
-  if(atypeAdd) atypeAdd.onclick = ()=>{
-    const inp = document.getElementById('atypeNew');
-    const val = inp.value.trim();
-    if(!val) return;
-    if(state.actionTypes.includes(val)){ inp.value=''; return; }
-    state.actionTypes.push(val);
-    saveState(); render();
-  };
-
-  document.querySelectorAll('[data-pillar-label]').forEach(inp=>{
-    inp.onchange = ()=>{
-      const p = pillarOf(inp.dataset.pillarLabel);
-      if(p){ p.label = inp.value.trim() || p.label; saveState(); render(); }
-    };
-  });
-  document.querySelectorAll('[data-pillar-icon]').forEach(inp=>{
-    inp.onchange = ()=>{
-      const p = pillarOf(inp.dataset.pillarIcon);
-      if(p){ p.icon = inp.value.trim() || p.icon; saveState(); render(); }
-    };
-  });
-  document.querySelectorAll('[data-pillar-del]').forEach(btn=> btn.onclick=()=>{
-    const p = pillarOf(btn.dataset.pillarDel);
-    if(!confirm(`تحذفين بند "${p? p.label : ''}"؟ الأهداف تحته بترجع "بدون بند".`)) return;
-    state.goalPillars = state.goalPillars.filter(x=>x.id!==btn.dataset.pillarDel);
-    state.goals.forEach(g=>{ g.pillarIds = (g.pillarIds||[]).filter(id=>id!==btn.dataset.pillarDel); });
-    saveState(); render();
-  });
-  const pillarAddNew = document.getElementById('pillarAddNew');
-  if(pillarAddNew) pillarAddNew.onclick = ()=>{
-    state.goalPillars.push({ id:uid(), label:'بند جديد', icon:'✨' });
-    saveState(); render();
-  };
+  attachManagerEvents();
 
   const visionStart = document.getElementById('visionStart');
   if(visionStart) visionStart.onclick = ()=>{ visionWizard = {step:'questions', answers:[]}; render(); };
