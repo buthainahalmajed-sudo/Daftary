@@ -848,7 +848,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 29';
+const APP_BUILD = '2026-08-17 · 30';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -1756,7 +1756,7 @@ function renderGoalWizard(){
         <input type="text" id="gwTitle" placeholder="مثال: تحسين صحة شعري" value="${escapeHtml(goalWizard.title)}"/>
       </div>
       <div class="field">
-        <label>تحت أي بنود رئيسية من هويتك؟ (اختياري، تقدرين تختارين أكثر من وحد)</label>
+        <label>بند الهوية — مَن تكونين لما تحققينه؟</label><p class="muted" style="margin:-2px 0 8px;font-size:var(--t2);">يجمع أهدافك بصفحة الأساس. اختياري، وتقدرين تختارين أكثر من بند.</p>
         <div class="chip-row" id="gwPillars">
           ${state.goalPillars.map(p=>`<button type="button" class="chip ${(goalWizard.pillarIds||[]).includes(p.id)?'selected':''}" data-pillar="${p.id}">${p.icon} ${p.label}</button>`).join('')}
         </div>
@@ -1770,7 +1770,7 @@ function renderGoalWizard(){
         </div>
       </div>
       <div class="field">
-        <label>يندرج تحت</label>
+        <label>مجال الهدف — أي نوع شغل هو؟</label><p class="muted" style="margin:-2px 0 8px;font-size:var(--t2);">يجمع مهام هذا الهدف بصفحة المهام، وهو نفس تصنيف المهام.</p>
         <div class="chip-row" id="gwCats">
           ${state.taskCategories.map(c=>`<button type="button" class="chip cat ${goalWizard.cat===c.id?'selected':''}" data-cat="${c.id}">${c.icon} ${c.label}</button>`).join('')}
         </div>
@@ -2892,7 +2892,7 @@ function renderTimeBoxManager(){
   <details class="card" data-sec="tboxes" ${openSections.tboxes?'open':''} style="margin-bottom:14px;">
     <summary><h3>🎨 صناديق الزمن <span class="chev">▾</span></h3></summary>
     <div class="details-body">
-      <p class="muted" style="margin-bottom:10px;">حددي وقت كل صندوق، لونه، ووش نوع المهام المناسبة له (مثلاً "مهام عائلية" أو "مهام مهنية") — عشان أي مهمة جديدة تنقترح تلقائيًا للصندوق المناسب لوقتها.</p>
+      <p class="muted" style="margin-bottom:10px;">حددي وقت كل صندوق ولونه، وأي تصنيفات تناسبه. لما تختارين أحد هذي التصنيفات لمهمة جديدة، تنتقل تلقائيًا لهذا الصندوق.</p>
       ${state.timeBoxes.map(b=>`
         <div class="tbox-row" data-tbox="${b.id}">
           <input type="text" data-tbox-label="${b.id}" value="${escapeHtml(b.label)}" placeholder="اسم الصندوق"/>
@@ -2901,7 +2901,7 @@ function renderTimeBoxManager(){
             <span class="muted">إلى</span>
             <input type="time" data-tbox-end="${b.id}" value="${b.end}"/>
           </div>
-          <p class="muted" style="font-size:var(--t2);margin-bottom:2px;">وش نوع المهام المناسبة لهالصندوق؟</p>
+          <p class="muted" style="font-size:var(--t2);margin-bottom:2px;">أي تصنيفات تناسب هالصندوق؟ (المهمة بهالتصنيف تنتقل له تلقائيًا)</p>
           <div class="chip-row">
             ${state.taskCategories.map(c=>`<button type="button" class="chip ${(b.categoryIds||[]).includes(c.id)?'selected':''}" data-tbox-cat="${b.id}" data-cat="${c.id}">${c.icon} ${c.label}</button>`).join('')}
           </div>
@@ -3486,6 +3486,16 @@ function renderLifeVisionSection(){
 function renderGoalCard(g){
   const i = state.goals.indexOf(g);
   const customTags = (g.customPillars||[]).map(c=>`<span class="tag">${escapeHtml(c)}</span>`).join('');
+  /* a goal is filed on two axes that are easy to confuse, so the card names both:
+     the pillar groups it here, the domain groups its tasks on the tasks page */
+  const pillarTags = (g.pillarIds||[]).map(pid=>pillarOf(pid)).filter(Boolean)
+    .map(p=>`<span class="tag">${p.icon} ${escapeHtml(p.label)}</span>`).join('');
+  const axisRow = `
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px;">
+      ${pillarTags || `<span class="tag" style="opacity:.6;">بدون بند هوية</span>`}
+      <span class="muted" style="font-size:var(--t1);">·</span>
+      <span class="tag">${catIcon(g.cat)} ${escapeHtml(catLabel(g.cat))}</span>
+    </div>`;
   return `
   <div class="card goal-card">
     <div class="card-title" style="justify-content:space-between;">
@@ -3497,6 +3507,7 @@ function renderGoalCard(g){
         <button class="icon-btn" data-delgoal="${g.id}">✕</button>
       </div>
     </div>
+    ${axisRow}
     ${customTags? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px;">${customTags}</div>`:''}
     ${g.answers && g.answers.some(a=>a) ? `
       <div style="margin-top:6px;">
@@ -3532,7 +3543,7 @@ function renderGoals(){
     + goalGroupHtml('pillarGroup:__none__', '🗂️', 'بدون بند', noPillar);
   return `
   <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:4px;">الأساس</h2>
-  <p class="muted" style="margin-bottom:16px;">أهدافك السنوية، صناديق الزمن، والتصنيفات اللي تُبنى عليها مهامك — كل شي أساسي بمكان واحد.</p>
+  <p class="muted" style="margin-bottom:16px;">رؤيتك وأهدافك السنوية. كل هدف له <b>بند هوية</b> (مَن تكونين) و<b>مجال</b> (نوع الشغل) — البند يجمع أهدافك هنا، والمجال يجمع مهامها بصفحة المهام.</p>
 
   ${renderLifeVisionSection()}
 
