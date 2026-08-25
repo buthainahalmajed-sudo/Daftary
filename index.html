@@ -83,8 +83,16 @@ details.card{padding:0;}
 details.card > summary{list-style:none;cursor:pointer;padding:18px;display:flex;justify-content:space-between;align-items:center;gap:8px;}
 details.card > summary::-webkit-details-marker{display:none;}
 details.card > summary h3{font-size:19px;color:var(--petrol-dark);}
-details.card > summary .chev{font-size:13px;color:var(--petrol);transition:transform .2s ease;flex-shrink:0;}
-details.card[open] > summary .chev{transform:rotate(180deg);}
+/* ---------- the one fold marker ----------
+   Every foldable thing in the app says so the same way: a single chevron at the
+   end of its summary line that rotates when it opens. It used to be said four
+   ways — a rotating span here, a ▸/▾ glyph swapped inside the heading text
+   there, a ::before arrow on two other kinds of panel — so the same gesture had
+   to be relearned in each section. Works both inside a <details> and on the
+   plain heading toggles, which carry .chev.open instead. */
+.chev{font-size:13px;color:var(--petrol);transition:transform .2s ease;flex-shrink:0;display:inline-block;}
+details[open] > summary .chev, .chev.open{transform:rotate(180deg);}
+@media (prefers-reduced-motion:reduce){ .chev{transition:none;} }
 details.card > .details-body{padding:0 18px 18px;}
 .card-title h3{font-size:20px;color:var(--petrol-dark);}
 .eyebrow{font-size:11px;letter-spacing:.4px;color:var(--rose-dark);font-weight:700;margin-bottom:4px;display:block;}
@@ -119,8 +127,6 @@ details.card > .details-body{padding:0 18px 18px;}
    inside. A static block (her own paths) keeps the same frame without folding. */
 details.path-block > summary{cursor:pointer;list-style:none;user-select:none;}
 details.path-block > summary::-webkit-details-marker{display:none;}
-.path-chev{color:var(--petrol);font-size:13px;flex-shrink:0;transition:transform .15s ease;}
-details.path-block[open] .path-chev{transform:rotate(180deg);}
 .path-body{padding-top:2px;}
 .path-head{display:flex;align-items:center;gap:8px;}
 .path-icon{font-size:17px;flex-shrink:0;}
@@ -141,10 +147,10 @@ details.path-block[open] .path-chev{transform:rotate(180deg);}
 .path-extra > summary, .path-add > summary{
   cursor:pointer;list-style:none;font-size:12.5px;color:var(--petrol);
   padding:5px 0;user-select:none;
+  display:flex;align-items:center;gap:6px;
 }
+.path-extra > summary .grow, .path-add > summary .grow, .q-note > summary .grow{flex:1;min-width:0;}
 .path-extra > summary::-webkit-details-marker, .path-add > summary::-webkit-details-marker{display:none;}
-.path-extra > summary::before, .path-add > summary::before{content:'▸ ';}
-.path-extra[open] > summary::before, .path-add[open] > summary::before{content:'▾ ';}
 .path-add{border-top:1px dashed var(--line);padding-top:6px;}
 .path-add > summary{font-weight:700;}
 
@@ -154,10 +160,9 @@ details.path-block[open] .path-chev{transform:rotate(180deg);}
 .q-note > summary{
   cursor:pointer;list-style:none;font-size:12px;color:var(--petrol);
   padding:3px 0;user-select:none;
+  display:flex;align-items:center;gap:6px;
 }
 .q-note > summary::-webkit-details-marker{display:none;}
-.q-note > summary::before{content:'▸ ';}
-.q-note[open] > summary::before{content:'▾ ';}
 .q-note textarea{margin-top:4px;min-height:52px;font-size:14px;}
 
 .linkish{background:none;border:none;padding:0;color:var(--petrol);font-size:inherit;text-decoration:underline;cursor:pointer;}
@@ -333,6 +338,9 @@ details.path-block[open] .path-chev{transform:rotate(180deg);}
 .habit-progress-fill{height:100%;background:var(--sage);border-radius:99px;}
 
 .empty{text-align:center;padding:26px 10px;color:#8b9694;font-size:13.5px;}
+/* second line of an empty state: what to do about it */
+.empty .hint{display:block;margin-top:4px;font-size:12.5px;opacity:.85;}
+.empty.tight{padding:14px 10px;}
 .spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;display:inline-block;animation:spin .7s linear infinite;vertical-align:middle;margin-left:6px;}
 @keyframes spin{to{transform:rotate(360deg);}}
 .ai-box{background:linear-gradient(135deg, rgba(46,92,90,.06), rgba(178,76,99,.06));border:1.5px dashed var(--petrol);}
@@ -772,7 +780,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 22';
+const APP_BUILD = '2026-08-17 · 23';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -1918,7 +1926,7 @@ function renderSettings(){
                   </div>
                   <button type="button" class="icon-btn" data-rev-peek="${r.version}">👁️</button>
                 </div>`).join('')}
-            </div>` : `<p class="muted" style="margin-top:8px;">ما فيه نسخ سابقة محفوظة.</p>`) : ''}
+            </div>` : `<div class="empty tight">ما فيه نسخ سابقة محفوظة</div>`) : ''}
         </div>
         <button class="btn ghost btn-block" id="toggleLinkInfo" style="margin-top:10px;">${showLinkInfo? '🙈 إخفاء بيانات الربط':'👁️ إظهار بيانات الربط (لجهاز ثالث)'}</button>
         ${showLinkInfo? `
@@ -2216,12 +2224,12 @@ function renderHome(){
 
   ${state.moodSectionOn===false? '' : `
   <div class="card">
-    <div class="card-title"><h3 style="cursor:pointer;flex:1;" data-toggle-collapse="mood">${state.collapsed.mood?'▸':'▾'} ${escapeHtml(state.moodTitle || DEFAULT_MOOD_TITLE)}</h3></div>
+    <div class="card-title"><h3 style="cursor:pointer;flex:1;display:flex;align-items:center;gap:7px;" data-toggle-collapse="mood"><span style="flex:1;">${escapeHtml(state.moodTitle || DEFAULT_MOOD_TITLE)}</span><span class="chev ${state.collapsed.mood?"":"open"}">▾</span></h3></div>
     ${state.collapsed.mood? '' : (activeMoods().length? `
     <div class="mood-scale">
       ${activeMoods().map(m=>`<button type="button" class="mood-dot ${log.mood.includes(m.id)?'selected':''}" data-mood="${m.id}">${escapeHtml(m.icon)}<span class="ml">${escapeHtml(m.label)}</span></button>`).join('')}
     </div>
-    ` : `<p class="muted">ما فيه مشاعر نشطة — فعّلي أو أضيفي من تبويب "الأساس".</p>`)}
+    ` : `<div class="empty tight">ما فيه مشاعر نشطة<span class="hint">فعّليها أو أضيفيها من تبويب «الأساس»</span></div>`)}
   </div>`}
 
   ${isToday && !hasUrgentToday()? `
@@ -2292,11 +2300,11 @@ function renderHabitsCard(tpl, log, dow){
   return `
   <div class="card">
     <div class="card-title">
-      <h3 style="cursor:pointer;flex:1;" data-toggle-collapse="habits">${collapsed?'▸':'▾'} عادات ${tpl.name}${dayHabits.length? ` <span class="muted" style="font-size:12.5px;font-weight:400;">(${finished.length}/${dayHabits.length})</span>`:''}</h3>
+      <h3 style="cursor:pointer;flex:1;display:flex;align-items:center;gap:7px;" data-toggle-collapse="habits"><span style="flex:1;">عادات ${tpl.name}${dayHabits.length? ` <span class="muted" style="font-size:12.5px;font-weight:400;">(${finished.length}/${dayHabits.length})</span>`:''}</span><span class="chev ${collapsed?"":"open"}">▾</span></h3>
       <button class="icon-btn sm" data-goto-habits="1">إدارة العادات</button>
     </div>
     ${collapsed? '' : `
-    ${dayHabits.length===0? `<p class="muted" style="margin-bottom:10px;">ما فيه عادات مفعّلة لهذا اليوم. أضيفي أو فعّلي من صفحة "العادات".</p>`:''}
+    ${dayHabits.length===0? `<div class="empty tight">ما فيه عادات لهذا اليوم<span class="hint">أضيفيها أو فعّليها من صفحة «العادات»</span></div>`:''}
     ${pending.map(habitRow).join('')}
     ${dayHabits.length && pending.length===0? `<p style="text-align:center;font-size:15px;color:var(--petrol-dark);margin:6px 0;">🌿 خلّصتي عادات اليوم كلها، ماشاءالله</p>`:''}
     ${finished.length? `
@@ -2314,7 +2322,7 @@ function renderQuestionsCard(log){
   const comments = log.commentsById || {};
   return `
   <div class="card">
-    <div class="card-title"><h3 style="cursor:pointer;flex:1;" data-toggle-collapse="questions">${collapsed?'▸':'▾'} ${escapeHtml(state.questionsTitle || DEFAULT_QUESTIONS_TITLE)}</h3></div>
+    <div class="card-title"><h3 style="cursor:pointer;flex:1;display:flex;align-items:center;gap:7px;" data-toggle-collapse="questions"><span style="flex:1;">${escapeHtml(state.questionsTitle || DEFAULT_QUESTIONS_TITLE)}</span><span class="chev ${collapsed?"":"open"}">▾</span></h3></div>
     ${collapsed? '' : (qs.length? qs.map(q=>{
       const note = comments[q.id] || '';
       /* the comment opens on its own when something is written in it, so a note
@@ -2324,11 +2332,11 @@ function renderQuestionsCard(log){
       <div class="field" style="margin-bottom:12px;">
         <label>${escapeHtml(q.text)}</label>
         <details class="q-note" data-sec="qc:${q.id}" ${open?'open':''}>
-          <summary>💬 تعليق${note? ' ●':''}</summary>
+          <summary><span class="grow">💬 تعليق${note? " ●":""}</span><span class="chev">▾</span></summary>
           <textarea data-qnote="${q.id}" placeholder="اكتبي هنا…">${escapeHtml(note)}</textarea>
         </details>
       </div>`;
-    }).join('') : `<p class="muted">ما فيه أسئلة نشطة — فعّلي أو أضيفي من تبويب "الأساس".</p>`)}
+    }).join('') : `<div class="empty tight">ما فيه أسئلة نشطة<span class="hint">فعّليها أو أضيفيها من تبويب «الأساس»</span></div>`)}
   </div>`;
 }
 
@@ -2462,7 +2470,7 @@ function renderScheduleCard(){
   const activeBox = timeBoxOf(period);
   return `
   <div class="card">
-    <div class="card-title"><h3 style="cursor:pointer;flex:1;" data-toggle-collapse="schedule">${collapsed?'▸':'▾'} ${isToday? 'جدول يومك' : 'جدول هذا اليوم'}</h3></div>
+    <div class="card-title"><h3 style="cursor:pointer;flex:1;display:flex;align-items:center;gap:7px;" data-toggle-collapse="schedule"><span style="flex:1;">${isToday? 'جدول يومك' : 'جدول هذا اليوم'}</span><span class="chev ${collapsed?"":"open"}">▾</span></h3></div>
     ${collapsed? '' : `
     <div class="period-tabs">
       ${state.timeBoxes.map(b=>{
@@ -2554,7 +2562,7 @@ function renderMoodManager(){
           <button type="button" class="icon-btn" data-mood-del="${m.id}">✕</button>
         </div>`;
       }).join('')}
-      ${ms.length===0? `<p class="muted">ما فيه مشاعر — أضيفي أول وحدة.</p>`:''}
+      ${ms.length===0? `<div class="empty tight">ما فيه مشاعر<span class="hint">أضيفي أول وحدة من الأسفل</span></div>`:''}
       <div style="display:flex;gap:8px;margin-top:10px;">
         <input type="text" id="moodNewIcon" placeholder="🌿" style="width:52px;text-align:center;"/>
         <input type="text" id="moodNewLabel" placeholder="شعور جديد…" style="flex:1;"/>
@@ -2583,14 +2591,14 @@ function renderDailyQuestionsManager(){
             <button type="button" class="icon-btn" style="padding:1px 6px;font-size:12px;" data-dq-up="${q.id}" ${i===0?'disabled':''}>▲</button>
             <button type="button" class="icon-btn" style="padding:1px 6px;font-size:12px;" data-dq-down="${q.id}" ${i===qs.length-1?'disabled':''}>▼</button>
           </div>
-          <button type="button" class="icon-btn" data-dq-active="${q.id}" title="${off?'سؤال غير نشط — اضغطي لتفعيله':'سؤال نشط — اضغطي لإيقافه'}" style="flex-shrink:0;">${off?'⭕':'✅'}</button>
+          <button type="button" class="icon-btn" data-dq-active="${q.id}" title="${off?'سؤال موقوف — اضغطي لتفعيله':'سؤال نشط — اضغطي لإيقافه'}" style="flex-shrink:0;">${off?'⭕':'✅'}</button>
           <input type="text" data-dq-text="${q.id}" value="${escapeHtml(q.text)}" placeholder="اكتبي السؤال" style="flex:1;${off?'font-style:italic;':''}"/>
           <button type="button" class="icon-btn" data-dq-del="${q.id}">✕</button>
         </div>`;
       }).join('')}
-      ${qs.length===0? `<p class="muted">ما فيه أسئلة — أضيفي أول سؤال.</p>`:''}
+      ${qs.length===0? `<div class="empty tight">ما فيه أسئلة<span class="hint">أضيفي أول سؤال من الأسفل</span></div>`:''}
       <button type="button" class="btn ghost btn-block" style="margin-top:10px;" id="dqAddNew">+ إضافة سؤال</button>
-      <p class="muted" style="margin-top:8px;font-size:12px;">✅ نشط يظهر بصفحة اليوم · ⭕ غير نشط يختفي ويحتفظ بما كتبتيه. تحت كل سؤال مساحة تعليق مطوية تكتبين فيها.</p>
+      <p class="muted" style="margin-top:8px;font-size:12px;">✅ نشط يظهر بصفحة اليوم · ⭕ موقوف يختفي ويحتفظ بما كتبتيه. تحت كل سؤال مساحة تعليق مطوية تكتبين فيها.</p>
       <p class="muted" style="margin-top:4px;font-size:12px;">💡 اللي تكتبينه محفوظ لكل سؤال على حدة، فتعديل الترتيب أو النص ما يخلط كتابات الأيام السابقة. حذف سؤال يخفي كتاباته من العرض فقط.</p>
     </div>
   </details>`;
@@ -2607,7 +2615,7 @@ function renderActionTypeManager(){
           <input type="text" data-atype-text="${i}" value="${escapeHtml(a)}" placeholder="اسم النوع" style="flex:1;"/>
           <button type="button" class="icon-btn" data-atype-del="${i}">✕</button>
         </div>`).join('')}
-      ${types.length===0? `<p class="muted">ما فيه أنواع — أضيفي أول نوع.</p>`:''}
+      ${types.length===0? `<div class="empty tight">ما فيه أنواع<span class="hint">أضيفي أول نوع من الأسفل</span></div>`:''}
       <div style="display:flex;gap:8px;margin-top:10px;">
         <input type="text" id="atypeNew" placeholder="نوع فعل جديد…" style="flex:1;"/>
         <button type="button" class="btn sm" id="atypeAdd">إضافة</button>
@@ -2664,7 +2672,7 @@ function renderSuggestionsCard(){
     const collapsed = state.collapsed.suggestion;
     tipCard = `
     <div class="card">
-      <div class="card-title"><h3 style="cursor:pointer;flex:1;" data-toggle-collapse="suggestion">${collapsed?'▸':'▾'} مقترح اليوم</h3></div>
+      <div class="card-title"><h3 style="cursor:pointer;flex:1;display:flex;align-items:center;gap:7px;" data-toggle-collapse="suggestion"><span style="flex:1;">مقترح اليوم</span><span class="chev ${collapsed?"":"open"}">▾</span></h3></div>
       ${collapsed? '' : `
       <p class="muted" style="margin-bottom:8px;">مبني على هدفك: <b style="color:var(--petrol-dark);">${CAT_MAP[g.cat]?.icon||''} ${escapeHtml(g.title)}</b>${state.goals.length>1? ` <span class="muted">(هدف ${(( state.tipGoalIndex||0)%state.goals.length)+1} من ${state.goals.length})</span>`:''}</p>
       ${entry.personal? `<p class="muted" style="margin-bottom:4px;">🎯 من إجابتك أنتِ:</p>`:''}
@@ -2783,10 +2791,10 @@ function renderJournalPage(){
     </div>`:''}
 
     <p style="font-weight:700;color:var(--petrol-dark);margin-bottom:6px;">💼 إنجازات العمل (${workEntries.length})</p>
-    ${workEntries.length? workEntries.map(renderJournalEntryRow).join('') : `<p class="muted" style="margin-bottom:10px;">ما فيه إنجازات عمل مسجّلة هالسنة.</p>`}
+    ${workEntries.length? workEntries.map(renderJournalEntryRow).join('') : `<div class="empty tight">ما فيه إنجازات عمل مسجّلة هالسنة</div>`}
 
     <p style="font-weight:700;color:var(--petrol-dark);margin:16px 0 6px;">🌸 إنجازاتي الشخصية (${personalEntries.length})</p>
-    ${personalEntries.length? personalEntries.map(renderJournalEntryRow).join('') : `<p class="muted" style="margin-bottom:10px;">ما فيه إنجازات شخصية مسجّلة هالسنة.</p>`}
+    ${personalEntries.length? personalEntries.map(renderJournalEntryRow).join('') : `<div class="empty tight">ما فيه إنجازات شخصية مسجّلة هالسنة</div>`}
 
     <button class="btn btn-block" style="margin-top:16px;" id="exportJournalYear">📋 انسخي إنجازات العمل هالسنة (${year}) للتقرير</button>
     ${journalExportText? `
@@ -2805,7 +2813,7 @@ function renderReflectionCard(log){
   const ratedThisWeek = Array.from({length:7},(_,i)=>addDays(weekStart,i)).filter(d=> getLog(d).reflection!=null).length;
   return `
   <div class="card">
-    <div class="card-title"><h3 style="cursor:pointer;flex:1;" data-toggle-collapse="reflection">${collapsed?'▸':'▾'} لحظة تقدير</h3></div>
+    <div class="card-title"><h3 style="cursor:pointer;flex:1;display:flex;align-items:center;gap:7px;" data-toggle-collapse="reflection"><span style="flex:1;">لحظة تقدير</span><span class="chev ${collapsed?"":"open"}">▾</span></h3></div>
     ${collapsed? '' : `
     <p class="muted" style="margin-bottom:10px;">بعيدًا عن قائمة مهامك، قد ايش راضية عن نفسك اليوم؟</p>
     <div class="chip-row">
@@ -2871,14 +2879,14 @@ function renderGroupedTaskBlocks(taskList, rowRenderer, emptyMsg){
     const taskCount = goalGroups.reduce((s,x)=>s+x.tasks.length,0);
     return `
     <div class="card" style="margin-bottom:12px;">
-      <div class="card-title"><h3 style="cursor:pointer;flex:1;font-size:15px;" data-toggle-collapse="${catKey}">${catCollapsed?'▸':'▾'} ${icon} ${label} <span class="muted" style="font-size:12px;font-weight:400;">(${taskCount})</span></h3></div>
+      <div class="card-title"><h3 style="cursor:pointer;flex:1;font-size:15px;display:flex;align-items:center;gap:7px;" data-toggle-collapse="${catKey}"><span style="flex:1;">${icon} ${label} <span class="muted" style="font-size:12px;font-weight:400;">(${taskCount})</span></span><span class="chev ${catCollapsed?"":"open"}">▾</span></h3></div>
       ${catCollapsed? '' : goalGroups.map(({goal, tasks, mixed})=>{
         if(!goal) return tasks.map(rowRenderer).join('');
         const goalKey = 'goal:'+goal.id;
         const goalCollapsed = state.collapsed[goalKey];
         return `
         <div style="margin-bottom:10px;border-top:1px dashed var(--line);padding-top:10px;">
-          <h4 style="cursor:pointer;font-size:14px;color:var(--petrol-dark);margin-bottom:6px;" data-toggle-collapse="${goalKey}">${goalCollapsed?'▸':'▾'} ${escapeHtml(goal.title)} <span class="muted" style="font-size:11.5px;font-weight:400;">(${tasks.length})</span></h4>
+          <h4 style="cursor:pointer;font-size:14px;color:var(--petrol-dark);margin-bottom:6px;display:flex;align-items:center;gap:7px;" data-toggle-collapse="${goalKey}"><span style="flex:1;">${escapeHtml(goal.title)} <span class="muted" style="font-size:11.5px;font-weight:400;">(${tasks.length})</span></span><span class="chev ${goalCollapsed?"":"open"}">▾</span></h4>
           ${mixed? `<p class="muted" style="font-size:11.5px;margin:-2px 0 6px;color:var(--rose-dark);">⚠️ مهام هذا الهدف بتصنيفات مختلفة — وحّدي تصنيفها لو تبين ترتيبًا أوضح</p>`:''}
           ${goalCollapsed? '' : tasks.map(rowRenderer).join('')}
         </div>`;
@@ -2952,7 +2960,7 @@ function renderCompletedByDay(){
     const dayCollapsed = state.collapsed[key];
     return `
     <div style="margin-bottom:10px;">
-      <h4 style="cursor:pointer;font-size:14px;color:var(--petrol-dark);margin-bottom:4px;border-top:1px dashed var(--line);padding-top:10px;" data-toggle-collapse="${key}">${dayCollapsed?'▸':'▾'} ${heading} <span class="muted" style="font-size:11.5px;font-weight:400;">(${list.length})</span></h4>
+      <h4 style="cursor:pointer;font-size:14px;color:var(--petrol-dark);margin-bottom:4px;border-top:1px dashed var(--line);padding-top:10px;display:flex;align-items:center;gap:7px;" data-toggle-collapse="${key}"><span style="flex:1;">${heading} <span class="muted" style="font-size:11.5px;font-weight:400;">(${list.length})</span></span><span class="chev ${dayCollapsed?"":"open"}">▾</span></h4>
       ${dayCollapsed? '' : list.map(t=>taskRowHtml(t, {restore:true, date:key.slice(8)})).join('')}
     </div>`;
   };
@@ -3110,7 +3118,7 @@ function renderGoals(){
     const collapsed = state.collapsed[key];
     return `
     <div style="margin-bottom:14px;">
-      <h4 style="cursor:pointer;font-size:15px;color:var(--petrol-dark);margin-bottom:8px;" data-toggle-collapse="${key}">${collapsed?'▸':'▾'} ${icon} ${escapeHtml(label)} <span class="muted" style="font-size:12px;font-weight:400;">(${goals.length})</span></h4>
+      <h4 style="cursor:pointer;font-size:15px;color:var(--petrol-dark);margin-bottom:8px;display:flex;align-items:center;gap:7px;" data-toggle-collapse="${key}"><span style="flex:1;">${icon} ${escapeHtml(label)} <span class="muted" style="font-size:12px;font-weight:400;">(${goals.length})</span></span><span class="chev ${collapsed?"":"open"}">▾</span></h4>
       ${collapsed? '' : goals.map(renderGoalCard).join('')}
     </div>`;
   };
@@ -3828,7 +3836,7 @@ function renderFinancePathsCard(fg){
               <span class="path-icon">${p.icon}</span>
               <span class="path-name">${escapeHtml(p.label)}</span>
               <span class="path-count">${idx} / ${seq.length}</span>
-              <span class="path-chev">▾</span>
+              <span class="chev">▾</span>
             </div>
             <div class="path-bar"><span style="width:${pct}%;"></span></div>
           </summary>
@@ -3861,7 +3869,7 @@ function renderFinancePathsCard(fg){
           `:`<p class="muted" style="margin:6px 0 10px;">خلّصتي كل مقترحات هالطريقة 🎉</p>`}
 
           <details class="path-extra" data-sec="pathInfo:${pid}" ${openSections['pathInfo:'+pid]?'open':''}>
-            <summary>تفاصيل هالطريقة</summary>
+            <summary><span class="grow">تفاصيل هالطريقة</span><span class="chev">▾</span></summary>
             <div class="details-body">
               ${setup.successCriteria? `<p class="muted" style="margin-bottom:8px;">🎯 نجاحك يعني: <b style="color:var(--petrol-dark);">${escapeHtml(setup.successCriteria)}</b></p>`:''}
               ${(p.tools&&p.tools.length)? `<p class="muted" style="margin-bottom:4px;">🧰 تحتاجين:</p><ul style="margin:0 0 10px;padding-inline-start:18px;font-size:13.5px;line-height:1.9;">${p.tools.map(t=>`<li>${escapeHtml(t)}</li>`).join('')}</ul>`:''}
@@ -3895,7 +3903,7 @@ function renderFinancePathsCard(fg){
               <span class="path-icon">${escapeHtml(cp.icon||'✏️')}</span>
               <span class="path-name">${escapeHtml(cp.label)}</span>
               <span class="path-count">${target>0? plFmt(earned)+' / '+plFmt(target)+' ريال' : (steps.length? doneSteps+' / '+steps.length : 'من عندك')}</span>
-              <span class="path-chev">▾</span>
+              <span class="chev">▾</span>
             </div>
             <div class="path-bar"><span style="width:${pct}%;"></span></div>
           </summary>
@@ -3908,7 +3916,7 @@ function renderFinancePathsCard(fg){
             : `<p class="muted" style="margin:6px 0 10px;">${steps.length? 'خلّصتي كل خطواتك هنا 🎉' : 'ما فيه خطوات بعد — أضيفيها من التفاصيل تحت.'}</p>`}
 
             <details class="path-extra" data-sec="cpInfo:${cp.id}" ${openSections['cpInfo:'+cp.id]?'open':''}>
-              <summary>تفاصيل هالطريقة</summary>
+              <summary><span class="grow">تفاصيل هالطريقة</span><span class="chev">▾</span></summary>
               <div class="details-body">
                 <div class="card-grid" style="margin-bottom:10px;">
                   <div><label>اسم الطريقة</label><input type="text" data-cp-label="${cp.id}" value="${escapeHtml(cp.label)}" placeholder="اسم الطريقة"/></div>
@@ -3943,7 +3951,7 @@ function renderFinancePathsCard(fg){
       }).join('')}
 
       <details class="path-add" data-sec="finAddPath" ${(openSections.finAddPath || selected.length===0)?'open':''}>
-        <summary>+ إضافة طريقة</summary>
+        <summary><span class="grow">+ إضافة طريقة</span><span class="chev">▾</span></summary>
         <div class="details-body">
           <p class="muted" style="margin-bottom:8px;font-size:12.5px;">اختاري طريقة وأعطيك خطوة عملية كل مرة — توافقين عليها أو تطلبين غيرها.</p>
           <div class="field" style="margin-bottom:8px;">
@@ -4154,7 +4162,7 @@ function renderFinanceDashboard(){
     <div style="height:12px;background:var(--line);border-radius:8px;overflow:hidden;margin:10px 0;">
       <div style="height:100%;width:${pct}%;background:var(--sage);"></div>
     </div>
-    <button type="button" class="icon-btn sm" data-toggle-collapse="fgDetails">${fgDetailsCollapsed?'▸':'▾'} التفاصيل</button>
+    <button type="button" class="icon-btn sm" data-toggle-collapse="fgDetails" style="display:inline-flex;align-items:center;gap:6px;">التفاصيل<span class="chev ${fgDetailsCollapsed?"":"open"}">▾</span></button>
     ${fgDetailsCollapsed? '' : `
     <p class="muted" style="margin-top:8px;">${fg.currentAmount.toLocaleString('ar')} من ${fg.targetAmount.toLocaleString('ar')} ريال — الباقي ${remaining.toLocaleString('ar')} ريال</p>
     ${daysLeft!=null? `<p class="muted">⏳ باقي ${daysLeft} يوم على موعدك</p>`:''}
@@ -5318,7 +5326,7 @@ function edRenderRows(){
     return `
     <div style="border-bottom:1px dashed var(--line);padding-bottom:8px;margin-bottom:8px;">
       <button type="button" class="icon-btn sm" data-toggle-collapse="${key}" style="width:100%;display:flex;justify-content:space-between;align-items:center;padding:6px 4px;text-align:right;">
-        <span>${collapsed?'▸':'▾'} ${escapeHtml(name)} <span class="muted" style="font-weight:400;">(${g.rows.length})</span></span>
+        <span style="display:flex;align-items:center;gap:7px;"><span class="chev ${collapsed?"":"open"}">▾</span>${escapeHtml(name)} <span class="muted" style="font-weight:400;">(${g.rows.length})</span></span>
         <b>${edFmt(g.total)} ريال</b>
       </button>
       ${collapsed? '' : g.rows.map(edRowHtml).join('')}
@@ -5508,12 +5516,12 @@ function renderHabitEditList(){
   const q = habitSearchQuery.trim().toLowerCase();
   const filtered = q? state.habits.filter(h=>h.label.toLowerCase().includes(q)) : state.habits;
   if(q && filtered.length===1) habitEditingId = filtered[0].id; /* narrowing to one match opens it directly */
-  if(state.habits.length===0) return `<p class="muted">ما فيه عادات بعد.</p>`;
-  if(filtered.length===0) return `<p class="muted">ما فيه عادة مطابقة لبحثك.</p>`;
+  if(state.habits.length===0) return `<div class="empty tight">ما فيه عادات بعد<span class="hint">أضيفيها من «إضافة عادة جديدة»</span></div>`;
+  if(filtered.length===0) return `<div class="empty tight">ما فيه عادة مطابقة لبحثك</div>`;
   return filtered.map(h=>{
     const dormant = !habitIsActive(h);
     if(habitEditingId!==h.id){
-      return `<button type="button" class="habit-collapsed-row ${dormant?'dormant':''}" data-habit-expand="${h.id}">${dormant? '💤 ':''}${escapeHtml(h.label)}${dormant? ' <span style="font-size:11px;">(خاملة)</span>':''}</button>`;
+      return `<button type="button" class="habit-collapsed-row ${dormant?'dormant':''}" data-habit-expand="${h.id}">${dormant? '⭕ ':''}${escapeHtml(h.label)}${dormant? ' <span style="font-size:11px;">(موقوفة)</span>':''}</button>`;
     }
     const idx = state.habits.findIndex(x=>x.id===h.id);
     return `<div style="padding:10px 0;border-bottom:1px dashed var(--line);${dormant?'opacity:.72;':''}">
@@ -5527,8 +5535,8 @@ function renderHabitEditList(){
         <button type="button" class="icon-btn" data-mgmt-del="${h.id}">✕</button>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
-        <button type="button" class="btn ghost sm" data-habit-active="${h.id}">${dormant? '▶️ نشّطيها' : '💤 خلّيها خاملة'}</button>
-        <span class="muted" style="font-size:12px;">${dormant? 'خاملة — ما تظهر بجدولك ولا بيومك، وسجلها محفوظ.' : 'نشطة — تظهر بأيامها المحددة.'}</span>
+        <button type="button" class="icon-btn" data-habit-active="${h.id}" title="${dormant?'موقوفة — اضغطي للتفعيل':'نشطة — اضغطي للإيقاف'}" style="flex-shrink:0;">${dormant?'⭕':'✅'}</button>
+        <span class="muted" style="font-size:12px;">${dormant? 'موقوفة — ما تظهر بجدولك ولا بيومك، وسجلها محفوظ.' : 'نشطة — تظهر بأيامها المحددة.'}</span>
       </div>
       ${dormant? '' : `
       <div class="chip-row" style="margin-bottom:8px;">
@@ -5595,7 +5603,7 @@ function renderHabitsPage(){
     ${weekPct!=null? `
       <p style="font-size:26px;font-weight:700;color:var(--petrol-dark);margin-bottom:8px;">${weekPct}٪</p>
       <div class="habit-progress-track"><div class="habit-progress-fill" style="width:${weekPct}%;"></div></div>
-    ` : `<p class="muted" style="margin-top:6px;">ما فيه عادات مفعّلة هالأسبوع بعد.</p>`}
+    ` : `<div class="empty tight">ما فيه عادات مفعّلة هالأسبوع بعد</div>`}
   </div>
 
   <details class="card" data-sec="habitsWeekTable" ${openSections.habitsWeekTable?'open':''} style="margin-top:12px;">
@@ -5644,8 +5652,8 @@ function renderHabitsPage(){
   <details class="card" data-sec="habitsEdit" ${openSections.habitsEdit?'open':''} style="margin-top:12px;">
     <summary><h3>✏️ تعديل العادات <span class="chev">▾</span></h3></summary>
     <div class="details-body">
-      <p class="muted" style="margin-bottom:10px;">اضغطي على أي عادة عشان تفتحين تفاصيلها وتعدّلين أيامها — البقية تضل مطوية. وأي عادة ما تناسبك هالفترة خلّيها <b>خاملة 💤</b> بدل ما تحذفينها، فتختفي من يومك ومن الجدول وسجلها يبقى.</p>
-      ${state.habits.filter(h=>!habitIsActive(h)).length? `<p class="muted" style="margin-bottom:10px;font-size:12.5px;">💤 عندك ${state.habits.filter(h=>!habitIsActive(h)).length} عادة خاملة — تلقينها بالقائمة تحت بخط مائل.</p>`:''}
+      <p class="muted" style="margin-bottom:10px;">اضغطي على أي عادة عشان تفتحين تفاصيلها وتعدّلين أيامها — البقية تضل مطوية. وأي عادة ما تناسبك هالفترة <b>أوقفيها ⭕</b> بدل ما تحذفينها، فتختفي من يومك ومن الجدول وسجلها يبقى.</p>
+      ${state.habits.filter(h=>!habitIsActive(h)).length? `<p class="muted" style="margin-bottom:10px;font-size:12.5px;">💤 عندك ${state.habits.filter(h=>!habitIsActive(h)).length} عادة موقوفة — تلقينها بالقائمة تحت بخط مائل.</p>`:''}
       <div class="field" style="margin-bottom:10px;">
         <input type="text" id="habitSearchInput" placeholder="🔍 ابحثي عن عادة…" value="${escapeHtml(habitSearchQuery)}"/>
       </div>
@@ -6633,7 +6641,7 @@ document.querySelectorAll('[data-qnote]').forEach(ta=>{
   });
   document.querySelectorAll('[data-mgmt-del]').forEach(b=> b.onclick=()=>{
     const h = state.habits.find(x=>x.id===b.dataset.mgmtDel);
-    if(!confirm(`تحذفين عادة "${h? h.label : ''}"؟ لو تبين تريّحين منها بس، خلّيها خاملة بدل الحذف — سجلها يضل محفوظ.`)) return;
+    if(!confirm(`تحذفين عادة "${h? h.label : ''}"؟ لو تبين تريّحين منها بس، أوقفيها بدل الحذف — سجلها يضل محفوظ.`)) return;
     state.habits = state.habits.filter(x=>x.id!==b.dataset.mgmtDel);
     saveState(); render();
   });
