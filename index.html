@@ -16,6 +16,22 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap');
 
 :root{
+  /* ---------- type scale ----------
+     Six steps for every piece of text in the app. It used to run on seventeen
+     sizes between 9.5 and 22, most of them half a pixel apart, which reads as
+     drift rather than hierarchy. Icons, emoji and the big display numerals sit
+     outside this scale on purpose, and inputs stay at 16px because anything
+     smaller makes iOS Safari zoom the page when a field is focused. */
+  --t1:11px;    /* وسم صغير، عدّاد */
+  --t2:12.5px;  /* ملاحظة ثانوية */
+  --t3:14px;    /* صف في قائمة */
+  --t4:15.5px;  /* نص أساسي */
+  --t5:17px;    /* عنوان قسم */
+  --t6:22px;    /* عنوان صفحة */
+  /* form controls sit outside the reading scale: iOS Safari zooms the whole page
+     whenever a focused field is under 16px, and she has to pinch it back every time. */
+  --tf:16px;
+
   --ink:#1F3A3D;
   --petrol:#2E5C5A;
   --petrol-dark:#1D3E3C;
@@ -48,10 +64,10 @@ input,select,textarea{font-family:'IBM Plex Sans Arabic',sans-serif;font-size:16
 .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
 .brand{display:flex;align-items:center;gap:8px;}
 .brand .seal{width:34px;height:34px;border-radius:50%;background:var(--petrol);color:var(--paper);display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Sans Arabic',sans-serif;font-size:20px;flex-shrink:0;}
-.brand h1{font-size:22px;color:var(--petrol-dark);}
-.date-chip{font-size:12px;background:var(--paper);border:1px solid var(--line);border-radius:20px;padding:6px 12px;color:var(--petrol-dark);}
+.brand h1{font-size:var(--t6);color:var(--petrol-dark);}
+.date-chip{font-size:var(--t2);background:var(--paper);border:1px solid var(--line);border-radius:20px;padding:6px 12px;color:var(--petrol-dark);}
 .size-ctrl{display:flex;align-items:center;gap:2px;background:var(--paper);border:1px solid var(--line);border-radius:20px;padding:3px;flex-shrink:0;}
-.size-ctrl button{width:28px;height:28px;border-radius:50%;background:none;color:var(--petrol-dark);font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;}
+.size-ctrl button{width:28px;height:28px;border-radius:50%;background:none;color:var(--petrol-dark);font-weight:700;font-size:var(--t3);display:flex;align-items:center;justify-content:center;}
 .size-ctrl button:active{background:var(--parchment);}
 .size-ctrl button:disabled{opacity:.3;}
 
@@ -60,12 +76,12 @@ input,select,textarea{font-family:'IBM Plex Sans Arabic',sans-serif;font-size:16
 .date-nav .arrow{width:34px;height:34px;border-radius:9px;background:var(--parchment);border:1px solid var(--line);color:var(--petrol-dark);font-size:16px;flex-shrink:0;}
 .date-nav .arrow:hover{background:var(--sage);color:#fff;}
 .date-nav .mid{flex:1;text-align:center;}
-.date-nav .mid .dname{font-family:'IBM Plex Sans Arabic',sans-serif;font-size:18px;color:var(--petrol-dark);}
-.date-nav .mid .ddate{font-size:11.5px;color:#6b7a78;}
-.date-nav input[type=date]{border:none;background:none;color:#6b7a78;font-size:11px;width:26px;padding:0;opacity:0;position:absolute;}
+.date-nav .mid .dname{font-family:'IBM Plex Sans Arabic',sans-serif;font-size:var(--t5);color:var(--petrol-dark);}
+.date-nav .mid .ddate{font-size:var(--t1);color:#6b7a78;}
+.date-nav input[type=date]{border:none;background:none;color:#6b7a78;font-size:var(--tf);width:26px;padding:0;opacity:0;position:absolute;}
 .date-nav .picker{position:relative;}
-.today-btn{font-size:11px;background:var(--sage);color:#fff;padding:6px 10px;border-radius:8px;font-weight:700;flex-shrink:0;}
-.browsing-badge{display:inline-block;font-size:11px;background:rgba(178,76,99,.12);color:var(--rose-dark);padding:3px 10px;border-radius:20px;font-weight:700;margin-bottom:10px;}
+.today-btn{font-size:var(--t1);background:var(--sage);color:#fff;padding:6px 10px;border-radius:8px;font-weight:700;flex-shrink:0;}
+.browsing-badge{display:inline-block;font-size:var(--t1);background:rgba(178,76,99,.12);color:var(--rose-dark);padding:3px 10px;border-radius:20px;font-weight:700;margin-bottom:10px;}
 
 /* ---------- cards ---------- */
 .card{
@@ -82,7 +98,7 @@ input,select,textarea{font-family:'IBM Plex Sans Arabic',sans-serif;font-size:16
 details.card{padding:0;}
 details.card > summary{list-style:none;cursor:pointer;padding:18px;display:flex;justify-content:space-between;align-items:center;gap:8px;}
 details.card > summary::-webkit-details-marker{display:none;}
-details.card > summary h3{font-size:19px;color:var(--petrol-dark);}
+details.card > summary h3{font-size:var(--t5);color:var(--petrol-dark);}
 /* ---------- the one fold marker ----------
    Every foldable thing in the app says so the same way: a single chevron at the
    end of its summary line that rotates when it opens. It used to be said four
@@ -90,20 +106,20 @@ details.card > summary h3{font-size:19px;color:var(--petrol-dark);}
    there, a ::before arrow on two other kinds of panel — so the same gesture had
    to be relearned in each section. Works both inside a <details> and on the
    plain heading toggles, which carry .chev.open instead. */
-.chev{font-size:13px;color:var(--petrol);transition:transform .2s ease;flex-shrink:0;display:inline-block;}
+.chev{font-size:var(--t2);color:var(--petrol);transition:transform .2s ease;flex-shrink:0;display:inline-block;}
 details[open] > summary .chev, .chev.open{transform:rotate(180deg);}
 @media (prefers-reduced-motion:reduce){ .chev{transition:none;} }
 details.card > .details-body{padding:0 18px 18px;}
-.card-title h3{font-size:20px;color:var(--petrol-dark);}
-.eyebrow{font-size:11px;letter-spacing:.4px;color:var(--rose-dark);font-weight:700;margin-bottom:4px;display:block;}
-.muted{color:#6b7a78;font-size:14px;}
+.card-title h3{font-size:var(--t5);color:var(--petrol-dark);}
+.eyebrow{font-size:var(--t1);letter-spacing:.4px;color:var(--rose-dark);font-weight:700;margin-bottom:4px;display:block;}
+.muted{color:#6b7a78;font-size:var(--t3);}
 .quote-box{background:var(--parchment);border-right:3px solid var(--gold);border-radius:8px;padding:10px 14px;margin-bottom:10px;}
-.quote-box p{font-family:'IBM Plex Sans Arabic',sans-serif;font-size:17px;color:var(--petrol-dark);margin:0;line-height:1.6;}
+.quote-box p{font-family:'IBM Plex Sans Arabic',sans-serif;font-size:var(--t5);color:var(--petrol-dark);margin:0;line-height:1.6;}
 
 /* ---------- buttons ---------- */
 .btn{
   background:var(--petrol);color:#fff;border-radius:10px;padding:12px 18px;
-  font-size:15px;font-weight:700;transition:transform .12s ease, background .15s ease;
+  font-size:var(--t4);font-weight:700;transition:transform .12s ease, background .15s ease;
 }
 .btn:hover{background:var(--petrol-dark);}
 .btn:active{transform:scale(.97);}
@@ -111,7 +127,7 @@ details.card > .details-body{padding:0 18px 18px;}
 .btn.rose:hover{background:var(--rose-dark);}
 .btn.ghost{background:transparent;color:var(--petrol);border:1.5px solid var(--petrol);}
 .btn.ghost:hover{background:rgba(46,92,90,.06);}
-.btn.sm{padding:7px 12px;font-size:12.5px;border-radius:8px;}
+.btn.sm{padding:7px 12px;font-size:var(--t2);border-radius:8px;}
 .btn:disabled{opacity:.45;cursor:not-allowed;}
 .btn-block{width:100%;display:block;text-align:center;}
 /* ---------- money-making paths ----------
@@ -129,23 +145,23 @@ details.path-block > summary{cursor:pointer;list-style:none;user-select:none;}
 details.path-block > summary::-webkit-details-marker{display:none;}
 .path-body{padding-top:2px;}
 .path-head{display:flex;align-items:center;gap:8px;}
-.path-icon{font-size:17px;flex-shrink:0;}
-.path-name{flex:1;min-width:0;font-size:14.5px;font-weight:700;color:var(--petrol-dark);}
+.path-icon{font-size:var(--t5);flex-shrink:0;}
+.path-name{flex:1;min-width:0;font-size:var(--t3);font-weight:700;color:var(--petrol-dark);}
 .path-count{
-  font-size:11.5px;color:#6b7a78;font-variant-numeric:tabular-nums;
+  font-size:var(--t1);color:#6b7a78;font-variant-numeric:tabular-nums;
   white-space:nowrap;flex-shrink:0;
 }
 .path-bar{height:4px;background:var(--line);border-radius:3px;overflow:hidden;margin:8px 0 10px;}
 .path-bar span{display:block;height:100%;background:var(--sage);}
 /* the next step is the thing to look at, so it carries the visual weight */
 .path-tip{
-  font-size:15px;line-height:1.75;color:var(--ink);
+  font-size:var(--t4);line-height:1.75;color:var(--ink);
   background:var(--paper);border-radius:8px;padding:10px 12px;margin:0 0 10px;
 }
 .path-actions{display:flex;gap:8px;flex-wrap:wrap;}
 .path-extra, .path-add{margin-top:10px;}
 .path-extra > summary, .path-add > summary{
-  cursor:pointer;list-style:none;font-size:12.5px;color:var(--petrol);
+  cursor:pointer;list-style:none;font-size:var(--t2);color:var(--petrol);
   padding:5px 0;user-select:none;
   display:flex;align-items:center;gap:6px;
 }
@@ -158,12 +174,12 @@ details.path-block > summary::-webkit-details-marker{display:none;}
    when unused, and the dot in the summary says when something is written inside */
 .q-note{margin-top:6px;}
 .q-note > summary{
-  cursor:pointer;list-style:none;font-size:12px;color:var(--petrol);
+  cursor:pointer;list-style:none;font-size:var(--t2);color:var(--petrol);
   padding:3px 0;user-select:none;
   display:flex;align-items:center;gap:6px;
 }
 .q-note > summary::-webkit-details-marker{display:none;}
-.q-note textarea{margin-top:4px;min-height:52px;font-size:14px;}
+.q-note textarea{margin-top:4px;min-height:52px;font-size:var(--tf);}
 
 .linkish{background:none;border:none;padding:0;color:var(--petrol);font-size:inherit;text-decoration:underline;cursor:pointer;}
 .icon-btn{background:none;color:var(--petrol);font-size:16px;padding:4px 8px;border-radius:6px;}
@@ -171,7 +187,7 @@ details.path-block > summary::-webkit-details-marker{display:none;}
 
 /* ---------- inputs ---------- */
 .field{margin-bottom:14px;}
-.field label{display:block;font-size:14px;font-weight:700;color:var(--petrol-dark);margin-bottom:6px;}
+.field label{display:block;font-size:var(--t3);font-weight:700;color:var(--petrol-dark);margin-bottom:6px;}
 .field input[type=text], .field input[type=email], .field select, .field textarea{
   width:100%;padding:12px 13px;border:1.5px solid var(--line);border-radius:10px;
   background:var(--parchment);font-size:16px;color:var(--ink);
@@ -183,10 +199,10 @@ details.path-block > summary::-webkit-details-marker{display:none;}
 .chip-row{display:flex;flex-wrap:wrap;gap:8px;}
 .chip{
   padding:9px 15px;border-radius:20px;border:1.5px solid var(--line);background:var(--parchment);
-  font-size:14.5px;font-weight:500;color:var(--ink);transition:all .15s ease;
+  font-size:var(--t3);font-weight:500;color:var(--ink);transition:all .15s ease;
 }
 .chip.selected{background:var(--sage);border-color:var(--sage);color:#fff;font-weight:700;}
-.chip.cat{font-size:14px;}
+.chip.cat{font-size:var(--t3);}
 
 /* ---------- task/habit rows ---------- */
 .task-row{display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px dashed var(--line);}
@@ -208,9 +224,9 @@ details.path-block > summary::-webkit-details-marker{display:none;}
 .rte-editable{min-height:120px;border:1.5px solid var(--line);border-radius:10px;padding:12px 13px;background:var(--parchment);font-size:16px;color:var(--ink);line-height:1.7;}
 .rte-editable:focus{outline:2px solid var(--sage);outline-offset:1px;}
 .rte-editable ul, .rte-editable ol{margin:0;padding-inline-start:22px;}
-.task-title{flex:1;font-size:15.5px;font-weight:700;}
+.task-title{flex:1;font-size:var(--t4);font-weight:700;}
 .task-title.done{text-decoration:line-through;color:#9aa6a4;}
-.tag{font-size:10.5px;background:rgba(46,92,90,.09);color:var(--petrol-dark);padding:2px 8px;border-radius:10px;font-weight:700;}
+.tag{font-size:var(--t1);background:rgba(46,92,90,.09);color:var(--petrol-dark);padding:2px 8px;border-radius:10px;font-weight:700;}
 .tag.p-عالية{background:rgba(178,76,99,.13);color:var(--rose-dark);}
 .tag.p-متوسطة{background:rgba(199,154,60,.15);color:#8a6a1f;}
 
@@ -228,7 +244,7 @@ details.path-block > summary::-webkit-details-marker{display:none;}
   display:flex;justify-content:center;padding:8px 12px calc(8px + env(safe-area-inset-bottom));z-index:40;
 }
 .nav-inner{max-width:640px;width:100%;display:flex;justify-content:space-around;}
-.nav-btn{background:none;display:flex;flex-direction:column;align-items:center;gap:3px;color:#8b9694;font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:10px;}
+.nav-btn{background:none;display:flex;flex-direction:column;align-items:center;gap:3px;color:#8b9694;font-size:var(--t1);font-weight:700;padding:4px 10px;border-radius:10px;}
 .nav-btn.active{color:var(--petrol);}
 .nav-btn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;}
 
@@ -238,69 +254,69 @@ details.path-block > summary::-webkit-details-marker{display:none;}
 /* ---------- financial safety calculator ---------- */
 .safety-calc .item-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;padding:9px 0;border-bottom:1px dashed var(--line);}
 .safety-calc .item-row:last-of-type{border-bottom:none;}
-.safety-calc .item-row select, .safety-calc .item-row input{background:var(--parchment);border:1.5px solid var(--line);border-radius:10px;padding:8px 9px;font-size:12.5px;font-family:inherit;color:var(--ink);}
+.safety-calc .item-row select, .safety-calc .item-row input{background:var(--parchment);border:1.5px solid var(--line);border-radius:10px;padding:8px 9px;font-size:var(--tf);font-family:inherit;color:var(--ink);}
 .safety-calc .item-row .sel-item{flex:2;min-width:130px;}
 .safety-calc .item-row .sel-custom{flex:2;min-width:110px;}
 .safety-calc .item-row .sel-tag{flex:1.3;min-width:110px;}
 .safety-calc .item-row .inp-amt{flex:1;min-width:75px;}
-.safety-calc .item-row .del-row{background:none;border:none;color:#b9ad96;cursor:pointer;font-size:15px;padding:6px;}
+.safety-calc .item-row .del-row{background:none;border:none;color:#b9ad96;cursor:pointer;font-size:var(--t4);padding:6px;}
 .safety-calc .item-row .del-row:hover{color:var(--rose);}
 .item-card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;}
 .item-card .card-top{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
 .item-card .card-top select, .item-card .card-top input{flex:1;min-width:0;}
-.item-card select, .item-card input{background:var(--parchment);border:1.5px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13.5px;font-family:inherit;color:var(--ink);width:100%;box-sizing:border-box;}
-.item-card .del-row{background:none;border:none;color:#b9ad96;cursor:pointer;font-size:15px;padding:6px;flex-shrink:0;}
+.item-card select, .item-card input{background:var(--parchment);border:1.5px solid var(--line);border-radius:10px;padding:9px 10px;font-size:var(--tf);font-family:inherit;color:var(--ink);width:100%;box-sizing:border-box;}
+.item-card .del-row{background:none;border:none;color:#b9ad96;cursor:pointer;font-size:var(--t4);padding:6px;flex-shrink:0;}
 .item-card .del-row:hover{color:var(--rose);}
 .item-card .card-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;}
 .item-card .card-grid select, .item-card .card-grid input{min-width:0;text-overflow:ellipsis;}
 .item-card .card-grid select{padding-left:6px;}
-.item-card label{font-size:10.5px;color:#6b7a78;display:block;margin-bottom:3px;}
+.item-card label{font-size:var(--t1);color:#6b7a78;display:block;margin-bottom:3px;}
 .expense-diag .inbox-row{padding:8px 4px;}
 .safety-calc .total-line{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);}
-.safety-calc .total-line .lbl{font-size:12.5px;color:#6b7a78;}
-.safety-calc .total-line .val{font-size:17px;font-weight:800;color:var(--petrol-dark);}
+.safety-calc .total-line .lbl{font-size:var(--t2);color:#6b7a78;}
+.safety-calc .total-line .val{font-size:var(--t5);font-weight:800;color:var(--petrol-dark);}
 .safety-calc .result-hero{border-radius:16px;padding:20px;text-align:center;margin-bottom:14px;background:var(--petrol-dark);}
-.safety-calc .result-hero .lbl{font-size:12px;color:#c9c3af;margin-bottom:6px;}
+.safety-calc .result-hero .lbl{font-size:var(--t2);color:#c9c3af;margin-bottom:6px;}
 .safety-calc .result-hero .val{font-size:28px;font-weight:900;color:#fff;font-family:'IBM Plex Sans Arabic',sans-serif;}
-.safety-calc .result-hero .sub{font-size:11.5px;color:#a9c9bb;margin-top:8px;line-height:1.6;}
+.safety-calc .result-hero .sub{font-size:var(--t1);color:#a9c9bb;margin-top:8px;line-height:1.6;}
 .safety-calc .stats-grid, .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 .safety-calc .stat-box, .stat-box{border-radius:12px;padding:10px 12px;}
 .safety-calc .stat-box .p, .stat-box .p{font-size:15px;font-weight:900;}
-.safety-calc .stat-box .l, .stat-box .l{font-size:10.5px;margin-top:3px;}
-.safety-calc .status-banner{border-radius:12px;padding:12px 14px;font-size:13px;font-weight:700;text-align:center;margin-bottom:12px;line-height:1.6;}
+.safety-calc .stat-box .l, .stat-box .l{font-size:var(--t1);margin-top:3px;}
+.safety-calc .status-banner{border-radius:12px;padding:12px 14px;font-size:var(--t3);font-weight:700;text-align:center;margin-bottom:12px;line-height:1.6;}
 .safety-calc .status-green{background:#e7f7ef;color:#1e6b4a;}
 .safety-calc .status-yellow{background:#fdf6e3;color:#8a6d00;}
 .safety-calc .status-red{background:rgba(178,76,99,.13);color:var(--rose-dark);}
-.safety-calc .assumption-note{font-size:10.5px;color:#6b7a78;background:var(--parchment);border-radius:10px;padding:8px 10px;margin-top:10px;line-height:1.7;}
+.safety-calc .assumption-note{font-size:var(--t1);color:#6b7a78;background:var(--parchment);border-radius:10px;padding:8px 10px;margin-top:10px;line-height:1.7;}
 .safety-calc .goals-total{border-radius:14px;padding:14px;background:#e8effb;text-align:center;margin-top:4px;}
 .safety-calc .goals-total .v{font-size:20px;font-weight:900;color:#3f6fd1;}
-.safety-calc .goals-total .l{font-size:11px;color:#3f6fd1;margin-top:4px;}
+.safety-calc .goals-total .l{font-size:var(--t1);color:#3f6fd1;margin-top:4px;}
 
 /* ---------- monthly expense diagnosis ---------- */
-.expense-diag .month-badge{display:inline-block;margin-top:4px;background:#e8effb;color:#274a8f;font-size:11.5px;font-weight:700;padding:4px 12px;border-radius:99px;}
-.expense-diag .alert{border-radius:12px;padding:10px 12px;font-size:12.5px;margin-bottom:12px;font-weight:600;}
+.expense-diag .month-badge{display:inline-block;margin-top:4px;background:#e8effb;color:#274a8f;font-size:var(--t1);font-weight:700;padding:4px 12px;border-radius:99px;}
+.expense-diag .alert{border-radius:12px;padding:10px 12px;font-size:var(--t2);margin-bottom:12px;font-weight:600;}
 .expense-diag .alert.bad{background:rgba(178,76,99,.13);color:var(--rose-dark);}
 .expense-diag .alert.ok{background:#e7f7ef;color:#1e6b4a;}
 .expense-diag .bar{width:100%;height:16px;border-radius:99px;overflow:hidden;display:flex;background:var(--line);border:1px solid var(--line);margin-bottom:10px;}
 .expense-diag .bar span{height:100%;}
-.expense-diag .legend{display:flex;flex-wrap:wrap;gap:10px;font-size:11.5px;margin-bottom:14px;}
+.expense-diag .legend{display:flex;flex-wrap:wrap;gap:10px;font-size:var(--t1);margin-bottom:14px;}
 .expense-diag .legend .li{display:flex;align-items:center;gap:6px;}
 .expense-diag .legend .dot{width:9px;height:9px;border-radius:50%;display:inline-block;}
 .expense-diag .breakdown-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;}
 .expense-diag .bd-item{border-radius:12px;padding:9px 10px;}
 .expense-diag .bd-item .p{font-size:16px;font-weight:900;}
-.expense-diag .bd-item .l{font-size:10.5px;margin-top:2px;}
+.expense-diag .bd-item .l{font-size:var(--t1);margin-top:2px;}
 .expense-diag .score-wrap{display:flex;align-items:center;gap:16px;}
 .expense-diag .score-num{font-size:36px;font-weight:900;color:var(--petrol-dark);min-width:74px;text-align:center;font-family:'IBM Plex Sans Arabic',sans-serif;}
 .expense-diag .score-bar-outer{flex:1;}
 .expense-diag .score-bar{height:10px;border-radius:99px;background:var(--line);overflow:hidden;margin-bottom:6px;}
 .expense-diag .score-bar>div{height:100%;background:linear-gradient(90deg,#d9564a,#d99a1f,#2f9e6e);transition:width .5s;}
-.expense-diag .score-label{font-size:12.5px;font-weight:800;}
-.expense-diag .top-item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px dashed var(--line);font-size:12.5px;}
+.expense-diag .score-label{font-size:var(--t2);font-weight:800;}
+.expense-diag .top-item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px dashed var(--line);font-size:var(--t2);}
 .expense-diag .top-item:last-child{border-bottom:none;}
 .expense-diag .top-item .rank{color:#6b7a78;margin-left:6px;}
 .expense-diag .top-item .amt{font-weight:800;}
-.expense-diag .tip{background:#e8effb;border-radius:12px;padding:10px 12px;font-size:12.5px;margin-bottom:8px;color:#274a8f;line-height:1.7;}
+.expense-diag .tip{background:#e8effb;border-radius:12px;padding:10px 12px;font-size:var(--t2);margin-bottom:8px;color:#274a8f;line-height:1.7;}
 
 /* mood */
 .mood-scale{display:flex;justify-content:space-between;gap:6px;}
@@ -311,10 +327,10 @@ details.path-block > summary::-webkit-details-marker{display:none;}
 
 /* period tabs */
 .period-tabs{display:flex;gap:6px;margin-bottom:8px;}
-.period-tab{flex:1;text-align:center;padding:7px;border-radius:8px;background:var(--parchment);border:1px solid var(--line);font-size:12.5px;font-weight:700;color:#6b7a78;}
+.period-tab{flex:1;text-align:center;padding:7px;border-radius:8px;background:var(--parchment);border:1px solid var(--line);font-size:var(--t2);font-weight:700;color:#6b7a78;}
 .period-tab.active{background:var(--petrol);color:#fff;border-color:var(--petrol);}
 /* how many tasks sit in each box, so a day's workload reads without tabbing through */
-.ptab-count{display:inline-block;min-width:16px;padding:0 4px;margin-inline-start:3px;border-radius:9px;background:rgba(46,92,90,.14);color:var(--petrol-dark);font-size:11px;line-height:16px;font-weight:700;}
+.ptab-count{display:inline-block;min-width:16px;padding:0 4px;margin-inline-start:3px;border-radius:9px;background:rgba(46,92,90,.14);color:var(--petrol-dark);font-size:var(--t1);line-height:16px;font-weight:700;}
 .period-tab.active .ptab-count{background:rgba(255,255,255,.28);color:#fff;}
 
 /* time-box color picker + management rows */
@@ -327,19 +343,19 @@ details.path-block > summary::-webkit-details-marker{display:none;}
 .tcat-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px dashed var(--line);}
 .tcat-row:last-of-type{border-bottom:none;}
 .tbox-row input[type="text"], .tbox-row input[type="time"], .tcat-row input[type="text"]{
-  padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;background:var(--parchment);font-size:14px;color:var(--ink);
+  padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;background:var(--parchment);font-size:var(--tf);color:var(--ink);
 }
 .tbox-row input:focus, .tcat-row input:focus{outline:2px solid var(--sage);outline-offset:1px;}
-.habit-collapsed-row{display:block;width:100%;text-align:right;padding:8px 4px;font-size:12.5px;color:#a3aeac;background:none;border:none;border-bottom:1px dashed var(--line);}
+.habit-collapsed-row{display:block;width:100%;text-align:right;padding:8px 4px;font-size:var(--t2);color:#a3aeac;background:none;border:none;border-bottom:1px dashed var(--line);}
 /* a dormant habit is still hers and still listed — just visibly asleep */
 .habit-collapsed-row.dormant{opacity:.6;font-style:italic;}
 .habit-collapsed-row:hover{color:var(--petrol-dark);}
 .habit-progress-track{width:100%;height:8px;border-radius:99px;background:var(--line);overflow:hidden;}
 .habit-progress-fill{height:100%;background:var(--sage);border-radius:99px;}
 
-.empty{text-align:center;padding:26px 10px;color:#8b9694;font-size:13.5px;}
+.empty{text-align:center;padding:26px 10px;color:#8b9694;font-size:var(--t3);}
 /* second line of an empty state: what to do about it */
-.empty .hint{display:block;margin-top:4px;font-size:12.5px;opacity:.85;}
+.empty .hint{display:block;margin-top:4px;font-size:var(--t2);opacity:.85;}
 .empty.tight{padding:14px 10px;}
 .spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;display:inline-block;animation:spin .7s linear infinite;vertical-align:middle;margin-left:6px;}
 @keyframes spin{to{transform:rotate(360deg);}}
@@ -352,18 +368,18 @@ details.path-block > summary::-webkit-details-marker{display:none;}
 .hbox{width:22px;height:22px;border-radius:6px;border:2px solid var(--sage);background:var(--paper);flex-shrink:0;display:flex;align-items:center;justify-content:center;}
 .hbox.done{background:var(--sage);}
 .hbox svg{width:12px;height:12px;stroke:#fff;stroke-width:3;fill:none;}
-.habit-label{flex:1;font-size:15px;}
+.habit-label{flex:1;font-size:var(--t4);}
 .habit-label.done{color:#9aa6a4;text-decoration:line-through;}
 
 /* weekly habit table */
 .week-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px;}
-.week-nav .lbl{font-size:12.5px;color:var(--petrol-dark);font-weight:700;text-align:center;flex:1;}
+.week-nav .lbl{font-size:var(--t2);color:var(--petrol-dark);font-weight:700;text-align:center;flex:1;}
 .htable-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
-table.htable{border-collapse:collapse;width:100%;min-width:560px;font-size:12px;}
+table.htable{border-collapse:collapse;width:100%;min-width:560px;font-size:var(--t2);}
 table.htable th, table.htable td{padding:6px;text-align:center;border-bottom:1px solid var(--line);}
-table.htable th{font-size:11px;color:var(--petrol-dark);font-weight:700;}
+table.htable th{font-size:var(--t1);color:var(--petrol-dark);font-weight:700;}
 table.htable th .d{display:block;font-size:9.5px;color:#8b9694;font-weight:400;}
-table.htable td.habit-label-cell{text-align:right;font-size:12px;padding-right:4px;white-space:nowrap;}
+table.htable td.habit-label-cell{text-align:right;font-size:var(--t2);padding-right:4px;white-space:nowrap;}
 .gcheck{width:20px;height:20px;border-radius:5px;border:1.5px solid var(--sage);background:var(--paper);display:inline-flex;align-items:center;justify-content:center;}
 .gcheck.done{background:var(--sage);}
 .gcheck svg{width:11px;height:11px;stroke:#fff;stroke-width:3;fill:none;}
@@ -374,10 +390,10 @@ table.htable td.habit-label-cell{text-align:right;font-size:12px;padding-right:4
 .inbox-row{display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px dashed var(--line);}
 .inbox-row:last-child{border-bottom:none;}
 .inbox-row .dot{width:7px;height:7px;border-radius:50%;background:var(--rose);flex-shrink:0;}
-.inbox-row .txt{flex:1;font-size:15.5px;}
+.inbox-row .txt{flex:1;font-size:var(--t4);}
 .plan-item{background:var(--parchment);border:1.5px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;}
-.plan-item .ptxt{font-size:15.5px;font-weight:700;color:var(--petrol-dark);margin-bottom:6px;}
-.plan-item .pnote{font-size:12.5px;color:#6b7a78;margin-top:6px;line-height:1.6;}
+.plan-item .ptxt{font-size:var(--t4);font-weight:700;color:var(--petrol-dark);margin-bottom:6px;}
+.plan-item .pnote{font-size:var(--t2);color:#6b7a78;margin-top:6px;line-height:1.6;}
 .plan-item.excluded{opacity:.45;}
 .plan-check{width:22px;height:22px;border-radius:6px;border:2px solid var(--sage);background:var(--paper);flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;margin-left:8px;}
 .plan-check.on{background:var(--sage);}
@@ -784,7 +800,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 24';
+const APP_BUILD = '2026-08-17 · 25';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -1291,7 +1307,7 @@ function renderCloudConflict(){
       فيه تعديلات بالسحاب من جهاز آخر${c.when? ' بتاريخ '+new Date(c.when).toLocaleString('ar') : ''}، ما وصلت هذا الجهاز.
       وقّفت الرفع عشان ما أمحيها. اختاري وش تبين:
     </p>
-    <div class="quote-box" style="margin-bottom:10px;font-size:13px;">
+    <div class="quote-box" style="margin-bottom:10px;font-size:var(--t3);">
       📱 هذا الجهاز: <b>${c.myTasks}</b> مهمة &nbsp;·&nbsp; ☁️ السحاب: <b>${c.theirTasks}</b> مهمة
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -1299,7 +1315,7 @@ function renderCloudConflict(){
       <button class="btn ghost sm" id="conflictKeepMine">📱 اعتمدي هذا الجهاز</button>
       <button class="btn ghost sm" id="conflictOpenSettings">📜 اعرضي النسخ</button>
     </div>
-    <p class="muted" style="margin-top:8px;font-size:12px;">أي خيار تختارينه، النسخة الثانية تبقى محفوظة بسجل النسخ وتقدرين ترجعين لها.</p>
+    <p class="muted" style="margin-top:8px;font-size:var(--t2);">أي خيار تختارينه، النسخة الثانية تبقى محفوظة بسجل النسخ وتقدرين ترجعين لها.</p>
   </div>`;
 }
 /* painted into its own slot rather than through render(), so a warning that
@@ -1620,7 +1636,7 @@ function renderOnboarding(){
         <div class="seal">د</div>
       </div>
       <h1 style="font-size:26px;color:var(--petrol-dark);">دفتري للأمان المالي</h1>
-      <p class="muted" style="font-size:14px;margin-top:6px;">مساحتك اليومية للتنظيم، الأهداف، والإنجاز</p>
+      <p class="muted" style="font-size:var(--t3);margin-top:6px;">مساحتك اليومية للتنظيم، الأهداف، والإنجاز</p>
     </div>
     <div class="card">
       <div class="card-title"><h3>هلا فيك 🌿</h3></div>
@@ -1668,7 +1684,7 @@ function renderGoalWizard(){
         </div>
         ${(goalWizard.customPillars||[]).length? `
         <div class="chip-row" style="margin-top:8px;">
-          ${goalWizard.customPillars.map((c,i)=>`<span class="chip selected" style="display:inline-flex;align-items:center;gap:6px;">${escapeHtml(c)}<button type="button" data-custompillar-del="${i}" style="background:none;border:none;color:inherit;padding:0;cursor:pointer;font-size:13px;">✕</button></span>`).join('')}
+          ${goalWizard.customPillars.map((c,i)=>`<span class="chip selected" style="display:inline-flex;align-items:center;gap:6px;">${escapeHtml(c)}<button type="button" data-custompillar-del="${i}" style="background:none;border:none;color:inherit;padding:0;cursor:pointer;font-size:var(--t3);">✕</button></span>`).join('')}
         </div>`:''}
         <div style="display:flex;gap:8px;margin-top:8px;">
           <input type="text" id="gwCustomPillarInput" placeholder="بند مخصص لهذا الهدف بس (ما يضاف للقائمة الثابتة)"/>
@@ -1700,11 +1716,11 @@ function renderGoalWizard(){
           ${goalWizard.attachments.map((a,i)=>`
             <div class="inbox-row" data-attach-row="${i}" style="align-items:center;">
               <span class="dot"></span>
-              <a href="${a.dataUrl}" download="${escapeHtml(a.name)}" style="flex:1;color:var(--petrol-dark);font-size:14px;text-decoration:none;">📄 ${escapeHtml(a.name)} <span class="muted" style="font-size:11.5px;">(${Math.round(a.size/1024)} كيلوبايت)</span></a>
+              <a href="${a.dataUrl}" download="${escapeHtml(a.name)}" style="flex:1;color:var(--petrol-dark);font-size:var(--t3);text-decoration:none;">📄 ${escapeHtml(a.name)} <span class="muted" style="font-size:var(--t1);">(${Math.round(a.size/1024)} كيلوبايت)</span></a>
               <button type="button" class="icon-btn" data-attach-del="${i}">✕</button>
             </div>`).join('')}
         </div>`:''}
-        <input type="file" id="gwAttachInput" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.heic,.txt" style="width:100%;padding:10px;border:1.5px dashed var(--line);border-radius:10px;background:var(--parchment);font-size:13px;"/>
+        <input type="file" id="gwAttachInput" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.heic,.txt" style="width:100%;padding:10px;border:1.5px dashed var(--line);border-radius:10px;background:var(--parchment);font-size:var(--t3);"/>
         ${attachError? `<p class="muted" style="color:var(--rose-dark);margin-top:6px;">${escapeHtml(attachError)}</p>`:''}
         <p class="muted" style="margin-top:6px;">حجم أقصى ٨٠٠ كيلوبايت لكل ملف (تخزين محلي بالجهاز).</p>
       </div>
@@ -1934,7 +1950,7 @@ function renderSettings(){
         </div>
         <div style="margin-top:14px;border-top:1px dashed var(--line);padding-top:12px;">
           <p style="font-weight:700;color:var(--petrol-dark);margin-bottom:4px;">🕘 استعادة نسخة سابقة</p>
-          <p class="muted" style="margin-bottom:8px;font-size:12.5px;">السحاب يحفظ نسخة كاملة عند كل مزامنة. اعرضي القائمة، شوفي محتوى أي نسخة قبل ما تقرري، وارجعي لها لو ضاع منك شي.</p>
+          <p class="muted" style="margin-bottom:8px;font-size:var(--t2);">السحاب يحفظ نسخة كاملة عند كل مزامنة. اعرضي القائمة، شوفي محتوى أي نسخة قبل ما تقرري، وارجعي لها لو ضاع منك شي.</p>
           <button class="btn ghost btn-block" id="loadRevisions" ${cloudStatus==='syncing'?'disabled':''}>${revLoading? '⏳ يجيب القائمة…' : '📜 اعرضي النسخ السابقة'}</button>
           ${revError? `<p class="muted" style="color:var(--rose-dark);margin-top:8px;">⚠️ ${escapeHtml(revError)}</p>`:''}
           ${cloudRevisions? (cloudRevisions.length? `
@@ -1943,10 +1959,10 @@ function renderSettings(){
                 <div class="inbox-row" style="align-items:flex-start;">
                   <span class="dot"></span>
                   <div style="flex:1;">
-                    <div style="font-size:13.5px;color:var(--ink);">${i===0? 'النسخة الحالية' : 'نسخة '+(i+1)}</div>
-                    <div class="muted" style="font-size:11.5px;">${new Date(r.committed_at).toLocaleString('ar')}</div>
+                    <div style="font-size:var(--t3);color:var(--ink);">${i===0? 'النسخة الحالية' : 'نسخة '+(i+1)}</div>
+                    <div class="muted" style="font-size:var(--t1);">${new Date(r.committed_at).toLocaleString('ar')}</div>
                     ${revPreview && revPreview.version===r.version? `
-                      <div class="quote-box" style="margin-top:6px;font-size:12.5px;">
+                      <div class="quote-box" style="margin-top:6px;font-size:var(--t2);">
                         ${revPreview.error? `<span style="color:var(--rose-dark);">${escapeHtml(revPreview.error)}</span>` : `
                         📋 ${revPreview.tasks} مهمة · 🎯 ${revPreview.goals} هدف · 🏷️ ${revPreview.cats} تصنيف · ✨ ${revPreview.pillars} بند هوية · 📖 ${revPreview.journal} إنجاز
                         <div style="margin-top:6px;">التصنيفات: ${escapeHtml(revPreview.catLabels||'—')}</div>
@@ -1983,9 +1999,9 @@ function renderSettings(){
     <div class="card">
       <div class="card-title"><h3>📦 تحديثات التطبيق</h3></div>
       <div class="quote-box" style="margin-bottom:10px;">
-        <p class="muted" style="margin:0 0 4px;font-size:12.5px;">نسختك الحالية</p>
-        <p style="margin:0;font-weight:700;color:var(--petrol-dark);font-size:15px;">${APP_BUILD}</p>
-        <p class="muted" style="margin:6px 0 0;font-size:12px;" id="buildCompare">…يقارن بالنسخة المنشورة</p>
+        <p class="muted" style="margin:0 0 4px;font-size:var(--t2);">نسختك الحالية</p>
+        <p style="margin:0;font-weight:700;color:var(--petrol-dark);font-size:var(--t4);">${APP_BUILD}</p>
+        <p class="muted" style="margin:6px 0 0;font-size:var(--t2);" id="buildCompare">…يقارن بالنسخة المنشورة</p>
       </div>
       <p class="muted" style="margin-bottom:10px;">لو الرقم فوق ما يطابق المنشور، اضغطي تحديث. ما تحتاجين تحذفين الأيقونة.</p>
       ${appUpdateMsg? `<p class="muted" style="margin-bottom:10px;color:${appUpdateMsg.ok?'var(--sage)':'var(--rose-dark)'};">${escapeHtml(appUpdateMsg.text)}</p>`:''}
@@ -1999,14 +2015,14 @@ function renderSettings(){
         <button class="btn ghost btn-block" id="genCode" style="margin-bottom:10px;">انسخي كود بياناتي</button>
         ${syncExportCode? `
           <div class="field">
-            <textarea id="exportBox" readonly style="min-height:90px;font-size:11px;direction:ltr;text-align:left;">${syncExportCode}</textarea>
+            <textarea id="exportBox" readonly style="min-height:90px;font-size:var(--t1);direction:ltr;text-align:left;">${syncExportCode}</textarea>
           </div>
           <p class="muted" style="margin-bottom:16px;">${navigator.clipboard? 'انتسخ تلقائياً للحافظة ✓ الصقيه أي مكان (واتساب، ملاحظات) ووديه للجهاز الثاني.' : 'حددي كل النص أعلاه وانسخيه يدوياً.'}</p>
         `:''}
         <div style="border-top:1px dashed var(--line);padding-top:14px;">
           <p class="muted" style="margin-bottom:10px;">أو الصقي هنا كود نسختيه من جهاز ثاني — تنبيه: هذا بيستبدل كل بيانات هذا الجهاز الحالية.</p>
           <div class="field">
-            <textarea id="importBox" placeholder="الصقي الكود هنا…" style="min-height:90px;font-size:11px;direction:ltr;text-align:left;">${escapeHtml(syncImportText)}</textarea>
+            <textarea id="importBox" placeholder="الصقي الكود هنا…" style="min-height:90px;font-size:var(--tf);direction:ltr;text-align:left;">${escapeHtml(syncImportText)}</textarea>
           </div>
           ${syncMsg? `<p class="muted" style="color:${syncMsg.ok?'var(--sage)':'var(--rose-dark)'};margin-bottom:10px;">${escapeHtml(syncMsg.text)}</p>`:''}
           <button class="btn rose btn-block" id="doImport">استوردي واستبدلي بيانات هذا الجهاز</button>
@@ -2167,7 +2183,7 @@ function renderTopbar(){
   const todayMoodEmojis = getLog(todayStr()).mood.map(mid=> moodOf(mid)?.icon || '').join('');
   return `
   <div class="topbar">
-    <div class="brand"><div class="seal">د</div><h1 style="font-size:17px;">دفتري للأمان المالي</h1></div>
+    <div class="brand"><div class="seal">د</div><h1 style="font-size:var(--t5);">دفتري للأمان المالي</h1></div>
     <div style="display:flex;align-items:center;gap:8px;">
       <button type="button" class="icon-btn" id="openSettings" title="نسخ البيانات بين الأجهزة" style="font-size:18px;">⚙️</button>
       <div class="size-ctrl">
@@ -2243,7 +2259,7 @@ function renderHome(){
 
   return `
   ${renderDateNav()}
-  <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:4px;">${isToday? `صباحك أهداف، ${escapeHtml(state.name)} 🌿` : `روتين يوم ${tpl.name}`}</h2>
+  <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:4px;">${isToday? `صباحك أهداف، ${escapeHtml(state.name)} 🌿` : `روتين يوم ${tpl.name}`}</h2>
   <p class="muted" style="margin-bottom:18px;">${isToday? 'يلا نبني يومك خطوة خطوة' : 'تقدرين تراجعين أو تخططين لهذا اليوم من هنا'}</p>
 
   ${isToday? renderProgressStatCard() : ''}
@@ -2264,7 +2280,7 @@ function renderHome(){
 
   ${isToday && !hasUrgentToday()? `
   <div class="card" style="text-align:center;">
-    <p style="font-size:15px;color:var(--petrol-dark);line-height:1.8;margin:6px 0;">${escapeHtml(dailyPick(RELAXATION_MESSAGES, todayStr()))}</p>
+    <p style="font-size:var(--t4);color:var(--petrol-dark);line-height:1.8;margin:6px 0;">${escapeHtml(dailyPick(RELAXATION_MESSAGES, todayStr()))}</p>
   </div>
   ` : `
   <div class="card">
@@ -2330,13 +2346,13 @@ function renderHabitsCard(tpl, log, dow){
   return `
   <div class="card">
     <div class="card-title">
-      <h3 style="cursor:pointer;flex:1;display:flex;align-items:center;gap:7px;" data-toggle-collapse="habits"><span style="flex:1;">عادات ${tpl.name}${dayHabits.length? ` <span class="muted" style="font-size:12.5px;font-weight:400;">(${finished.length}/${dayHabits.length})</span>`:''}</span><span class="chev ${collapsed?"":"open"}">▾</span></h3>
+      <h3 style="cursor:pointer;flex:1;display:flex;align-items:center;gap:7px;" data-toggle-collapse="habits"><span style="flex:1;">عادات ${tpl.name}${dayHabits.length? ` <span class="muted" style="font-size:var(--t2);font-weight:400;">(${finished.length}/${dayHabits.length})</span>`:''}</span><span class="chev ${collapsed?"":"open"}">▾</span></h3>
       <button class="icon-btn sm" data-goto-habits="1">إدارة العادات</button>
     </div>
     ${collapsed? '' : `
     ${dayHabits.length===0? `<div class="empty tight">ما فيه عادات لهذا اليوم<span class="hint">أضيفيها أو فعّليها من صفحة «العادات»</span></div>`:''}
     ${pending.map(habitRow).join('')}
-    ${dayHabits.length && pending.length===0? `<p style="text-align:center;font-size:15px;color:var(--petrol-dark);margin:6px 0;">🌿 خلّصتي عادات اليوم كلها، ماشاءالله</p>`:''}
+    ${dayHabits.length && pending.length===0? `<p style="text-align:center;font-size:var(--t4);color:var(--petrol-dark);margin:6px 0;">🌿 خلّصتي عادات اليوم كلها، ماشاءالله</p>`:''}
     ${finished.length? `
       <button type="button" class="icon-btn sm" style="padding:3px 4px;margin-top:4px;" data-toggle-collapse="habitsDoneOpen">${doneOpen?'▾':'▸'} ✓ اللي خلّصتيها (${finished.length})</button>
       ${doneOpen? finished.map(habitRow).join('') : ''}
@@ -2460,7 +2476,7 @@ function taskRowHtml(t, opts){
       <button type="button" class="icon-btn sm" style="padding:2px 4px;margin-top:2px;" data-toggle-collapse="${noteKey}">${noteOpen?'▾':'▸'} 📝 تفاصيل إضافية</button>
       ${noteOpen? `
         ${t.longNote? `<div class="rte-editable" style="margin-top:4px;min-height:auto;border-style:dashed;">${t.longNote}</div>`:''}
-        ${(t.attachments&&t.attachments.length)? `<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;">${t.attachments.map(a=>`<a href="${a.dataUrl}" download="${escapeHtml(a.name)}" style="font-size:13px;color:var(--petrol-dark);text-decoration:none;">📄 ${escapeHtml(a.name)}</a>`).join('')}</div>`:''}
+        ${(t.attachments&&t.attachments.length)? `<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;">${t.attachments.map(a=>`<a href="${a.dataUrl}" download="${escapeHtml(a.name)}" style="font-size:var(--t3);color:var(--petrol-dark);text-decoration:none;">📄 ${escapeHtml(a.name)}</a>`).join('')}</div>`:''}
       `:''}
       `:''}
     </div>
@@ -2511,7 +2527,7 @@ function renderScheduleCard(){
     ${activeBox? `<p class="muted" style="margin-bottom:10px;">⏰ ${activeBox.start} – ${activeBox.end}${(activeBox.categoryIds&&activeBox.categoryIds.length)? ' · '+activeBox.categoryIds.map(id=>tcatOf(id)?.label).filter(Boolean).join('، ') : ''}</p>`:''}
     ${items.length===0? `<div class="empty">ما فيه مهام في هالصندوق. وزّعي مهامك من صفحة المهام.</div>` : items.map(t=>taskRowHtml(t, {date:dateStr})).join('')}
     <button class="btn ghost btn-block" style="margin-top:8px;" id="goAddTaskPeriod" data-add-period="${period}">+ إضافة مهمة ${activeBox?'لـ'+escapeHtml(activeBox.label):''}</button>
-    <p class="muted" style="margin-top:8px;font-size:12px;">🎨 تعديل صناديق الزمن (الاسم، الوقت، اللون) صار من تبويب "الأساس".</p>
+    <p class="muted" style="margin-top:8px;font-size:var(--t2);">🎨 تعديل صناديق الزمن (الاسم، الوقت، اللون) صار من تبويب "الأساس".</p>
     `}
   </div>`;
 }
@@ -2530,7 +2546,7 @@ function renderTimeBoxManager(){
             <span class="muted">إلى</span>
             <input type="time" data-tbox-end="${b.id}" value="${b.end}"/>
           </div>
-          <p class="muted" style="font-size:12px;margin-bottom:2px;">وش نوع المهام المناسبة لهالصندوق؟</p>
+          <p class="muted" style="font-size:var(--t2);margin-bottom:2px;">وش نوع المهام المناسبة لهالصندوق؟</p>
           <div class="chip-row">
             ${state.taskCategories.map(c=>`<button type="button" class="chip ${(b.categoryIds||[]).includes(c.id)?'selected':''}" data-tbox-cat="${b.id}" data-cat="${c.id}">${c.icon} ${c.label}</button>`).join('')}
           </div>
@@ -2572,7 +2588,7 @@ function renderMoodManager(){
       <p class="muted" style="margin-bottom:10px;">المشاعر اللي تختارين منها كل يوم. عدّلي الرمز والاسم، أوقفي اللي ما يناسبك، أو أخفي القسم كله.</p>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
         <button type="button" class="btn ghost sm" id="moodSectionToggle">${off? '▶️ رجّعي القسم' : '🚫 أخفي القسم كله'}</button>
-        <span class="muted" style="font-size:12px;">${off? 'القسم مخفي من صفحة اليوم.' : 'القسم يظهر بصفحة اليوم.'}</span>
+        <span class="muted" style="font-size:var(--t2);">${off? 'القسم مخفي من صفحة اليوم.' : 'القسم يظهر بصفحة اليوم.'}</span>
       </div>
       <div class="field" style="margin-bottom:12px;">
         <label>اسم القسم</label>
@@ -2598,7 +2614,7 @@ function renderMoodManager(){
         <input type="text" id="moodNewLabel" placeholder="شعور جديد…" style="flex:1;"/>
         <button type="button" class="btn sm" id="moodAdd">إضافة</button>
       </div>
-      <p class="muted" style="margin-top:8px;font-size:12px;">💡 أيامك السابقة تحتفظ بالشعور اللي اخترتيه فيها حتى لو غيّرتِ اسمه أو أوقفتيه — الرمز يظل يظهر بشريط التاريخ.</p>
+      <p class="muted" style="margin-top:8px;font-size:var(--t2);">💡 أيامك السابقة تحتفظ بالشعور اللي اخترتيه فيها حتى لو غيّرتِ اسمه أو أوقفتيه — الرمز يظل يظهر بشريط التاريخ.</p>
     </div>
   </details>`;
 }
@@ -2628,8 +2644,8 @@ function renderDailyQuestionsManager(){
       }).join('')}
       ${qs.length===0? `<div class="empty tight">ما فيه أسئلة<span class="hint">أضيفي أول سؤال من الأسفل</span></div>`:''}
       <button type="button" class="btn ghost btn-block" style="margin-top:10px;" id="dqAddNew">+ إضافة سؤال</button>
-      <p class="muted" style="margin-top:8px;font-size:12px;">✅ نشط يظهر بصفحة اليوم · ⭕ موقوف يختفي ويحتفظ بما كتبتيه. تحت كل سؤال مساحة تعليق مطوية تكتبين فيها.</p>
-      <p class="muted" style="margin-top:4px;font-size:12px;">💡 اللي تكتبينه محفوظ لكل سؤال على حدة، فتعديل الترتيب أو النص ما يخلط كتابات الأيام السابقة. حذف سؤال يخفي كتاباته من العرض فقط.</p>
+      <p class="muted" style="margin-top:8px;font-size:var(--t2);">✅ نشط يظهر بصفحة اليوم · ⭕ موقوف يختفي ويحتفظ بما كتبتيه. تحت كل سؤال مساحة تعليق مطوية تكتبين فيها.</p>
+      <p class="muted" style="margin-top:4px;font-size:var(--t2);">💡 اللي تكتبينه محفوظ لكل سؤال على حدة، فتعديل الترتيب أو النص ما يخلط كتابات الأيام السابقة. حذف سؤال يخفي كتاباته من العرض فقط.</p>
     </div>
   </details>`;
 }
@@ -2706,7 +2722,7 @@ function renderSuggestionsCard(){
       ${collapsed? '' : `
       <p class="muted" style="margin-bottom:8px;">مبني على هدفك: <b style="color:var(--petrol-dark);">${CAT_MAP[g.cat]?.icon||''} ${escapeHtml(g.title)}</b>${state.goals.length>1? ` <span class="muted">(هدف ${(( state.tipGoalIndex||0)%state.goals.length)+1} من ${state.goals.length})</span>`:''}</p>
       ${entry.personal? `<p class="muted" style="margin-bottom:4px;">🎯 من إجابتك أنتِ:</p>`:''}
-      <p style="font-size:15px;margin-bottom:12px;">${escapeHtml(entry.text)}</p>
+      <p style="font-size:var(--t4);margin-bottom:12px;">${escapeHtml(entry.text)}</p>
       <div style="display:flex;gap:8px;">
         <button class="btn sm" id="addTipTask" data-tip="${escapeHtml(entry.text)}" data-goal="${g.id}">أضيفيها لمهامي</button>
         <button class="btn ghost sm" id="anotherTip" data-goal="${g.id}">اقتراح ثاني</button>
@@ -2739,7 +2755,7 @@ function renderJournalEntryRow(j){
     return `<div class="inbox-row" data-journal-row="${j.id}" style="align-items:flex-start;">
       <span class="dot" style="margin-top:12px;"></span>
       <div style="flex:1;">
-        <span class="muted" style="font-size:11px;">${j.date}</span>
+        <span class="muted" style="font-size:var(--t1);">${j.date}</span>
         <div class="field" style="margin:4px 0 0;">
           <textarea data-journal-edit-input="${j.id}" style="min-height:70px;">${escapeHtml(journalEditDraft)}</textarea>
         </div>
@@ -2754,7 +2770,7 @@ function renderJournalEntryRow(j){
   return `<div class="inbox-row" data-journal-row="${j.id}">
     <span class="dot"></span>
     <div style="flex:1;">
-      <span class="muted" style="font-size:11px;">${j.date}</span>
+      <span class="muted" style="font-size:var(--t1);">${j.date}</span>
       ${c? `<span class="tag" style="margin-inline-start:6px;">${c.icon} ${escapeHtml(c.label)}</span>`:''}
       <div class="txt">${escapeHtml(j.text)}</div>
     </div>
@@ -2783,7 +2799,7 @@ function renderJournalPage(){
      doesn't show nine chips that mostly lead to an empty list */
   const usedCats = CATS.filter(c=> state.journal.some(j=> inYear(j) && j.cat===c.id));
   return `
-  <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:4px;">📖 يومياتي</h2>
+  <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:4px;">📖 يومياتي</h2>
   <p class="muted" style="margin-bottom:16px;">سجّلي إنجازاتك بحرية، عدّليها متى ما بغيتِ، واستخلصيها بنهاية السنة بضغطة وحدة.</p>
 
   <div class="card">
@@ -2791,7 +2807,7 @@ function renderJournalPage(){
     <div class="field" style="margin-bottom:8px;">
       <textarea id="journalWorkInput" placeholder="اكتبي بحرية…">${escapeHtml(journalWorkDraft)}</textarea>
     </div>
-    <p class="muted" style="margin-bottom:6px;font-size:12.5px;">في أي مجال؟ (اختياري)</p>
+    <p class="muted" style="margin-bottom:6px;font-size:var(--t2);">في أي مجال؟ (اختياري)</p>
     ${journalCatPicker('work', journalWorkCat)}
     <button class="btn btn-block" id="journalWorkAdd">إضافة</button>
   </div>
@@ -2801,7 +2817,7 @@ function renderJournalPage(){
     <div class="field" style="margin-bottom:8px;">
       <textarea id="journalPersonalInput" placeholder="اكتبي بحرية…">${escapeHtml(journalPersonalDraft)}</textarea>
     </div>
-    <p class="muted" style="margin-bottom:6px;font-size:12.5px;">في أي مجال؟ (اختياري)</p>
+    <p class="muted" style="margin-bottom:6px;font-size:var(--t2);">في أي مجال؟ (اختياري)</p>
     ${journalCatPicker('personal', journalPersonalCat)}
     <button class="btn btn-block" id="journalPersonalAdd">إضافة</button>
   </div>
@@ -2814,7 +2830,7 @@ function renderJournalPage(){
     </div>
 
     ${usedCats.length? `
-    <p class="muted" style="margin-bottom:6px;font-size:12.5px;">صفّي حسب المجال:</p>
+    <p class="muted" style="margin-bottom:6px;font-size:var(--t2);">صفّي حسب المجال:</p>
     <div class="chip-row" style="margin-bottom:14px;">
       <button type="button" class="chip ${!journalFilterCat?'selected':''}" data-journal-filter="">الكل</button>
       ${usedCats.map(c=>`<button type="button" class="chip cat ${journalFilterCat===c.id?'selected':''}" data-journal-filter="${c.id}">${c.icon} ${c.label}</button>`).join('')}
@@ -2829,7 +2845,7 @@ function renderJournalPage(){
     <button class="btn btn-block" style="margin-top:16px;" id="exportJournalYear">📋 انسخي إنجازات العمل هالسنة (${year}) للتقرير</button>
     ${journalExportText? `
       <div class="field" style="margin-top:10px;">
-        <textarea id="journalExportBox" readonly style="min-height:160px;font-size:12.5px;">${escapeHtml(journalExportText)}</textarea>
+        <textarea id="journalExportBox" readonly style="min-height:160px;font-size:var(--t2);">${escapeHtml(journalExportText)}</textarea>
       </div>
       <p class="muted">${navigator.clipboard? 'انتسخ تلقائياً للحافظة ✓ الصقيه بتقريرك.' : 'حددي النص أعلاه وانسخيه يدويًا.'}</p>
     `:''}
@@ -2909,15 +2925,15 @@ function renderGroupedTaskBlocks(taskList, rowRenderer, emptyMsg){
     const taskCount = goalGroups.reduce((s,x)=>s+x.tasks.length,0);
     return `
     <div class="card" style="margin-bottom:12px;">
-      <div class="card-title"><h3 style="cursor:pointer;flex:1;font-size:15px;display:flex;align-items:center;gap:7px;" data-toggle-collapse="${catKey}"><span style="flex:1;">${icon} ${label} <span class="muted" style="font-size:12px;font-weight:400;">(${taskCount})</span></span><span class="chev ${catCollapsed?"":"open"}">▾</span></h3></div>
+      <div class="card-title"><h3 style="cursor:pointer;flex:1;font-size:var(--t4);display:flex;align-items:center;gap:7px;" data-toggle-collapse="${catKey}"><span style="flex:1;">${icon} ${label} <span class="muted" style="font-size:var(--t2);font-weight:400;">(${taskCount})</span></span><span class="chev ${catCollapsed?"":"open"}">▾</span></h3></div>
       ${catCollapsed? '' : goalGroups.map(({goal, tasks, mixed})=>{
         if(!goal) return tasks.map(rowRenderer).join('');
         const goalKey = 'goal:'+goal.id;
         const goalCollapsed = state.collapsed[goalKey];
         return `
         <div style="margin-bottom:10px;border-top:1px dashed var(--line);padding-top:10px;">
-          <h4 style="cursor:pointer;font-size:14px;color:var(--petrol-dark);margin-bottom:6px;display:flex;align-items:center;gap:7px;" data-toggle-collapse="${goalKey}"><span style="flex:1;">${escapeHtml(goal.title)} <span class="muted" style="font-size:11.5px;font-weight:400;">(${tasks.length})</span></span><span class="chev ${goalCollapsed?"":"open"}">▾</span></h4>
-          ${mixed? `<p class="muted" style="font-size:11.5px;margin:-2px 0 6px;color:var(--rose-dark);">⚠️ مهام هذا الهدف بتصنيفات مختلفة — وحّدي تصنيفها لو تبين ترتيبًا أوضح</p>`:''}
+          <h4 style="cursor:pointer;font-size:var(--t3);color:var(--petrol-dark);margin-bottom:6px;display:flex;align-items:center;gap:7px;" data-toggle-collapse="${goalKey}"><span style="flex:1;">${escapeHtml(goal.title)} <span class="muted" style="font-size:var(--t1);font-weight:400;">(${tasks.length})</span></span><span class="chev ${goalCollapsed?"":"open"}">▾</span></h4>
+          ${mixed? `<p class="muted" style="font-size:var(--t1);margin:-2px 0 6px;color:var(--rose-dark);">⚠️ مهام هذا الهدف بتصنيفات مختلفة — وحّدي تصنيفها لو تبين ترتيبًا أوضح</p>`:''}
           ${goalCollapsed? '' : tasks.map(rowRenderer).join('')}
         </div>`;
       }).join('')}
@@ -2990,13 +3006,13 @@ function renderCompletedByDay(){
     const dayCollapsed = state.collapsed[key];
     return `
     <div style="margin-bottom:10px;">
-      <h4 style="cursor:pointer;font-size:14px;color:var(--petrol-dark);margin-bottom:4px;border-top:1px dashed var(--line);padding-top:10px;display:flex;align-items:center;gap:7px;" data-toggle-collapse="${key}"><span style="flex:1;">${heading} <span class="muted" style="font-size:11.5px;font-weight:400;">(${list.length})</span></span><span class="chev ${dayCollapsed?"":"open"}">▾</span></h4>
+      <h4 style="cursor:pointer;font-size:var(--t3);color:var(--petrol-dark);margin-bottom:4px;border-top:1px dashed var(--line);padding-top:10px;display:flex;align-items:center;gap:7px;" data-toggle-collapse="${key}"><span style="flex:1;">${heading} <span class="muted" style="font-size:var(--t1);font-weight:400;">(${list.length})</span></span><span class="chev ${dayCollapsed?"":"open"}">▾</span></h4>
       ${dayCollapsed? '' : list.map(t=>taskRowHtml(t, {restore:true, date:key.slice(8)})).join('')}
     </div>`;
   };
   return `
   <details class="card" data-sec="doneByDay" ${openSections.doneByDay?'open':''} style="margin-bottom:14px;">
-    <summary><h3>✅ المهام المنجزة حسب اليوم <span class="muted" style="font-size:12px;font-weight:400;">(${total})</span> <span class="chev">▾</span></h3></summary>
+    <summary><h3>✅ المهام المنجزة حسب اليوم <span class="muted" style="font-size:var(--t2);font-weight:400;">(${total})</span> <span class="chev">▾</span></h3></summary>
     <div class="details-body">
       ${total===0? `<div class="empty">${q? 'ما فيه مهام منجزة مطابقة لبحثك.' : 'ما فيه مهام منجزة بعد.'}</div>` : `
         ${days.map(d=> dayBlock('doneDay:'+d, `${DOW_NAMES[dowOf(d)]}، ${formatDateAr(d)}`, byDay[d])).join('')}
@@ -3007,7 +3023,7 @@ function renderCompletedByDay(){
 }
 function renderTasks(){
   return `
-  <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:14px;">مهامي</h2>
+  <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:14px;">مهامي</h2>
   ${renderInboxBox()}
   <div class="field" style="margin-bottom:12px;">
     <input type="text" id="taskSearchInput" placeholder="🔍 ابحثي عن مهمة…" value="${escapeHtml(taskSearchQuery)}"/>
@@ -3126,10 +3142,10 @@ function renderGoalCard(g){
       <div style="margin-top:6px;">
         ${QUESTIONS[g.cat].map((q,i)=> g.answers[i]? `<p class="muted" style="margin-bottom:6px;"><b style="color:var(--petrol-dark);">${q}</b><br>${escapeHtml(g.answers[i])}</p>`:'').join('')}
       </div>`:''}
-    ${g.notes? `<p style="margin-top:8px;white-space:pre-wrap;font-size:14px;line-height:1.7;">${escapeHtml(g.notes)}</p>`:''}
+    ${g.notes? `<p style="margin-top:8px;white-space:pre-wrap;font-size:var(--t3);line-height:1.7;">${escapeHtml(g.notes)}</p>`:''}
     ${(g.attachments||[]).length? `
       <div style="display:flex;flex-direction:column;gap:4px;margin-top:8px;">
-        ${g.attachments.map(a=>`<a href="${a.dataUrl}" download="${escapeHtml(a.name)}" style="font-size:13px;color:var(--petrol-dark);text-decoration:none;">📄 ${escapeHtml(a.name)}</a>`).join('')}
+        ${g.attachments.map(a=>`<a href="${a.dataUrl}" download="${escapeHtml(a.name)}" style="font-size:var(--t3);color:var(--petrol-dark);text-decoration:none;">📄 ${escapeHtml(a.name)}</a>`).join('')}
       </div>`:''}
     <button class="btn ghost sm" data-addtaskfor="${g.id}" style="margin-top:8px;">+ إضافة مهمة لهالهدف</button>
     ${g.cat==='finance'? renderFinanceGoalLink() : ''}
@@ -3148,14 +3164,14 @@ function renderGoals(){
     const collapsed = state.collapsed[key];
     return `
     <div style="margin-bottom:14px;">
-      <h4 style="cursor:pointer;font-size:15px;color:var(--petrol-dark);margin-bottom:8px;display:flex;align-items:center;gap:7px;" data-toggle-collapse="${key}"><span style="flex:1;">${icon} ${escapeHtml(label)} <span class="muted" style="font-size:12px;font-weight:400;">(${goals.length})</span></span><span class="chev ${collapsed?"":"open"}">▾</span></h4>
+      <h4 style="cursor:pointer;font-size:var(--t4);color:var(--petrol-dark);margin-bottom:8px;display:flex;align-items:center;gap:7px;" data-toggle-collapse="${key}"><span style="flex:1;">${icon} ${escapeHtml(label)} <span class="muted" style="font-size:var(--t2);font-weight:400;">(${goals.length})</span></span><span class="chev ${collapsed?"":"open"}">▾</span></h4>
       ${collapsed? '' : goals.map(renderGoalCard).join('')}
     </div>`;
   };
   const groupedGoalsHtml = state.goalPillars.map(p=> goalGroupHtml('pillarGroup:'+p.id, p.icon, p.label, byPillar[p.id])).join('')
     + goalGroupHtml('pillarGroup:__none__', '🗂️', 'بدون بند', noPillar);
   return `
-  <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:4px;">الأساس</h2>
+  <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:4px;">الأساس</h2>
   <p class="muted" style="margin-bottom:16px;">أهدافك السنوية، صناديق الزمن، والتصنيفات اللي تُبنى عليها مهامك — كل شي أساسي بمكان واحد.</p>
 
   ${renderLifeVisionSection()}
@@ -3902,10 +3918,10 @@ function renderFinancePathsCard(fg){
             <summary><span class="grow">تفاصيل هالطريقة</span><span class="chev">▾</span></summary>
             <div class="details-body">
               ${setup.successCriteria? `<p class="muted" style="margin-bottom:8px;">🎯 نجاحك يعني: <b style="color:var(--petrol-dark);">${escapeHtml(setup.successCriteria)}</b></p>`:''}
-              ${(p.tools&&p.tools.length)? `<p class="muted" style="margin-bottom:4px;">🧰 تحتاجين:</p><ul style="margin:0 0 10px;padding-inline-start:18px;font-size:13.5px;line-height:1.9;">${p.tools.map(t=>`<li>${escapeHtml(t)}</li>`).join('')}</ul>`:''}
+              ${(p.tools&&p.tools.length)? `<p class="muted" style="margin-bottom:4px;">🧰 تحتاجين:</p><ul style="margin:0 0 10px;padding-inline-start:18px;font-size:var(--t3);line-height:1.9;">${p.tools.map(t=>`<li>${escapeHtml(t)}</li>`).join('')}</ul>`:''}
               ${tip? `
                 <p class="muted" style="margin-bottom:4px;">تعديل نص المقترح الحالي:</p>
-                <textarea data-tip-edit="${pid}|${idx}" style="width:100%;padding:9px 11px;border:1.5px solid var(--line);border-radius:8px;background:var(--paper);font-size:14px;margin-bottom:10px;min-height:44px;resize:vertical;">${escapeHtml(tip)}</textarea>
+                <textarea data-tip-edit="${pid}|${idx}" style="width:100%;padding:9px 11px;border:1.5px solid var(--line);border-radius:8px;background:var(--paper);font-size:var(--tf);margin-bottom:10px;min-height:44px;resize:vertical;">${escapeHtml(tip)}</textarea>
               `:''}
               <button class="btn ghost sm" data-path-remove="${pid}">✕ احذفي هالطريقة</button>
             </div>
@@ -3956,15 +3972,15 @@ function renderFinancePathsCard(fg){
                   <div><label>الهدف الرقمي (ريال)</label><input type="number" min="0" step="0.01" data-cp-target="${cp.id}" value="${cp.target||''}" placeholder="مثال: 20000"/></div>
                   <div><label>اللي حققتيه</label><input type="number" min="0" step="0.01" data-cp-earned="${cp.id}" value="${cp.earned||''}" placeholder="0"/></div>
                 </div>
-                ${target>0? `<p class="muted" style="margin-bottom:10px;font-size:12.5px;">باقي <b style="color:var(--petrol-dark);">${plFmt(Math.max(0,target-earned))} ريال</b> للوصول لهدف هالطريقة.</p>`:''}
+                ${target>0? `<p class="muted" style="margin-bottom:10px;font-size:var(--t2);">باقي <b style="color:var(--petrol-dark);">${plFmt(Math.max(0,target-earned))} ريال</b> للوصول لهدف هالطريقة.</p>`:''}
                 <div style="margin-bottom:10px;"><label>نجاحك يعني</label><input type="text" data-cp-success="${cp.id}" value="${escapeHtml(cp.successCriteria||'')}" placeholder="وش شكل النجاح بهالطريقة؟"/></div>
                 <div style="margin-bottom:10px;"><label>تفاصيل وملاحظات</label><textarea data-cp-note="${cp.id}" placeholder="أدوات تحتاجينها، أفكار، أي شي يخص هالطريقة…" style="min-height:60px;">${escapeHtml(cp.note||'')}</textarea></div>
 
-                <p class="muted" style="margin-bottom:6px;font-size:12.5px;">خطواتك (${doneSteps} من ${steps.length})</p>
+                <p class="muted" style="margin-bottom:6px;font-size:var(--t2);">خطواتك (${doneSteps} من ${steps.length})</p>
                 ${steps.map(s=>`
                   <div class="habit-item">
                     <button type="button" class="hbox ${s.done?'done':''}" data-cp-step-toggle="${cp.id}|${s.id}">${s.done?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
-                    <input type="text" data-cp-step-text="${cp.id}|${s.id}" value="${escapeHtml(s.text)}" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--paper);font-size:14px;${s.done?'text-decoration:line-through;color:#9aa6a4;':''}"/>
+                    <input type="text" data-cp-step-text="${cp.id}|${s.id}" value="${escapeHtml(s.text)}" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--paper);font-size:var(--tf);${s.done?'text-decoration:line-through;color:#9aa6a4;':''}"/>
                     <button type="button" class="icon-btn" title="أضيفيها لمهامي" data-cp-step-task="${cp.id}|${s.id}">📌</button>
                     <button type="button" class="icon-btn" data-cp-step-del="${cp.id}|${s.id}">✕</button>
                   </div>`).join('')}
@@ -3983,7 +3999,7 @@ function renderFinancePathsCard(fg){
       <details class="path-add" data-sec="finAddPath" ${(openSections.finAddPath || selected.length===0)?'open':''}>
         <summary><span class="grow">+ إضافة طريقة</span><span class="chev">▾</span></summary>
         <div class="details-body">
-          <p class="muted" style="margin-bottom:8px;font-size:12.5px;">اختاري طريقة وأعطيك خطوة عملية كل مرة — توافقين عليها أو تطلبين غيرها.</p>
+          <p class="muted" style="margin-bottom:8px;font-size:var(--t2);">اختاري طريقة وأعطيك خطوة عملية كل مرة — توافقين عليها أو تطلبين غيرها.</p>
           <div class="field" style="margin-bottom:8px;">
             <select id="methodSelect">
               ${available.length? available.map(p=>`<option value="${p.id}">${p.icon} ${p.label}</option>`).join('') : '<option value="">-- كل الطرق مختارة --</option>'}
@@ -3994,7 +4010,7 @@ function renderFinancePathsCard(fg){
             <input type="text" id="customPathInput" placeholder="طريقة ثانية من عندك…" style="flex:1;"/>
             <button class="btn sm" id="customPathAdd">إضافة</button>
           </div>
-          <p class="muted" style="margin-top:10px;font-size:12px;">💡 اطلبي مني بالمحادثة رابط تعلم يناسب أي طريقة، وأضيفيه بنفسك لمهامك.</p>
+          <p class="muted" style="margin-top:10px;font-size:var(--t2);">💡 اطلبي مني بالمحادثة رابط تعلم يناسب أي طريقة، وأضيفيه بنفسك لمهامك.</p>
         </div>
       </details>
     </div>
@@ -4005,7 +4021,7 @@ function renderFinanceSetup(){
   const yr = new Date().getFullYear();
   const d = financeSetupDraft || (fg? {title:fg.title, targetAmount:fg.targetAmount||'', currentAmount:fg.currentAmount||0, deadline:fg.deadline||`${yr}-12-31`} : {title:`الهدف المالي ${yr}`, targetAmount:'', currentAmount:0, deadline:`${yr}-12-31`});
   return `
-  <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:14px;">🎯 الهدف المالي</h2>
+  <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:14px;">🎯 الهدف المالي</h2>
   <div class="card">
     <span class="eyebrow">${fg&&fg.configured?'تعديل':'إعداد'} هدفك المالي لهالسنة</span>
     <h3 style="margin-bottom:14px;">مرة وحدة بس، وأنا أرتب لك الباقي</h3>
@@ -4048,8 +4064,8 @@ function plRowHtml(r){
     <div class="inbox-row" data-id="${r.id}">
       <span class="dot" style="background:${isIncome?'#2f9e6e':'var(--rose)'};"></span>
       <div style="flex:1;">
-        <div style="font-size:14px;font-weight:700;color:var(--ink);">${escapeHtml(r.desc)}</div>
-        <div class="muted" style="font-size:12px;">${isIncome?'🟢':'🔴'} ${escapeHtml(r.category||'')} · ${r.date||''} · ${plFmt(parseFloat(r.amount)||0)} ريال</div>
+        <div style="font-size:var(--t3);font-weight:700;color:var(--ink);">${escapeHtml(r.desc)}</div>
+        <div class="muted" style="font-size:var(--t2);">${isIncome?'🟢':'🔴'} ${escapeHtml(r.category||'')} · ${r.date||''} · ${plFmt(parseFloat(r.amount)||0)} ريال</div>
       </div>
       <button type="button" class="icon-btn" data-pl-edit="${r.id}">✎</button>
       <button type="button" class="icon-btn del-row" aria-label="حذف">✕</button>
@@ -4141,7 +4157,7 @@ function plUpdateStats(){
     box.innerHTML = canPush
       ? `<button type="button" class="btn ghost sm btn-block" id="plToGoalBtn">💰 أضيفي ${plFmt(unclaimed)} ريال من ربح مشروعك لهدفك المالي</button>`
       : (state.projectLedgerClaimed>0
-          ? `<p class="muted" style="font-size:12.5px;text-align:center;margin:0;">✓ أضفتِ ${plFmt(state.projectLedgerClaimed)} ريال من ربح مشروعك لهدفك المالي</p>`
+          ? `<p class="muted" style="font-size:var(--t2);text-align:center;margin:0;">✓ أضفتِ ${plFmt(state.projectLedgerClaimed)} ريال من ربح مشروعك لهدفك المالي</p>`
           : '');
     const btn = el('plToGoalBtn');
     if(btn) btn.onclick = ()=>{
@@ -4179,12 +4195,12 @@ function renderFinanceDashboard(){
   const done = fg.stages.filter(s=>s.done);
   const fgDetailsCollapsed = state.collapsed.fgDetails;
   return `
-  <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:4px;">🎯 ${escapeHtml(fg.title)}</h2>
+  <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:4px;">🎯 ${escapeHtml(fg.title)}</h2>
   ${(()=>{ /* the other direction of the link the yearly-goal card already offers,
               so the two "goals" read as one thing seen at two zoom levels */
     const yearly = state.goals.filter(g=>g.cat==='finance');
-    if(!yearly.length) return `<p class="muted" style="margin-bottom:14px;font-size:12.5px;">هذا هدفك المالي التفصيلي — بمراحل وطرق دخل. أهدافك السنوية العامة بتبويب "الأساس".</p>`;
-    return `<p class="muted" style="margin-bottom:14px;font-size:12.5px;">التفصيل المالي لـ ${yearly.map(g=>`<b style="color:var(--petrol-dark);">${escapeHtml(g.title)}</b>`).join(' و ')} — <button type="button" class="linkish" data-goto-goals="1">افتحي الهدف السنوي</button></p>`;
+    if(!yearly.length) return `<p class="muted" style="margin-bottom:14px;font-size:var(--t2);">هذا هدفك المالي التفصيلي — بمراحل وطرق دخل. أهدافك السنوية العامة بتبويب "الأساس".</p>`;
+    return `<p class="muted" style="margin-bottom:14px;font-size:var(--t2);">التفصيل المالي لـ ${yearly.map(g=>`<b style="color:var(--petrol-dark);">${escapeHtml(g.title)}</b>`).join(' و ')} — <button type="button" class="linkish" data-goto-goals="1">افتحي الهدف السنوي</button></p>`;
   })()}
 
   <div class="card" style="text-align:center;">
@@ -4200,7 +4216,7 @@ function renderFinanceDashboard(){
       <input type="number" id="fgAddAmountInput" min="0" step="0.01" placeholder="أضيفي مبلغ ادّخرتيه…" style="flex:1;"/>
       <button class="btn sm" id="fgAddAmountBtn">+ إضافة للمدخر</button>
     </div>
-    ${state.safety? `<label style="display:flex;align-items:center;gap:7px;justify-content:center;margin-top:9px;font-size:12.5px;color:var(--ink);cursor:pointer;">
+    ${state.safety? `<label style="display:flex;align-items:center;gap:7px;justify-content:center;margin-top:9px;font-size:var(--tf);color:var(--ink);cursor:pointer;">
       <input type="checkbox" id="fgAlsoAsset" style="width:auto;margin:0;"/>
       وكمان زيديه على رصيد التوفير في أصولك
     </label>`:''}
@@ -4221,7 +4237,7 @@ function renderFinanceDashboard(){
     ${nextStage.tasks.map(t=>`
       <div class="habit-item">
         <button type="button" class="hbox ${t.done?'done':''}" data-stagetask-toggle="${nextStage.id}|${t.id}">${t.done?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
-        <input type="text" class="stagetask-edit" data-stagetask-edit="${nextStage.id}|${t.id}" value="${escapeHtml(t.text)}" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--paper);font-size:14.5px;font-weight:700;${t.done?'text-decoration:line-through;color:#9aa6a4;':''}"/>
+        <input type="text" class="stagetask-edit" data-stagetask-edit="${nextStage.id}|${t.id}" value="${escapeHtml(t.text)}" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--paper);font-size:var(--tf);font-weight:700;${t.done?'text-decoration:line-through;color:#9aa6a4;':''}"/>
         <button type="button" class="icon-btn" title="أضيفيها لمهامي" data-stagetask-addtotasks="${nextStage.id}|${t.id}">📌</button>
         <button type="button" class="icon-btn" data-stagetask-del="${nextStage.id}|${t.id}">✕</button>
       </div>
@@ -4261,7 +4277,7 @@ function renderFinanceDashboard(){
       ${upcoming.map(s=>`
         <div class="habit-item">
           <span class="habit-label" style="flex:1;">${escapeHtml(s.title)}</span>
-          <span class="muted" style="font-size:12px;">${s.targetAmount.toLocaleString('ar')} ريال</span>
+          <span class="muted" style="font-size:var(--t2);">${s.targetAmount.toLocaleString('ar')} ريال</span>
           <button type="button" class="icon-btn" data-stage-del="${s.id}">✕</button>
         </div>`).join('')}
       <div style="display:flex;gap:8px;margin-top:10px;">
@@ -4276,7 +4292,7 @@ function renderFinanceDashboard(){
   <details class="card" data-sec="finDone" ${openSections.finDone?'open':''}>
     <summary><h3>مراحل خلّصتيها ✅ (${done.length}) <span class="chev">▾</span></h3></summary>
     <div class="details-body">
-      ${done.map(s=>`<div class="habit-item"><span class="habit-label done" style="flex:1;">${escapeHtml(s.title)}</span><span class="muted" style="font-size:12px;">${s.targetAmount.toLocaleString('ar')} ريال</span></div>`).join('')}
+      ${done.map(s=>`<div class="habit-item"><span class="habit-label done" style="flex:1;">${escapeHtml(s.title)}</span><span class="muted" style="font-size:var(--t2);">${s.targetAmount.toLocaleString('ar')} ريال</span></div>`).join('')}
     </div>
   </details>`:''}
   `;
@@ -4640,7 +4656,7 @@ function renderSafetyPage(){
   const sc = state.safety;
   return `
   <div class="safety-calc">
-    <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:4px;">🛡️ نقطة الأمان المالي</h2>
+    <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:4px;">🛡️ نقطة الأمان المالي</h2>
     <p class="muted" style="margin-bottom:16px;">المبلغ اللي إذا وصلتيه، تكون احتياجاتك الأساسية مغطاة بدون الحاجة للعمل</p>
 
     <div class="card">
@@ -4730,8 +4746,8 @@ function scAssetRowHtml(r, isEditing){
     <div class="inbox-row" data-id="${r.id}">
       <span class="dot"></span>
       <div style="flex:1;">
-        <div style="font-size:14px;color:var(--ink);">${escapeHtml(scRowDisplayName(r))}</div>
-        <div class="muted" style="font-size:12px;">${meta.emoji||''} ${meta.label||''} · ${scFmt(parseFloat(r.amount)||0)} ريال</div>
+        <div style="font-size:var(--t3);color:var(--ink);">${escapeHtml(scRowDisplayName(r))}</div>
+        <div class="muted" style="font-size:var(--t2);">${meta.emoji||''} ${meta.label||''} · ${scFmt(parseFloat(r.amount)||0)} ريال</div>
       </div>
       <button type="button" class="icon-btn" data-sc-asset-edit="${r.id}">✎</button>
       <button type="button" class="icon-btn del-row" aria-label="حذف">✕</button>
@@ -4825,8 +4841,8 @@ function scRenderIncomeRows(){
     <div class="inbox-row" data-id="${r.id}">
       <span class="dot"></span>
       <div style="flex:1;">
-        <div style="font-size:14px;color:var(--ink);">${escapeHtml(scRowDisplayName(r))}</div>
-        <div class="muted" style="font-size:12px;">${scFmt(amt)} ريال ${freq==='yearly'?'سنويًا':'شهريًا'}</div>
+        <div style="font-size:var(--t3);color:var(--ink);">${escapeHtml(scRowDisplayName(r))}</div>
+        <div class="muted" style="font-size:var(--t2);">${scFmt(amt)} ريال ${freq==='yearly'?'سنويًا':'شهريًا'}</div>
       </div>
       ${showContribute? `<button type="button" class="icon-btn" title="أضيفي ${scFmt(amt)} ريال لهدفك المالي" data-sc-contribute="${r.id}">💰</button>`:''}
       <button type="button" class="icon-btn" data-sc-income-edit="${r.id}">✎</button>
@@ -4955,8 +4971,8 @@ function scRenderExpenseRows(){
       <div class="inbox-row" data-id="${r.id}">
         <span class="dot"></span>
         <div style="flex:1;">
-          <div style="font-size:14px;color:var(--ink);">${escapeHtml(scRowDisplayName(r))}</div>
-          <div class="muted" style="font-size:12px;">${meta.emoji||''} ${meta.label||''} · ${roll} · ${scFmt(parseFloat(r.amount)||0)} ريال ${freq==='yearly'?'سنويًا':'شهريًا'}</div>
+          <div style="font-size:var(--t3);color:var(--ink);">${escapeHtml(scRowDisplayName(r))}</div>
+          <div class="muted" style="font-size:var(--t2);">${meta.emoji||''} ${meta.label||''} · ${roll} · ${scFmt(parseFloat(r.amount)||0)} ريال ${freq==='yearly'?'سنويًا':'شهريًا'}</div>
         </div>
         <button type="button" class="icon-btn" data-sc-expense-edit="${r.id}">✎</button>
         <button type="button" class="icon-btn del-row" aria-label="حذف">✕</button>
@@ -5192,7 +5208,7 @@ function renderExpensesPage(){
   const m = edGetMonth();
   return `
   <div class="expense-diag">
-    <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:4px;">🩺 تشخيص المصاريف الشهرية</h2>
+    <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:4px;">🩺 تشخيص المصاريف الشهرية</h2>
     <p class="muted" style="margin-bottom:6px;">مو بس تسجيل أرقام — تعرفين وين يروح راتبك ووين تقدرين توفرين</p>
     <span class="month-badge">${edCurrentMonthLabel()}</span>
 
@@ -5274,8 +5290,8 @@ function edRowHtml(r){
     <div class="inbox-row" data-id="${r.id}">
       <span class="dot"></span>
       <div style="flex:1;">
-        <div style="font-size:13.5px;color:var(--ink);">🗓️ ${r.date||todayStr()}</div>
-        <div class="muted" style="font-size:12px;">${edFmt(parseFloat(r.amount)||0)} ريال</div>
+        <div style="font-size:var(--t3);color:var(--ink);">🗓️ ${r.date||todayStr()}</div>
+        <div class="muted" style="font-size:var(--t2);">${edFmt(parseFloat(r.amount)||0)} ريال</div>
       </div>
       <button type="button" class="icon-btn" data-ed-edit="${r.id}">✎</button>
       <button type="button" class="icon-btn del-row" aria-label="حذف">✕</button>
@@ -5491,7 +5507,7 @@ function edRenderPlanVsActual(actualList){
       <span>${escapeHtml(n)}</span>
       <span class="amt" style="color:${color};">
         ${edFmt(a)} / ${edFmt(p)} ريال
-        <span style="display:block;font-size:11.5px;font-weight:400;">${note}</span>
+        <span style="display:block;font-size:var(--t1);font-weight:400;">${note}</span>
       </span>
     </div>`;
   }).join('');
@@ -5551,7 +5567,7 @@ function renderHabitEditList(){
   return filtered.map(h=>{
     const dormant = !habitIsActive(h);
     if(habitEditingId!==h.id){
-      return `<button type="button" class="habit-collapsed-row ${dormant?'dormant':''}" data-habit-expand="${h.id}">${dormant? '⭕ ':''}${escapeHtml(h.label)}${dormant? ' <span style="font-size:11px;">(موقوفة)</span>':''}</button>`;
+      return `<button type="button" class="habit-collapsed-row ${dormant?'dormant':''}" data-habit-expand="${h.id}">${dormant? '⭕ ':''}${escapeHtml(h.label)}${dormant? ' <span style="font-size:var(--t1);">(موقوفة)</span>':''}</button>`;
     }
     const idx = state.habits.findIndex(x=>x.id===h.id);
     return `<div style="padding:10px 0;border-bottom:1px dashed var(--line);${dormant?'opacity:.72;':''}">
@@ -5560,19 +5576,19 @@ function renderHabitEditList(){
           <button type="button" class="icon-btn" style="padding:1px 6px;font-size:12px;" data-habit-up="${h.id}" ${idx===0?'disabled':''}>▲</button>
           <button type="button" class="icon-btn" style="padding:1px 6px;font-size:12px;" data-habit-down="${h.id}" ${idx===state.habits.length-1?'disabled':''}>▼</button>
         </div>
-        <input type="text" data-mgmt-habit-label="${h.id}" value="${escapeHtml(h.label)}" style="flex:1;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--parchment);font-size:13.5px;"/>
+        <input type="text" data-mgmt-habit-label="${h.id}" value="${escapeHtml(h.label)}" style="flex:1;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--parchment);font-size:var(--tf);"/>
         <button type="button" class="icon-btn" data-habit-collapse="${h.id}" title="طي">🔽</button>
         <button type="button" class="icon-btn" data-mgmt-del="${h.id}">✕</button>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
         <button type="button" class="icon-btn" data-habit-active="${h.id}" title="${dormant?'موقوفة — اضغطي للتفعيل':'نشطة — اضغطي للإيقاف'}" style="flex-shrink:0;">${dormant?'⭕':'✅'}</button>
-        <span class="muted" style="font-size:12px;">${dormant? 'موقوفة — ما تظهر بجدولك ولا بيومك، وسجلها محفوظ.' : 'نشطة — تظهر بأيامها المحددة.'}</span>
+        <span class="muted" style="font-size:var(--t2);">${dormant? 'موقوفة — ما تظهر بجدولك ولا بيومك، وسجلها محفوظ.' : 'نشطة — تظهر بأيامها المحددة.'}</span>
       </div>
       ${dormant? '' : `
       <div class="chip-row" style="margin-bottom:8px;">
         ${DOW_NAMES.map((n,i)=>`<button type="button" class="chip ${h.days.includes(i)?'selected':''}" data-habit-day="${h.id}" data-day="${i}">${n}</button>`).join('')}
       </div>`}
-      <input type="text" data-mgmt-habit-link="${h.id}" value="${escapeHtml(h.link||'')}" placeholder="🔗 رابط مساعد (اختياري)" style="width:100%;padding:7px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--parchment);font-size:12px;direction:ltr;text-align:left;"/>
+      <input type="text" data-mgmt-habit-link="${h.id}" value="${escapeHtml(h.link||'')}" placeholder="🔗 رابط مساعد (اختياري)" style="width:100%;padding:7px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--parchment);font-size:var(--tf);direction:ltr;text-align:left;"/>
     </div>`;
   }).join('');
 }
@@ -5621,7 +5637,7 @@ function renderHabitsPage(){
   const weekPct = totalPossible? Math.round(totalDone/totalPossible*100) : null;
 
   return `
-  <h2 style="font-size:22px;color:var(--petrol-dark);margin-bottom:14px;">متابعة العادات الأسبوعية</h2>
+  <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:14px;">متابعة العادات الأسبوعية</h2>
 
   <div class="card">
     <div class="week-nav">
@@ -5683,7 +5699,7 @@ function renderHabitsPage(){
     <summary><h3>✏️ تعديل العادات <span class="chev">▾</span></h3></summary>
     <div class="details-body">
       <p class="muted" style="margin-bottom:10px;">اضغطي على أي عادة عشان تفتحين تفاصيلها وتعدّلين أيامها — البقية تضل مطوية. وأي عادة ما تناسبك هالفترة <b>أوقفيها ⭕</b> بدل ما تحذفينها، فتختفي من يومك ومن الجدول وسجلها يبقى.</p>
-      ${state.habits.filter(h=>!habitIsActive(h)).length? `<p class="muted" style="margin-bottom:10px;font-size:12.5px;">💤 عندك ${state.habits.filter(h=>!habitIsActive(h)).length} عادة موقوفة — تلقينها بالقائمة تحت بخط مائل.</p>`:''}
+      ${state.habits.filter(h=>!habitIsActive(h)).length? `<p class="muted" style="margin-bottom:10px;font-size:var(--t2);">💤 عندك ${state.habits.filter(h=>!habitIsActive(h)).length} عادة موقوفة — تلقينها بالقائمة تحت بخط مائل.</p>`:''}
       <div class="field" style="margin-bottom:10px;">
         <input type="text" id="habitSearchInput" placeholder="🔍 ابحثي عن عادة…" value="${escapeHtml(habitSearchQuery)}"/>
       </div>
@@ -5757,11 +5773,11 @@ function renderAiPlanReview(){
           <button type="button" class="plan-check ${p.include?'on':''}" data-plan-toggle="${i}">${p.include?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-          <select data-plan-cat="${i}" style="font-size:12px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--line);background:var(--parchment);color:var(--ink);">
+          <select data-plan-cat="${i}" style="font-size:var(--tf);padding:4px 6px;border-radius:8px;border:1.5px solid var(--line);background:var(--parchment);color:var(--ink);">
             <option value="">🗂️ غير مصنّفة</option>
             ${state.taskCategories.map(c=>`<option value="${c.id}" ${p.category===c.id?'selected':''}>${c.icon} ${c.label}</option>`).join('')}
           </select>
-          <input type="date" data-plan-due="${i}" value="${p.due||''}" style="font-size:12px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--line);background:var(--parchment);color:var(--ink);"/>
+          <input type="date" data-plan-due="${i}" value="${p.due||''}" style="font-size:var(--t2);padding:4px 6px;border-radius:8px;border:1.5px solid var(--line);background:var(--parchment);color:var(--ink);"/>
           <span class="tag p-${p.priority}">${p.priority}</span>
           ${p.period? `<span class="tag">${p.period}</span>`:''}
         </div>
@@ -5845,17 +5861,17 @@ function renderTaskDraft(){
             </div>`:''}
             ${d.recurType==='monthly'? `
             <div class="field" style="margin-bottom:10px;">
-              <label style="font-size:12.5px;">يوم الشهر (١-٣١)</label>
+              <label style="font-size:var(--t2);">يوم الشهر (١-٣١)</label>
               <input type="number" id="tdRecurMonthDay" min="1" max="31" value="${d.recurMonthDay||''}" placeholder="مثال: 5"/>
             </div>`:''}
             ${d.recurType? `
             <div style="display:flex;gap:10px;">
               <div style="flex:1;">
-                <label style="font-size:12.5px;">تبدأ من (اختياري)</label>
+                <label style="font-size:var(--t2);">تبدأ من (اختياري)</label>
                 <input type="date" id="tdRecurStart" value="${d.recurStart||''}"/>
               </div>
               <div style="flex:1;">
-                <label style="font-size:12.5px;">تنتهي في (اختياري)</label>
+                <label style="font-size:var(--t2);">تنتهي في (اختياري)</label>
                 <input type="date" id="tdRecurEnd" value="${d.recurEnd||''}"/>
               </div>
             </div>
@@ -5890,11 +5906,11 @@ function renderTaskDraft(){
           ${d.attachments.map((a,i)=>`
             <div class="inbox-row" data-tdattach-row="${i}" style="align-items:center;">
               <span class="dot"></span>
-              <a href="${a.dataUrl}" download="${escapeHtml(a.name)}" style="flex:1;color:var(--petrol-dark);font-size:14px;text-decoration:none;">📄 ${escapeHtml(a.name)} <span class="muted" style="font-size:11.5px;">(${Math.round(a.size/1024)} كيلوبايت)</span></a>
+              <a href="${a.dataUrl}" download="${escapeHtml(a.name)}" style="flex:1;color:var(--petrol-dark);font-size:var(--t3);text-decoration:none;">📄 ${escapeHtml(a.name)} <span class="muted" style="font-size:var(--t1);">(${Math.round(a.size/1024)} كيلوبايت)</span></a>
               <button type="button" class="icon-btn" data-tdattach-del="${i}">✕</button>
             </div>`).join('')}
         </div>`:''}
-        <input type="file" id="tdAttachInput" style="width:100%;padding:10px;border:1.5px dashed var(--line);border-radius:10px;background:var(--parchment);font-size:13px;"/>
+        <input type="file" id="tdAttachInput" style="width:100%;padding:10px;border:1.5px dashed var(--line);border-radius:10px;background:var(--parchment);font-size:var(--t3);"/>
         ${attachError? `<p class="muted" style="color:var(--rose-dark);margin-top:6px;">${escapeHtml(attachError)}</p>`:''}
         <p class="muted" style="margin-top:6px;">حجم أقصى ٨٠٠ كيلوبايت لكل ملف (تخزين محلي بالجهاز).</p>
       </div>
@@ -6959,7 +6975,7 @@ function renderVoicePlanReview(){
     ${voicePlan.map((p,i)=>`
       <div class="plan-item ${p.include?'':'excluded'}">
         <div class="plan-head">
-          <input type="text" data-voice-edit="${i}" value="${escapeHtml(p.text)}" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--parchment);font-size:14px;font-weight:700;color:var(--petrol-dark);"/>
+          <input type="text" data-voice-edit="${i}" value="${escapeHtml(p.text)}" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--parchment);font-size:var(--tf);font-weight:700;color:var(--petrol-dark);"/>
           <button type="button" class="plan-check ${p.include?'on':''}" data-voice-toggle="${i}">${p.include?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
