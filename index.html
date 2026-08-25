@@ -162,6 +162,18 @@ details.path-block > summary::-webkit-details-marker{display:none;}
 /* Everything a path knows, in the open path itself. It used to sit behind a third
    fold labelled "تفاصيل هالطريقة" — a heading that repeated where she already was,
    and buried the money target whose number was showing in the summary line above. */
+/* project ledger, grouped by category so each line reads as a total */
+.pl-group{border-bottom:1px dashed var(--line);}
+.pl-group:last-of-type{border-bottom:none;}
+.pl-group-head{
+  display:flex;align-items:center;gap:8px;width:100%;
+  background:none;border:none;padding:10px 2px;
+  font-family:inherit;font-size:var(--t3);color:var(--ink);text-align:right;
+}
+.pl-group-head .grow{flex:1;min-width:0;font-weight:700;}
+.pl-group-head b{font-variant-numeric:tabular-nums;white-space:nowrap;}
+.pl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.pl-group .inbox-row, .pl-group .item-card{margin-inline-start:14px;}
 .path-facts{
   margin-top:10px;padding-top:10px;
   border-top:1px dashed var(--line);
@@ -855,7 +867,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 31';
+const APP_BUILD = '2026-08-17 · 32';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -1064,10 +1076,14 @@ function hydrateState(parsed){
     ...(((state.financialGoal||{}).customPaths)||[]).map(c=>c.id),
     ...(state.tasks||[]).map(t=>t.id),
   ]);
+  /* these group by a category *name*, not by an item id, so there is no id to
+     outlive — sweeping them would wipe her fold choices on every load */
+  const NAME_KEYED = /^(plGroup|edGroup):/;
   const sweep = obj=>{
     Object.keys(obj||{}).forEach(k=>{
       const i = k.indexOf(':');
       if(i<0) return;                       /* a fixed section, not a per-item key */
+      if(NAME_KEYED.test(k)) return;
       const id = k.slice(i+1);
       if(id==='__none__' || id==='') return; /* the catch-all buckets are permanent */
       if(/^\d{4}-\d{2}-\d{2}$/.test(id)) return; /* date-keyed groups age out on their own */
@@ -4462,7 +4478,8 @@ function plRowHasData(r){ return !!(r.desc||'').trim() && (parseFloat(r.amount)|
 /* same pattern as everywhere else on the money pages: a filled-in entry
    (description + a real amount) collapses to a clean summary line once
    she's not actively editing it, instead of staying an open form forever. */
-function plRowHtml(r){
+function plRowHtml(r, opts){
+  opts = opts || {};
   const editing = plEditingId===r.id || !plRowHasData(r);
   const isIncome = r.type!=='expense';
   if(!editing){
@@ -4471,7 +4488,7 @@ function plRowHtml(r){
       <span class="dot" style="background:${isIncome?'#2f9e6e':'var(--rose)'};"></span>
       <div style="flex:1;">
         <div style="font-size:var(--t3);font-weight:700;color:var(--ink);">${escapeHtml(r.desc)}</div>
-        <div class="muted" style="font-size:var(--t2);">${isIncome?'🟢':'🔴'} ${escapeHtml(r.category||'')} · ${r.date||''} · ${plFmt(parseFloat(r.amount)||0)} ريال</div>
+        <div class="muted" style="font-size:var(--t2);">${opts.inGroup? "" : (isIncome?"🟢 ":"🔴 ") + escapeHtml(r.category||"") + " · "}${r.date||""} · ${plFmt(parseFloat(r.amount)||0)} ريال</div>
       </div>
       <button type="button" class="icon-btn" data-pl-edit="${r.id}">✎</button>
       <button type="button" class="icon-btn del-row" aria-label="حذف">✕</button>
@@ -4499,7 +4516,47 @@ function plRowHtml(r){
 function plRenderRows(){
   const container = document.getElementById('plRows');
   if(!container) return;
-  container.innerHTML = state.projectLedger.length? state.projectLedger.map(plRowHtml).join('') : `<div class="empty">ما فيه عمليات مسجلة بعد.</div>`;
+  /* Grouped by category with its total on the header, transactions folded inside.
+     A flat list meant every single transaction was on screen at once, so reading
+     "how much went to tools" required adding the rows up by eye. A row still being
+     filled in stays out on its own, since it has no category to file under yet. */
+  const rows = state.projectLedger;
+  const draft = rows.filter(r=> plEditingId===r.id || !plRowHasData(r));
+  const filed = rows.filter(r=> !draft.includes(r));
+  const groups = [];
+  filed.forEach(r=>{
+    const isIncome = r.type!=='expense';
+    const key = (isIncome?'in':'ex') + '|' + (r.category||'بدون بند');
+    let g = groups.find(x=>x.key===key);
+    if(!g){ g = {key, isIncome, name:r.category||'بدون بند', rows:[], total:0}; groups.push(g); }
+    g.rows.push(r);
+    g.total += parseFloat(r.amount)||0;
+  });
+  groups.sort((a,b)=> (a.isIncome===b.isIncome? b.total-a.total : (a.isIncome? -1 : 1)));
+
+  container.innerHTML = rows.length? (
+    groups.map(g=>{
+      const collapsed = state.collapsed['plGroup:'+g.key] !== false;
+      return `
+      <div class="pl-group">
+        <button type="button" class="pl-group-head" data-toggle-collapse="plGroup:${g.key}">
+          <span class="chev ${collapsed?'':'open'}">▾</span>
+          <span class="pl-dot" style="background:${g.isIncome?'#2f9e6e':'var(--rose)'};"></span>
+          <span class="grow">${escapeHtml(g.name)} <span class="muted" style="font-weight:400;">(${g.rows.length})</span></span>
+          <b style="color:${g.isIncome?'#2f9e6e':'var(--rose-dark)'};">${plFmt(g.total)} ريال</b>
+        </button>
+        ${collapsed? "" : g.rows.map(x=>plRowHtml(x,{inGroup:true})).join("")}
+      </div>`;
+    }).join('') + draft.map(plRowHtml).join('')
+  ) : `<div class="empty tight">ما فيه عمليات مسجلة بعد<span class="hint">اضغطي "إضافة عملية جديدة"</span></div>`;
+
+  /* this container is rebuilt on its own, so the global fold handler never reaches
+     these headers — they are wired here instead */
+  container.querySelectorAll('[data-toggle-collapse]').forEach(el=> el.onclick=()=>{
+    const key = el.dataset.toggleCollapse;
+    state.collapsed[key] = state.collapsed[key]===false;
+    saveState(); plRenderRows();
+  });
   container.querySelectorAll('[data-pl-edit]').forEach(b=> b.onclick=()=>{ plEditingId = b.dataset.plEdit; plRenderRows(); });
   container.querySelectorAll('[data-pl-done]').forEach(b=> b.onclick=()=>{ plEditingId = null; saveState(); plRenderRows(); plUpdateStats(); });
   container.querySelectorAll('[data-pl-type]').forEach(b=> b.onclick=()=>{
