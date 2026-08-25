@@ -342,6 +342,17 @@ details.path-block > summary::-webkit-details-marker{display:none;}
   font-size:var(--t2);font-weight:700;color:var(--petrol-dark);margin-bottom:4px;
 }
 .focus-strip .task-row:last-of-type{border-bottom:none;}
+/* the rest of the day folds away on its own, so the three that matter stay put */
+.day-rest{margin-top:4px;}
+.day-rest > summary{
+  cursor:pointer;list-style:none;user-select:none;
+  display:flex;align-items:center;gap:7px;
+  font-size:var(--t2);font-weight:700;color:var(--petrol);
+  padding:7px 0;border-top:1px dashed var(--line);
+}
+.day-rest > summary::-webkit-details-marker{display:none;}
+.day-rest > summary .grow{flex:1;min-width:0;}
+.day-rest > .details-body{padding:0;}
 .ptab-count{display:inline-block;min-width:16px;padding:0 4px;margin-inline-start:3px;border-radius:9px;background:rgba(46,92,90,.14);color:var(--petrol-dark);font-size:var(--t1);line-height:16px;font-weight:700;}
 .period-tab.active .ptab-count{background:rgba(255,255,255,.28);color:#fff;}
 
@@ -829,7 +840,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 27';
+const APP_BUILD = '2026-08-17 · 28';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -2786,10 +2797,11 @@ function renderScheduleCard(){
   const collapsed = state.collapsed.schedule;
   const activeBox = timeBoxOf(period);
   const pinned = isToday && getLog(todayStr()).pinnedTop3;
+  const restCount = rest.filter(t=> state.timeBoxes.some(b=>b.id===t.period)).length;
   return `
   <div class="card">
-    <div class="card-title"><h3 style="cursor:pointer;flex:1;display:flex;align-items:center;gap:7px;" data-toggle-collapse="schedule"><span style="flex:1;">${isToday? 'يومك' : 'جدول هذا اليوم'}</span><span class="chev ${collapsed?"":"open"}">▾</span></h3></div>
-    ${collapsed? '' : `
+    <div class="card-title"><h3>${isToday? 'يومك' : 'جدول هذا اليوم'}</h3></div>
+    ${`
     ${focus.length? `
     <div class="focus-strip">
       <div class="focus-head">
@@ -2803,6 +2815,9 @@ function renderScheduleCard(){
         ${pinned? `<button class="btn ghost sm" id="resetTop3">↻ رجّعيها تلقائية</button>`:''}
       </div>
     </div>`:''}
+    <details class="day-rest" data-sec="dayPeriods" ${collapsed?'':'open'}>
+      <summary><span class="grow">بقية مهام اليوم${restCount? ` <span class="ptab-count">${restCount}</span>`:''}</span><span class="chev">▾</span></summary>
+      <div class="details-body">
     <div class="period-tabs">
       ${state.timeBoxes.map(b=>{
         const n = countIn(b.id);
@@ -2812,6 +2827,8 @@ function renderScheduleCard(){
     ${activeBox? `<p class="muted" style="margin-bottom:10px;">⏰ ${activeBox.start} – ${activeBox.end}${(activeBox.categoryIds&&activeBox.categoryIds.length)? ' · '+activeBox.categoryIds.map(id=>tcatOf(id)?.label).filter(Boolean).join('، ') : ''}</p>`:''}
     ${items.length===0? `<div class="empty tight">ما فيه مهام في هالصندوق${focus.length? '' : ''}<span class="hint">وزّعي مهامك من صفحة المهام</span></div>` : items.map(t=>taskRowHtml(t, {date:dateStr})).join('')}
     <button class="btn ghost btn-block" style="margin-top:8px;" id="goAddTaskPeriod" data-add-period="${period}">+ إضافة مهمة ${activeBox?'لـ'+escapeHtml(activeBox.label):''}</button>
+      </div>
+    </details>
     `}
   </div>`;
 }
@@ -2988,10 +3005,15 @@ function renderSuggestionsCard(){
   const hasInbox = state.inbox.length>0;
   let tipCard = '';
   if(!hasGoals){
+    /* folds like the real suggestion card — it was the one variant that could not
+       be put away, so a prompt she had already decided about stayed on screen */
+    const collapsed = state.collapsed.suggestion;
     tipCard = `<div class="card">
-      <div class="card-title"><h3>مقترحات ذكية</h3></div>
+      <div class="card-title"><h3 style="cursor:pointer;flex:1;display:flex;align-items:center;gap:7px;" data-toggle-collapse="suggestion"><span style="flex:1;">مقترح اليوم</span><span class="chev ${collapsed?"":"open"}">▾</span></h3></div>
+      ${collapsed? '' : `
       <p class="muted">أضيفي هدفك الأول عشان أقدر أعطيك مقترحات مبنية عليه.</p>
       <button class="btn rose btn-block" id="goAddGoal">+ إضافة هدف</button>
+      `}
     </div>`;
   }else{
     ensureDailyTipRotation();
