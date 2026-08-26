@@ -225,7 +225,12 @@ display:flex;flex-direction:column;gap:10px;}
   font-size:var(--t2);color:var(--petrol-dark);font-weight:700;cursor:pointer;
 }
 /* a path's books, sitting directly under its name inside its own block */
-.pl-slot{margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed var(--line);}
+/* a fold that lives inside another card: no frame of its own, just a divider */
+.sub-card{background:none;border:none;box-shadow:none;border-radius:0;padding:0;margin:12px 0 0;border-top:1px solid var(--line);}
+.sub-card > summary{padding-top:12px;}
+.sub-card > summary h3{font-size:var(--t3);}
+.pl-slot{
+margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed var(--line);}
 .pl-slot:empty{display:none;}
 .pl-mini{
 
@@ -958,7 +963,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 41';
+const APP_BUILD = '2026-08-17 · 42';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -5490,25 +5495,35 @@ function renderSafetyPage(){
         <div class="val" id="scSafetyTargetVal">0 ريال</div>
         <div class="sub" id="scSafetyTargetSub"></div>
       </div>
-      <div class="sc-tune">
-        <label>أريد أماني يغطي
-          <input type="number" id="scCoverageYearsInp" min="1" max="30" step="1" value="${scCoverageYears()}">
-          سنوات من مصاريفي الأساسية</label>
-        <label>وأتوقع نمو استثماري
-          <input type="number" id="scGrowthRateInp" min="0" max="20" step="0.5" value="${(scGrowthRate()*100).toFixed(1).replace(/\.0$/,'')}">
-          % سنويًا بعد التضخم</label>
-      </div>
+      ${/* The two figures that answer the page — how long, and how much more —
+           stay out here. The other four explain how those two were arrived at,
+           which is a question she asks occasionally, not every time she looks. */''}
       <div class="stats-grid">
-        <div class="stat-box" style="background:#e7f7ef;"><div class="p" style="color:#2f9e6e;" id="scEssentialAnnualVal">0 ريال</div><div class="l" style="color:#2f9e6e;">مصاريفك الأساسية سنويًا</div></div>
-        <div class="stat-box" style="background:#e8effb;"><div class="p" style="color:#3f6fd1;" id="scNetSavingsVal">0 ريال</div><div class="l" style="color:#3f6fd1;">صافي ادخارك السنوي الحالي</div></div>
-        <div class="stat-box" style="background:#fdf6e3;"><div class="p" style="color:#8a6d00;" id="scRemainingVal">0 ريال</div><div class="l" style="color:#8a6d00;">المتبقي للوصول للأمان</div></div>
-        <div class="stat-box" style="background:rgba(178,76,99,.13);"><div class="p" style="color:var(--rose-dark);" id="scNonEssentialMonthlyVal">0 ريال</div><div class="l" style="color:var(--rose-dark);" id="scNonEssentialMonthlyLabel">من ميزانيتك يذهب لغير الأساسي شهريًا</div></div>
-        <div class="stat-box" style="background:rgba(178,76,99,.13); grid-column:1 / -1; text-align:center;"><div class="p" style="color:var(--rose-dark); font-size:19px;" id="scMonthlyGapVal">0 ريال</div><div class="l" style="color:var(--rose-dark);">الدخل الإضافي المطلوب شهريًا للتعادل</div></div>
         <div class="stat-box" style="background:var(--parchment); grid-column:1 / -1; text-align:center;"><div class="p" id="scYearsVal" style="font-size:19px;">—</div><div class="l">الوقت المتبقي حتى نقطة الأمان المالي</div></div>
+        <div class="stat-box" style="background:#fdf6e3; grid-column:1 / -1; text-align:center;"><div class="p" style="color:#8a6d00;" id="scRemainingVal">0 ريال</div><div class="l" style="color:#8a6d00;">المتبقي للوصول للأمان</div></div>
       </div>
+      <details class="card sub-card" data-sec="scDetail" ${openSections.scDetail?'open':''}>
+        <summary><h3>الأرقام اللي بُني عليها الحساب <span class="chev">▾</span></h3></summary>
+        <div class="details-body">
+          <div class="sc-tune">
+            <label>أريد أماني يغطي
+              <input type="number" id="scCoverageYearsInp" min="1" max="30" step="1" value="${scCoverageYears()}">
+              سنوات من مصاريفي الأساسية</label>
+            <label>وأتوقع نمو استثماري
+              <input type="number" id="scGrowthRateInp" min="0" max="20" step="0.5" value="${(scGrowthRate()*100).toFixed(1).replace(/\.0$/,'')}">
+              % سنويًا بعد التضخم</label>
+          </div>
+          <div class="stats-grid">
+            <div class="stat-box" style="background:#e7f7ef;"><div class="p" style="color:#2f9e6e;" id="scEssentialAnnualVal">0 ريال</div><div class="l" style="color:#2f9e6e;">مصاريفك الأساسية سنويًا</div></div>
+            <div class="stat-box" style="background:#e8effb;"><div class="p" style="color:#3f6fd1;" id="scNetSavingsVal">0 ريال</div><div class="l" style="color:#3f6fd1;">صافي ادخارك السنوي الحالي</div></div>
+            <div class="stat-box" style="background:rgba(178,76,99,.13);"><div class="p" style="color:var(--rose-dark);" id="scNonEssentialMonthlyVal">0 ريال</div><div class="l" style="color:var(--rose-dark);" id="scNonEssentialMonthlyLabel">من ميزانيتك يذهب لغير الأساسي شهريًا</div></div>
+            <div class="stat-box" style="background:rgba(178,76,99,.13);"><div class="p" style="color:var(--rose-dark);" id="scMonthlyGapVal">0 ريال</div><div class="l" style="color:var(--rose-dark);">الدخل الإضافي المطلوب شهريًا للتعادل</div></div>
+          </div>
       <details class="assumption-note" data-sec="scAssumptions" ${openSections.scAssumptions?"open":""}>
         <summary><span class="grow">كيف حُسبت هذي الأرقام؟</span><span class="chev">▾</span></summary>
         <div class="details-body">        الافتراضات المستخدمة: كل بند دخل أو مصروف يُحوَّل لقيمته الشهرية حسب تكراره اللي حددتيه (شهري، أو سنوي فيُقسم ÷12)، وبعدها يُضرب × 12 لحساب القيم السنوية. المبلغ المستهدف = مصاريفك الأساسية السنوية × عدد سنوات التغطية اللي اخترتيها (5 افتراضيًا) + تضخم تقديري 2%. والوقت المتبقي يفترض أن أصولك السائلة تنمو بالنسبة اللي حددتيها فوق (4% افتراضيًا بعد التضخم) إضافةً لادخارك السنوي، فهي لا تُفترض جامدة. صافي الادخار = دخلك السنوي − كل مصاريفك السنوية (أساسية وغير أساسية). بنود الادخار والاستثمار 🔵 لا تُحسب مصروفًا لأنها تحويل بين جيوبك، فتظهر ضمن فائضك لا خصمًا منه. الأصول لا تُحسب كدخل أو مصروف. الأصول ذات السيولة السريعة أو طويلة المدى (⚡🐢) تُحسب بالكامل مقابل المبلغ المستهدف؛ الأصول الثابتة (🏠 كالمسكن الأساسي) تظهر ضمن أملاكك لكن لا تُخصم من المبلغ المطلوب.</div>
+      </details>
+        </div>
       </details>
     </div>
 
