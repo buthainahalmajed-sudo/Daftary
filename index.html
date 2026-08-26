@@ -170,7 +170,20 @@ details.path-block > summary::-webkit-details-marker{display:none;}
 /* the financial goal's edit fold: a divider under the numbers, controls inside */
 /* the figure that actually moves gets the size; the percentage becomes a label */
 /* the day's framing strip — sized to its content, centred, never full-bleed */
+/* a yearly goal as one line: what it is, and how much of its work is done */
+.goal-card{padding:0;overflow:hidden;}
+.goal-head{
+  display:flex;align-items:center;gap:9px;width:100%;text-align:right;
+  background:none;border:none;padding:14px 16px;font-family:inherit;cursor:pointer;
+}
+.goal-head .grow{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.goal-head .gh-title{font-size:var(--t4);font-weight:700;color:var(--petrol-dark);}
+.goal-head .gh-sub{font-size:var(--t1);color:var(--muted);}
+.goal-head .gh-bar{flex:0 0 54px;height:6px;background:var(--line);border-radius:4px;overflow:hidden;}
+.goal-head .gh-bar i{display:block;height:100%;background:var(--sage);}
+.goal-body{padding:0 16px 16px;}
 .routine-strip{
+
   display:inline-block;max-width:100%;box-sizing:border-box;
   background:var(--parchment);border:1px solid var(--line);border-radius:14px;
   padding:9px 14px;margin:0 auto 14px;text-align:right;
@@ -235,7 +248,13 @@ justify-content:center;margin-top:10px;border-top:1px solid var(--line);padding-
 .reflect-group > .card + .card{border-top:1px solid var(--line);}
 /* the task's lineage: which part of who she wants to be this serves */
 /* the one-tap link out of "مهام بلا هدف" */
-.quick-goal{margin:-6px 0 10px 0;padding-right:34px;}
+/* the link-to-a-goal control, sitting among the row's tags */
+.task-row .row-goal{
+  font-size:var(--t1);padding:3px 6px;border:1px dashed var(--line);border-radius:8px;
+  background:var(--parchment);color:var(--petrol-dark);font-family:inherit;max-width:100%;
+}
+.quick-goal{
+margin:-6px 0 10px 0;padding-right:34px;}
 .quick-goal select{
   width:100%;font-size:var(--t2);padding:6px 8px;border:1px dashed var(--line);
   border-radius:9px;background:var(--parchment);color:var(--petrol-dark);font-family:inherit;
@@ -1055,7 +1074,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 49';
+const APP_BUILD = '2026-08-17 · 50';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -3072,12 +3091,23 @@ function taskRowHtml(t, opts){
       <div style="margin-top:3px;display:flex;gap:6px;flex-wrap:wrap;">
         <span class="tag p-${t.priority}">${t.priority}</span>
         ${t.actionType? `<span class="tag">🔸 ${escapeHtml(t.actionType)}</span>`:''}
-        ${t.category? `<span class="tag">${tcatOf(t.category)?.icon||''} ${tcatOf(t.category)?.label||''}</span>`:''}
+        ${/* Picking a goal fills the category from that goal's domain, so on a
+              goal-linked task the two are the same thing printed twice — same
+              words, same emoji, one line apart. It is only worth showing when it
+              disagrees with the goal, which is a real signal. */''}
+        ${(t.category && !(g && t.category===g.cat))? `<span class="tag">${tcatOf(t.category)?.icon||''} ${tcatOf(t.category)?.label||''}</span>`:''}
         ${t.period? `<span class="tag" ${timeBoxTagStyle(box)}>${box? escapeHtml(box.label) : escapeHtml(t.period)}</span>`:''}
-        ${t.due? `<span class="tag">🗓️ ${t.due}</span>`:''}
+        ${/* on a view that is already one specific day, stamping that same date
+              on every row says nothing */''}
+        ${(t.due && !(opts.date && t.due===opts.date))? `<span class="tag">🗓️ ${t.due}</span>`:''}
         ${taskAwaitingDate(t)? `<span class="tag" style="background:rgba(178,76,99,.13);color:var(--rose-dark);" title="فاتت بلا إنجاز، فرفعت عنها التاريخ — حددي لها موعدًا جديدًا وترجع ليومك">⏳ بلا تاريخ · فاتت ${t.lapsedFrom}</span>`:''}
         ${t.recurType? `<span class="tag">🔁 ${recurLabel(t)}</span>`:''}
         ${t.link? `<a href="${escapeHtml(t.link)}" target="_blank" rel="noopener" class="tag" style="text-decoration:none;">🔗 رابط مساعد</a>`:''}
+      ${(opts.assign && !g && state.goals.length)? `<select class="row-goal" data-quick-goal="${t.id}">
+        <option value="">↳ اربطيها بهدف…</option>
+        ${state.goals.map(x=>{ const p = pillarOf(goalPillarId(x));
+          return `<option value="${x.id}">${p? p.icon+' '+p.label+' › ' : ''}${escapeHtml(x.title)}</option>`;}).join('')}
+      </select>`:''}
       </div>
       ${hasExtra? `
       <button type="button" class="icon-btn sm" style="padding:2px 4px;margin-top:2px;" data-toggle-collapse="${noteKey}">${noteOpen?'▾':'▸'} 📝 تفاصيل إضافية</button>
@@ -3140,7 +3170,7 @@ function renderScheduleCard(){
         <span style="flex:1;">⭐ أهم ${focus.length===1?'مهمة':focus.length===2?'مهمتين':focus.length+' مهام'} اليوم</span>
         <button class="icon-btn sm" id="refreshTop" title="إعادة الاختيار">↻</button>
       </div>
-      ${focus.map(t=>taskRowHtml(t, {date:dateStr})).join('')}
+      ${focus.map(t=>taskRowHtml(t, {date:dateStr, assign:true})).join('')}
       ${topTasksHasTie() && !pinned? `<p class="muted" style="margin-top:8px;color:var(--rose-dark);font-size:var(--t2);">🤔 فيه مهام متساوية بالأهمية — تبين تختارين الثلاث بنفسك؟</p>`:''}
       <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
         <button class="btn ghost sm" id="openTop3Picker">🗣️ أحددها بنفسي</button>
@@ -3157,7 +3187,7 @@ function renderScheduleCard(){
       }).join('')}
     </div>
     ${activeBox? `<p class="muted" style="margin-bottom:10px;">⏰ ${activeBox.start} – ${activeBox.end}${(activeBox.categoryIds&&activeBox.categoryIds.length)? ' · '+activeBox.categoryIds.map(id=>tcatOf(id)?.label).filter(Boolean).join('، ') : ''}</p>`:''}
-    ${items.length===0? `<div class="empty tight">ما فيه مهام في هالصندوق${focus.length? '' : ''}<span class="hint">وزّعي مهامك من صفحة المهام</span></div>` : items.map(t=>taskRowHtml(t, {date:dateStr})).join('')}
+    ${items.length===0? `<div class="empty tight">ما فيه مهام في هالصندوق${focus.length? '' : ''}<span class="hint">وزّعي مهامك من صفحة المهام</span></div>` : items.map(t=>taskRowHtml(t, {date:dateStr, assign:true})).join('')}
     <button class="btn ghost btn-block" style="margin-top:8px;" id="goAddTaskPeriod" data-add-period="${period}">+ إضافة مهمة ${activeBox?'لـ'+escapeHtml(activeBox.label):''}</button>
       </div>
     </details>
@@ -3577,14 +3607,9 @@ function renderGroupedTaskBlocks(taskList, rowRenderer, emptyMsg){
   /* Linking a task to a goal was four steps: edit, scroll, pick, save. Since the
      chain became how the app is organised, that link is the one thing worth
      making cheap — so in this bucket, and only here, the row carries the picker. */
-  const withGoalPicker = (t)=> rowRenderer(t) + (state.goals.length? `
-    <div class="quick-goal">
-      <select data-quick-goal="${t.id}">
-        <option value="">↳ اربطيها بهدف…</option>
-        ${state.goals.map(g=>{ const p = pillarOf(goalPillarId(g));
-          return `<option value="${g.id}">${p? p.icon+' '+p.label+' › ' : ''}${escapeHtml(g.title)}</option>`;}).join('')}
-      </select>
-    </div>` : '');
+  /* the picker rides inside the row itself now (see taskRowHtml), so this list
+     just asks for it rather than printing a second copy underneath */
+  const withGoalPicker = (t)=> taskRowHtml(t, {assign:true});
 
   let body = '';
   (state.goalPillars||[]).forEach(p=>{
@@ -3830,28 +3855,37 @@ function renderLifeVisionSection(){
 function renderGoalCard(g){
   const i = state.goals.indexOf(g);
   const customTags = (g.customPillars||[]).map(c=>`<span class="tag">${escapeHtml(c)}</span>`).join('');
-  /* a goal is filed on two axes that are easy to confuse, so the card names both:
-     the pillar groups it here, the domain groups its tasks on the tasks page */
-  const pillarTags = (g.pillarIds||[]).map(pid=>pillarOf(pid)).filter(Boolean)
-    .map(p=>`<span class="tag">${p.icon} ${escapeHtml(p.label)}</span>`).join('');
-  const axisRow = `
-    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px;">
-      ${pillarTags || `<span class="tag" style="opacity:.6;">بدون بند هوية</span>`}
-      <span class="muted" style="font-size:var(--t1);">·</span>
-      <span class="tag">${catIcon(g.cat)} ${escapeHtml(catLabel(g.cat))}</span>
-    </div>`;
+  /* Every goal used to print its identity tag, its domain tag, its answers, its
+     notes and its attachments at once, so the yearly-goals card ran to 683px.
+     A goal is a line now — its name and how much of its work is done — and
+     opens on demand. Its aspect is already the heading it sits under, so
+     repeating it on the card was the third printing of the same fact. */
+  const tasks = state.tasks.filter(t=>t.goalId===g.id);
+  const doneCount = tasks.filter(t=>taskDoneToday(t)).length;
+  const pct = tasks.length? Math.round(doneCount/tasks.length*100) : 0;
+  const key = 'goalCard:'+g.id;
+  /* the shared toggle reads an unset key as open, so a card that starts closed
+     has to say so or the first tap does nothing */
+  if(state.collapsed[key] === undefined) state.collapsed[key] = true;
+  const closed = !!state.collapsed[key];
   return `
   <div class="card goal-card">
-    <div class="card-title" style="justify-content:space-between;">
-      <h3>${catIcon(g.cat)} ${escapeHtml(g.title)}</h3>
-      <div style="display:flex;gap:2px;">
-        <button class="icon-btn" data-goal-up="${i}" ${i===0?'disabled':''}>▲</button>
-        <button class="icon-btn" data-goal-down="${i}" ${i===state.goals.length-1?'disabled':''}>▼</button>
-        <button class="icon-btn" data-edit-goal="${g.id}">✎</button>
-        <button class="icon-btn" data-delgoal="${g.id}">✕</button>
-      </div>
+    <button type="button" class="goal-head" data-toggle-collapse="${key}">
+      <span class="chev ${closed?'':'open'}">▾</span>
+      <span class="grow">
+        <span class="gh-title">${catIcon(g.cat)} ${escapeHtml(g.title)}</span>
+        <span class="gh-sub">${tasks.length? `${doneCount} من ${tasks.length} مهمة` : 'ما فيه مهام تحته بعد'}</span>
+      </span>
+      ${tasks.length? `<span class="gh-bar"><i style="width:${pct}%;"></i></span>`:''}
+    </button>
+    ${closed? '' : `
+    <div class="goal-body">
+    <div style="display:flex;gap:2px;justify-content:flex-end;margin-bottom:6px;">
+      <button class="icon-btn" data-goal-up="${i}" ${i===0?'disabled':''}>▲</button>
+      <button class="icon-btn" data-goal-down="${i}" ${i===state.goals.length-1?'disabled':''}>▼</button>
+      <button class="icon-btn" data-edit-goal="${g.id}">✎</button>
+      <button class="icon-btn" data-delgoal="${g.id}">✕</button>
     </div>
-    ${axisRow}
     ${customTags? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px;">${customTags}</div>`:''}
     ${g.answers && g.answers.some(a=>a) ? `
       <div style="margin-top:6px;">
@@ -3864,6 +3898,7 @@ function renderGoalCard(g){
       </div>`:''}
     <button class="btn ghost sm" data-addtaskfor="${g.id}" style="margin-top:8px;">+ إضافة مهمة لهالهدف</button>
     ${g.cat==='finance'? renderFinanceGoalLink() : ''}
+    </div>`}
   </div>`;
 }
 function renderGoals(){
