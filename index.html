@@ -176,7 +176,27 @@ details.path-block > summary::-webkit-details-marker{display:none;}
 .fold-line .chip{font-size:var(--t1);padding:3px 9px;}
 /* per-path counter: what this one income path earned, cost and netted, so the
    ledger answers "is this path working?" and not only "how am I doing overall?" */
-.pl-mini{display:flex;gap:8px;margin:4px 0 10px;}
+/* المالية hub: one tappable row per area, its headline number on the left */
+.money-entries{display:flex;flex-direction:column;gap:10px;}
+.money-entry{
+  display:flex;align-items:center;gap:12px;width:100%;text-align:right;
+  background:var(--card);border:1px solid var(--line);border-radius:16px;
+  padding:16px 14px;font-family:inherit;cursor:pointer;
+  box-shadow:0 1px 2px rgba(0,0,0,.03);
+}
+.money-entry:active{background:var(--parchment);}
+.money-entry .me-icon{font-size:22px;flex-shrink:0;}
+.money-entry .me-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}
+.money-entry .me-title{font-size:var(--t4);font-weight:700;color:var(--petrol-dark);}
+.money-entry .me-sub{font-size:var(--t1);color:var(--muted);line-height:1.5;}
+.money-entry .me-val{font-size:var(--t5);font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums;}
+.money-entry .me-go{color:var(--muted);font-size:18px;flex-shrink:0;}
+.crumb{
+  background:none;border:none;padding:2px 0 8px;font-family:inherit;
+  font-size:var(--t2);color:var(--petrol-dark);font-weight:700;cursor:pointer;
+}
+.pl-mini{
+display:flex;gap:8px;margin:4px 0 10px;}
 .pl-mini > div{flex:1;text-align:center;background:var(--parchment);border-radius:10px;padding:7px 4px;}
 .pl-mini .v{display:block;font-weight:800;font-size:var(--t3);font-variant-numeric:tabular-nums;}
 .pl-mini .k{display:block;font-size:var(--t1);color:var(--muted);margin-top:1px;}
@@ -821,7 +841,7 @@ let state = {
   sharedIncome:'', /* last-entered monthly income/salary, reused as a prefill across the finance tools so it isn't retyped everywhere */
 };
 let view = 'home';
-let moneySubView = 'finance'; /* 'finance' | 'safety' | 'expenses' — sub-tab within the consolidated المالية tab */
+let moneySubView = 'hub';     /* 'hub' | 'finance' | 'safety' | 'expenses' — المالية opens on the hub */
 let selectedDate = null;
 let weekRef = null;
 let _habitAddDows = [new Date().getDay()];
@@ -905,7 +925,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 36';
+const APP_BUILD = '2026-08-17 · 37';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -1700,63 +1720,88 @@ function render(){
   if(view==='money') attachMoneyEvents();
 }
 
-function renderMoneyDashboard(){
+const MONEY_TABS = [
+  {id:'finance',  label:'🎯 الهدف المالي'},
+  {id:'safety',   label:'🛡️ الأمان'},
+  {id:'expenses', label:'🩺 المصاريف'},
+];
+/* المالية used to drop her straight into ١٧٫٨ شاشة of content spread over three
+   long pages, each repeating the same overview card at the top. It lands on a
+   hub instead: one screen, one headline number per area, and she opens the one
+   she came for. */
+function renderMoneyHub(){
   const fg = state.financialGoal;
-  const sc = state.safety;
-  /* "مهمة مالية معلّقة" = tasks in a money-related category, plus any undone task
-     under a stage of the detailed financial goal (its own paths' action items
-     already land in state.tasks tagged "business" when a tip gets accepted).
-     Reads the shared taxonomy, so it stays correct if those ids ever move again. */
+  const P  = scPicture();
   const stageTasksPending = (fg && fg.stages)? fg.stages.reduce((sum,s)=> sum + s.tasks.filter(t=>!t.done).length, 0) : 0;
   const pendingFinTasks = state.tasks.filter(t=>!taskDoneToday(t) && MONEY_CAT_IDS.has(t.category)).length + stageTasksPending;
-  const liquid = sc ? scActiveList(sc.assets).filter(a=>a.tag!=='fixed').reduce((s,a)=>s+a.amount,0) : 0;
+
+  const goalReady = fg && fg.configured;
+  const goalPct = goalReady && fg.targetAmount? Math.min(100, Math.round(fg.currentAmount/fg.targetAmount*100)) : 0;
+
   const m = state.expenseDiag ? state.expenseDiag[edMonthKey()] : null;
-  const lastExp = m ? edActiveExpenses(m).reduce((s,e)=>s+e.amount,0) : 0;
+  const spent = m ? edActiveExpenses(m).reduce((s,e)=>s+e.amount,0) : null;
+  const monthIncome = m ? (parseFloat(state.sharedIncome)||0) + (parseFloat(m.extra)||0) : 0;
+
+  const entry = (id, icon, title, value, sub, tone) => `
+    <button type="button" class="money-entry" data-money-tab="${id}">
+      <span class="me-icon">${icon}</span>
+      <span class="me-text">
+        <span class="me-title">${title}</span>
+        <span class="me-sub">${sub}</span>
+      </span>
+      <span class="me-val" style="color:${tone};">${value}</span>
+      <span class="me-go">‹</span>
+    </button>`;
+
   return `
-  <div class="card" style="background:linear-gradient(135deg, rgba(46,92,90,.07), rgba(199,154,60,.09));">
-    <div class="card-title"><h3>📊 نظرة عامة</h3></div>
-    <div class="stats-grid">
-      <div class="stat-box" style="background:#e7f7ef;">
-        <div class="p" style="color:#2f9e6e;">${fg&&fg.configured? (fg.targetAmount? Math.min(100,Math.round(fg.currentAmount/fg.targetAmount*100)):0)+'%' : '—'}</div>
-        <div class="l" style="color:#2f9e6e;">تقدّم هدفك المالي</div>
-      </div>
-      <div class="stat-box" style="background:#e8effb;">
-        <div class="p" style="color:#3f6fd1;">${sc? scFmt(liquid)+' ريال' : '—'}</div>
-        <div class="l" style="color:#3f6fd1;">سيولتك المتاحة (الأمان)</div>
-      </div>
-      <div class="stat-box" style="background:#fdf6e3;">
-        <div class="p" style="color:#8a6d00;">${pendingFinTasks}</div>
-        <div class="l" style="color:#8a6d00;">مهمة مالية معلّقة</div>
-      </div>
-      <div class="stat-box" style="background:rgba(178,76,99,.13);">
-        <div class="p" style="color:var(--rose-dark);">${m? edFmt(lastExp)+' ريال' : '—'}</div>
-        <div class="l" style="color:var(--rose-dark);">مصاريفك هالشهر</div>
-      </div>
-    </div>
+  <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:4px;">💰 المالية</h2>
+  <p class="muted" style="margin-bottom:16px;">اختاري وش تبين تشوفين.</p>
+  <div class="money-entries">
+    ${entry('finance', '🎯', 'هدفي المالي',
+        goalReady? goalPct+'%' : '—',
+        goalReady
+          ? `${scFmt(fg.currentAmount)} من ${scFmt(fg.targetAmount)} ريال${pendingFinTasks? ` · ${pendingFinTasks} مهمة معلّقة` : ''}`
+          : 'ما ضبطتيه بعد — افتحيه وحدّدي رقمك',
+        '#2f9e6e')}
+
+    ${entry('safety', '🛡️', 'أماني المالي',
+        P.liquidAssets? scFmt(P.liquidAssets)+' ريال' : '—',
+        P.coverage===null
+          ? 'عبّي أصولك ومصاريفك عشان يُحسب رقم أمانك'
+          : (P.coverage>=1 ? 'وصلتِ لنقطة الأمان 🎉'
+                           : `سيولتك تغطي ${Math.round(P.coverage*100)}% من نقطة أمانك`),
+        '#3f6fd1')}
+
+    ${entry('expenses', '🩺', 'مصاريف الشهر',
+        spent===null? '—' : edFmt(spent)+' ريال',
+        spent===null
+          ? 'ما سجّلتي مصاريف هالشهر بعد'
+          : (monthIncome>0
+              ? (spent<=monthIncome ? `باقي لك ${edFmt(monthIncome-spent)} ريال من دخل الشهر`
+                                    : `تجاوزتِ دخلك بـ ${edFmt(spent-monthIncome)} ريال`)
+              : 'أضيفي دخلك عشان أقارن'),
+        'var(--rose-dark)')}
   </div>`;
 }
 function renderMoneyPage(){
-  const tabs = [
-    {id:'finance', label:'🎯 الهدف المالي'},
-    {id:'safety', label:'🛡️ الأمان'},
-    {id:'expenses', label:'🩺 المصاريف'},
-  ];
+  if(moneySubView==='hub') return renderMoneyHub();
   let body;
   if(moneySubView==='safety') body = renderSafetyPage();
   else if(moneySubView==='expenses') body = renderExpensesPage();
   else body = renderFinancePage();
   return `
-    ${renderMoneyDashboard()}
+    <button type="button" class="crumb" data-money-tab="hub">‹ المالية</button>
     <div class="period-tabs" style="margin-bottom:16px;">
-      ${tabs.map(t=>`<button type="button" class="period-tab ${moneySubView===t.id?'active':''}" data-money-tab="${t.id}">${t.label}</button>`).join('')}
+      ${MONEY_TABS.map(t=>`<button type="button" class="period-tab ${moneySubView===t.id?'active':''}" data-money-tab="${t.id}">${t.label}</button>`).join('')}
     </div>
     ${body}
   `;
 }
 function attachMoneyEvents(){
   document.querySelectorAll('[data-money-tab]').forEach(b=> b.onclick=()=>{
-    moneySubView = b.dataset.moneyTab; render();
+    moneySubView = b.dataset.moneyTab; window.scrollTo(0,0); render();
   });
+  if(moneySubView==='hub') return;
   if(moneySubView==='safety') attachSafetyEvents();
   else if(moneySubView==='expenses') attachExpensesEvents();
   else attachFinanceEvents();
@@ -6762,7 +6807,13 @@ function renderNav(){
 
 /* ============ global events ============ */
 function attachGlobalEvents(){
-  document.querySelectorAll('[data-nav]').forEach(b=> b.onclick=()=>{ view=b.dataset.nav; render(); });
+  document.querySelectorAll('[data-nav]').forEach(b=> b.onclick=()=>{
+    /* tapping the tab you're already on takes you back to its root, the way a
+       tab bar is expected to behave — the only tab deep enough to need it */
+    if(view===b.dataset.nav && view==='money') moneySubView = 'hub';
+    view=b.dataset.nav; window.scrollTo(0,0); render();
+  });
+
 
   /* remember which <details> panels the user opened, so clicking anything inside them
      (which triggers a render()) doesn't snap the panel shut again */
