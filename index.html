@@ -189,7 +189,14 @@ details.path-block > summary::-webkit-details-marker{display:none;}
 }
 .reflect-group > .card + .card{border-top:1px solid var(--line);}
 /* the task's lineage: which part of who she wants to be this serves */
+/* the one-tap link out of "مهام بلا هدف" */
+.quick-goal{margin:-6px 0 10px 0;padding-right:34px;}
+.quick-goal select{
+  width:100%;font-size:var(--t2);padding:6px 8px;border:1px dashed var(--line);
+  border-radius:9px;background:var(--parchment);color:var(--petrol-dark);font-family:inherit;
+}
 .task-chain{
+
   display:flex;align-items:center;gap:5px;flex-wrap:wrap;
   margin-top:3px;font-size:var(--t1);color:var(--petrol-dark);font-weight:600;
 }
@@ -924,6 +931,7 @@ let pathQualifyDraft = null; /* {methodId, skillLevel, timeline, successCriteria
 let goalWizard = null;
 let taskDraft = null;
 let taskDraftRecurOpen = false;
+let taskDraftMoreOpen = false; /* the editor re-renders on every chip tap, so the extra-details fold has to remember itself */
 let templateDraft = null;
 let settingsOpen = false;
 let syncExportCode = '';
@@ -994,7 +1002,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 44';
+const APP_BUILD = '2026-08-17 · 45';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -3121,7 +3129,7 @@ function renderGoalPillarManager(){
   <details class="card" data-sec="pillars" ${openSections.pillars?'open':''} style="margin-bottom:14px;">
     <summary><h3>🧱 بنود الهوية الرئيسية <span class="chev">▾</span></h3></summary>
     <div class="details-body">
-      <p class="muted" style="margin-bottom:10px;">البنود اللي تتصنف تحتها أهدافك السنوية (مثل "أنا سعيدة"، "أنا ثرية")— سميها بما يمثلك، وضيفي وحذفي حسب ما يناسبك.</p>
+      <p class="muted" style="margin-bottom:10px;"><b style="color:var(--petrol-dark);">العمود الفقري للتطبيق.</b> رؤيتك تتفرّع لبنود، وكل بند تحته أهدافه، وكل هدف تحته مهامه — بهالترتيب تظهر بصفحتَي الأساس والمهام. سميها بما يمثلك (مثل "أنا سعيدة"، "أنا ثرية").</p>
       ${state.goalPillars.map(p=>`
         <div class="tcat-row" data-pillar-row="${p.id}">
           <input type="text" data-pillar-icon="${p.id}" value="${escapeHtml(p.icon)}" placeholder="✨" style="width:52px;text-align:center;flex-shrink:0;"/>
@@ -3228,7 +3236,7 @@ function renderTaskCategoryManager(){
   <details class="card" data-sec="tcats" ${openSections.tcats?'open':''} style="margin-bottom:14px;">
     <summary><h3>🗂️ التصنيفات الرئيسية <span class="chev">▾</span></h3></summary>
     <div class="details-body">
-      <p class="muted" style="margin-bottom:10px;">هذي التصنيفات تنحط على مهامك (عمل، عائلية، شخصية...). غيّري اسم أو أيقونة أي تصنيف، أو ضيفي وحذفي حسب ما يناسبك.</p>
+      <p class="muted" style="margin-bottom:10px;"><b style="color:var(--petrol-dark);">وسم مساعد للفرز، مو جزءًا من التسلسل.</b> يفيد بربط صناديق الزمن وبتجميع المهام اللي ما لها هدف بعد. غيّري اسم أو أيقونة أي تصنيف، أو ضيفي وحذفي حسب ما يناسبك.</p>
       ${state.taskCategories.map(c=>`
         <div class="tcat-row" data-tcat="${c.id}">
           <input type="text" data-tcat-icon="${c.id}" value="${escapeHtml(c.icon)}" placeholder="🏷️" style="width:52px;text-align:center;flex-shrink:0;"/>
@@ -3495,6 +3503,18 @@ function renderGroupedTaskBlocks(taskList, rowRenderer, emptyMsg){
     </div>`;
   };
 
+  /* Linking a task to a goal was four steps: edit, scroll, pick, save. Since the
+     chain became how the app is organised, that link is the one thing worth
+     making cheap — so in this bucket, and only here, the row carries the picker. */
+  const withGoalPicker = (t)=> rowRenderer(t) + (state.goals.length? `
+    <div class="quick-goal">
+      <select data-quick-goal="${t.id}">
+        <option value="">↳ اربطيها بهدف…</option>
+        ${state.goals.map(g=>{ const p = pillarOf(goalPillarId(g));
+          return `<option value="${g.id}">${p? p.icon+' '+p.label+' › ' : ''}${escapeHtml(g.title)}</option>`;}).join('')}
+      </select>
+    </div>` : '');
+
   let body = '';
   (state.goalPillars||[]).forEach(p=>{
     body += block('pillarTasks:'+p.id, p.icon, p.label, byPillar[p.id] || []);
@@ -3519,16 +3539,21 @@ function renderGroupedTaskBlocks(taskList, rowRenderer, emptyMsg){
       return `
       <div style="margin-bottom:10px;border-top:1px dashed var(--line);padding-top:10px;">
         <h4 style="cursor:pointer;font-size:var(--t3);color:var(--petrol-dark);margin-bottom:6px;display:flex;align-items:center;gap:7px;" data-toggle-collapse="${key}"><span style="flex:1;">${c.icon} ${escapeHtml(c.label)} <span class="muted" style="font-size:var(--t1);font-weight:400;">(${looseByCat[id].length})</span></span><span class="chev ${closed?"":"open"}">▾</span></h4>
-        ${closed? '' : looseByCat[id].map(rowRenderer).join('')}
+        ${closed? '' : looseByCat[id].map(withGoalPicker).join('')}
       </div>`;
-    }).join('') + freeTasks.map(rowRenderer).join('');
+    }).join('') + (freeTasks.length? `
+      <div style="margin-bottom:10px;border-top:1px dashed var(--line);padding-top:10px;">
+        ${(()=>{ const key='looseCat:__none__'; const closed = state.collapsed[key];
+          return `<h4 style="cursor:pointer;font-size:var(--t3);color:var(--petrol-dark);margin-bottom:6px;display:flex;align-items:center;gap:7px;" data-toggle-collapse="${key}"><span style="flex:1;">🗂️ بلا تصنيف <span class="muted" style="font-size:var(--t1);font-weight:400;">(${freeTasks.length})</span></span><span class="chev ${closed?"":"open"}">▾</span></h4>
+          ${closed? '' : freeTasks.map(withGoalPicker).join('')}`;})()}
+      </div>` : '');
     const key = 'pillarTasks:__nogoal__';
     const closed = state.collapsed[key];
     const count = looseIds.reduce((s,id)=>s+looseByCat[id].length,0) + freeTasks.length;
     body += `
     <div class="card" style="margin-bottom:12px;">
       <div class="card-title"><h3 style="cursor:pointer;flex:1;font-size:var(--t4);display:flex;align-items:center;gap:7px;" data-toggle-collapse="${key}"><span style="flex:1;">🗂️ مهام بلا هدف <span class="muted" style="font-size:var(--t2);font-weight:400;">(${count})</span></span><span class="chev ${closed?"":"open"}">▾</span></h3></div>
-      ${closed? '' : `<p class="muted" style="font-size:var(--t1);margin:-4px 0 8px;">اربطيها بهدف عشان تاخذ مكانها في التسلسل.</p>${rows}`}
+      ${closed? '' : `<p class="muted" style="font-size:var(--t1);margin:-4px 0 8px;">اربطيها بهدف عشان تاخذ مكانها في التسلسل.</p>${state.goals.length? '' : `<p class="muted" style="font-size:var(--t1);margin:0 0 8px;color:var(--rose-dark);">ما عندك أهداف بعد — أضيفي هدفًا من صفحة الأساس أول.</p>`}${rows}`}
     </div>`;
   }
   if(!body) body = `<div class="empty">${emptyMsg}</div>`;
@@ -6722,6 +6747,12 @@ function renderAiPlanReview(){
           <button type="button" class="plan-check ${p.include?'on':''}" data-plan-toggle="${i}">${p.include?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+          ${state.goals.length? `
+          <select data-plan-goal="${i}" style="font-size:var(--tf);padding:4px 6px;border-radius:8px;border:1.5px solid var(--line);background:var(--parchment);color:var(--ink);">
+            <option value="">🎯 بدون هدف</option>
+            ${state.goals.map(g=>{ const pl = pillarOf(goalPillarId(g));
+              return `<option value="${g.id}" ${p.goalId===g.id?'selected':''}>${pl? pl.icon+' ' : ''}${escapeHtml(g.title)}</option>`;}).join('')}
+          </select>`:''}
           <select data-plan-cat="${i}" style="font-size:var(--tf);padding:4px 6px;border-radius:8px;border:1.5px solid var(--line);background:var(--parchment);color:var(--ink);">
             <option value="">🗂️ غير مصنّفة</option>
             ${state.taskCategories.map(c=>`<option value="${c.id}" ${p.category===c.id?'selected':''}>${c.icon} ${c.label}</option>`).join('')}
@@ -6753,26 +6784,17 @@ function renderTaskDraft(){
         <input type="text" id="tdTitle" value="${escapeHtml(d.title)}" placeholder="مثال: اتصال بالبنك"/>
       </div>
       <div class="field">
-        <label>نوع الفعل المطلوب (اختياري)</label>
-        <select id="tdAction">
-          <option value="">بدون تحديد</option>
-          ${(state.actionTypes||[]).map(a=>`<option value="${escapeHtml(a)}" ${d.actionType===a?'selected':''}>${escapeHtml(a)}</option>`).join('')}
-          ${d.actionType && !(state.actionTypes||[]).includes(d.actionType)? `<option value="${escapeHtml(d.actionType)}" selected>${escapeHtml(d.actionType)} (نوع محذوف)</option>`:''}
-        </select>
-      </div>
-      <div class="field">
-        <label>مرتبطة بهدف؟ (اختياري)</label>
+        <label>تحت أي هدف؟</label>
         <select id="tdGoal">
-          <option value="">بدون هدف محدد</option>
-          ${state.goals.map(g=>`<option value="${g.id}" ${d.goalId===g.id?'selected':''}>${catIcon(g.cat)} ${escapeHtml(g.title)}</option>`).join('')}
+          <option value="">بدون هدف</option>
+          ${state.goals.map(g=>{ const p = pillarOf(goalPillarId(g));
+            return `<option value="${g.id}" ${d.goalId===g.id?'selected':''}>${p? p.icon+' '+p.label+' › ' : ''}${escapeHtml(g.title)}</option>`;}).join('')}
         </select>
-      </div>
-      <div class="field">
-        <label>التصنيف (اختياري)</label>
-        <select id="tdCat">
-          <option value="">بدون تصنيف</option>
-          ${state.taskCategories.map(c=>`<option value="${c.id}" ${d.category===c.id?'selected':''}>${c.icon} ${c.label}</option>`).join('')}
-        </select>
+        ${(()=>{ const g = d.goalId? state.goals.find(x=>x.id===d.goalId) : null;
+                 const p = g? pillarOf(goalPillarId(g)) : null;
+                 if(g && p) return `<p class="muted" style="margin:4px 0 0;font-size:var(--t1);">بتظهر تحت <b>${p.icon} ${escapeHtml(p.label)}</b> في مهامك.</p>`;
+                 if(g) return `<p class="muted" style="margin:4px 0 0;font-size:var(--t1);">هذا الهدف بلا بند هوية — حدّدي له بند من صفحة الأساس عشان ياخذ مكانه بالتسلسل.</p>`;
+                 return `<p class="muted" style="margin:4px 0 0;font-size:var(--t1);">بدون هدف بتوقع في «مهام بلا هدف».</p>`;})()}
       </div>
       <div class="field">
         <label>الأولوية</label>
@@ -6781,13 +6803,44 @@ function renderTaskDraft(){
         </div>
       </div>
       <div class="field">
+        <label>موعدها</label>
+        <input id="tdDue" type="date" value="${d.due||''}"/>
+      </div>
+
+      ${/* أ: what a task actually needs is a name, a goal, a priority and a date.
+            Everything else was nine fields marked "اختياري" that she scrolled
+            past every single time she jotted something down. */''}
+      ${/* opening a task that already carries a note, a link, a repeat or a
+            device must not hide them behind a closed fold — she'd think they
+            were lost */''}
+      <details class="card sub-card" id="tdMoreDetails" ${(taskDraftMoreOpen || d.link || d.longNote || d.recurType || d.device || d.actionType || (d.attachments&&d.attachments.length))?'open':''}>
+
+        <summary><h3>تفاصيل أكثر <span class="chev">▾</span></h3></summary>
+        <div class="details-body">
+      <div class="field">
+        <label>التصنيف</label>
+        <select id="tdCat">
+          <option value="">بدون تصنيف</option>
+          ${state.taskCategories.map(c=>`<option value="${c.id}" ${d.category===c.id?'selected':''}>${c.icon} ${c.label}</option>`).join('')}
+        </select>
+        <p class="muted" style="margin:4px 0 0;font-size:var(--t1);">وسم للفرز فقط — التسلسل يجي من الهدف فوق.</p>
+      </div>
+      <div class="field">
+        <label>نوع الفعل المطلوب</label>
+        <select id="tdAction">
+          <option value="">بدون تحديد</option>
+          ${(state.actionTypes||[]).map(a=>`<option value="${escapeHtml(a)}" ${d.actionType===a?'selected':''}>${escapeHtml(a)}</option>`).join('')}
+          ${d.actionType && !(state.actionTypes||[]).includes(d.actionType)? `<option value="${escapeHtml(d.actionType)}" selected>${escapeHtml(d.actionType)} (نوع محذوف)</option>`:''}
+        </select>
+      </div>
+      <div class="field">
         <label>فترة اليوم</label>
         <div class="chip-row">
           ${state.timeBoxes.map(p=>`<button type="button" class="chip ${d.period===p.id?'selected':''}" data-per="${p.id}" ${d.period===p.id?`style="background:${p.color};border-color:${p.color};"`:''}>${escapeHtml(p.label)}</button>`).join('')}
         </div>
       </div>
       <div class="field">
-        <label>على أي جهاز؟ (اختياري)</label>
+        <label>على أي جهاز؟</label>
         <div class="chip-row">
           <button type="button" class="chip ${d.device==='work'?'selected':''}" data-dev="work">${deviceIconSvg('work',16)} كمبيوتر العمل</button>
           <button type="button" class="chip ${d.device==='home'?'selected':''}" data-dev="home">${deviceIconSvg('home',16)} كمبيوتر المنزل</button>
@@ -6830,16 +6883,12 @@ function renderTaskDraft(){
         </details>
       </div>
       <div class="field">
-        <label>موعدها (اختياري)</label>
-        <input type="date" id="tdDue" value="${d.due||''}"/>
-      </div>
-      <div class="field">
-        <label>🔗 رابط مساعد (اختياري)</label>
+        <label>🔗 رابط مساعد</label>
         <input type="text" id="tdLink" value="${escapeHtml(d.link||'')}" placeholder="مثال: رابط فيديو يوتيوب يساعدك تسوين المهمة" style="direction:ltr;text-align:left;"/>
         <p class="muted" style="margin-top:6px;">ما عندي بحث تلقائي بالنسخة المستضافة، بس اطلبي مني رابط فيديو بالمحادثة وأنا أدورلك عليه وأعطيك إياه جاهز تلصقينه هنا.</p>
       </div>
       <div class="field">
-        <label>ملاحظة طويلة (اختياري)</label>
+        <label>ملاحظة طويلة</label>
         <div class="rte-toolbar">
           <button type="button" data-rte-cmd="bold" title="عريض"><b>B</b></button>
           <button type="button" data-rte-cmd="italic" class="rte-italic" title="مائل"><i>I</i></button>
@@ -6849,7 +6898,7 @@ function renderTaskDraft(){
         <div id="tdLongNote" class="rte-editable" contenteditable="true">${d.longNote||''}</div>
       </div>
       <div class="field">
-        <label>📎 مرفقات (أي نوع ملف، اختياري)</label>
+        <label>📎 مرفقات (أي نوع ملف)</label>
         ${(d.attachments||[]).length? `
         <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">
           ${d.attachments.map((a,i)=>`
@@ -6863,6 +6912,9 @@ function renderTaskDraft(){
         ${attachError? `<p class="muted" style="color:var(--rose-dark);margin-top:6px;">${escapeHtml(attachError)}</p>`:''}
         <p class="muted" style="margin-top:6px;">حجم أقصى ٨٠٠ كيلوبايت لكل ملف (تخزين محلي بالجهاز).</p>
       </div>
+        </div>
+      </details>
+
       <div style="display:flex;gap:10px;margin-top:8px;">
         <button class="btn btn-block" id="tdSave">حفظ المهمة</button>
         <button class="btn ghost" id="tdCancel">إلغاء</button>
@@ -6871,6 +6923,21 @@ function renderTaskDraft(){
   </div>`;
 }
 function attachTaskDraftEvents(){
+  const tdMore = document.getElementById('tdMoreDetails');
+  if(tdMore) tdMore.ontoggle = ()=>{ taskDraftMoreOpen = tdMore.open; };
+  const tdGoal = document.getElementById('tdGoal');
+  if(tdGoal) tdGoal.onchange = ()=>{
+    syncDraft();
+    /* the goal carries a domain already — asking her for it again was the last
+       place the two axes were still being filled in separately */
+    const g = taskDraft.goalId? state.goals.find(x=>x.id===taskDraft.goalId) : null;
+    if(g && g.cat && !taskDraft.category){
+      taskDraft.category = g.cat;
+      const box = timeBoxForCategory(taskDraft.category);
+      if(box && !taskDraft.period) taskDraft.period = box.id;
+    }
+    render();
+  };
   const tdCat = document.getElementById('tdCat');
   if(tdCat) tdCat.onchange = ()=>{
     syncDraft();
@@ -7235,7 +7302,7 @@ document.querySelectorAll('[data-qnote]').forEach(ta=>{
   const voiceAcceptBtn = document.getElementById('voiceAcceptBtn');
   if(voiceAcceptBtn) voiceAcceptBtn.onclick = ()=>{
     voicePlan.filter(p=>p.include).forEach(p=>{
-      state.tasks.push({id:uid(), title:p.text, goalId:null, category:p.category||null, priority:p.priority, period:p.period||null, due:p.due||null, link:null, done:false, createdAt:todayStr()});
+      state.tasks.push({id:uid(), title:p.text, goalId:p.goalId||null, category:p.category||null, priority:p.priority, period:p.period||null, due:p.due||null, link:null, done:false, createdAt:todayStr()});
     });
     voicePlan = null; voiceDraftText = ''; voiceCardOpen = false;
     saveState(); popStamp('انضافت!','ماشاءالله'); render();
@@ -7311,7 +7378,17 @@ document.querySelectorAll('[data-qnote]').forEach(ta=>{
   const conflictOpenSettings = document.getElementById('conflictOpenSettings');
   if(conflictOpenSettings) conflictOpenSettings.onclick = ()=>{ settingsOpen = true; render(); };
 
+  document.querySelectorAll('[data-quick-goal]').forEach(sel=> sel.onchange=()=>{
+    const t = state.tasks.find(x=>x.id===sel.dataset.quickGoal);
+    if(!t || !sel.value) return;
+    t.goalId = sel.value;
+    /* take the goal's domain too when the task has none, same as the editor does */
+    const g = state.goals.find(x=>x.id===sel.value);
+    if(g && g.cat && !t.category) t.category = g.cat;
+    saveState(); render();
+  });
   document.querySelectorAll('[data-period]').forEach(b=> b.onclick=()=>{
+
     /* today's tab choice overrides the clock for the rest of the session; another
        day keeps its own so switching back to today doesn't strand it on a tab */
     if(selectedDate === todayStr()){ window.__activePeriod = b.dataset.period; window.__activePeriodManual = true; }
@@ -7505,6 +7582,16 @@ document.querySelectorAll('[data-qnote]').forEach(ta=>{
     aiPlan[i].include = !aiPlan[i].include;
     render();
   });
+  document.querySelectorAll('[data-plan-goal]').forEach(sel=> sel.onchange=()=>{
+    const i = parseInt(sel.dataset.planGoal,10);
+    aiPlan[i].goalId = sel.value || null;
+    /* reviewing the extracted list is the moment she is already sorting these,
+       so it is the cheapest place to give each one its goal — otherwise every
+       pasted task lands in "مهام بلا هدف" and the chain quietly stops meaning
+       anything */
+    const g = state.goals.find(x=>x.id===sel.value);
+    if(g && g.cat && !aiPlan[i].category){ aiPlan[i].category = g.cat; render(); }
+  });
   document.querySelectorAll('[data-plan-cat]').forEach(sel=> sel.onchange=()=>{
     const i = parseInt(sel.dataset.planCat,10);
     aiPlan[i].category = sel.value || null;
@@ -7518,7 +7605,7 @@ document.querySelectorAll('[data-qnote]').forEach(ta=>{
     const accepted = aiPlan.filter(p=>p.include);
     accepted.forEach(p=>{
       state.tasks.push({
-        id:uid(), title:p.text, goalId:null, category:p.category||null, priority:p.priority||'متوسطة',
+        id:uid(), title:p.text, goalId:p.goalId||null, category:p.category||null, priority:p.priority||'متوسطة',
         period:p.period||null, due:p.due||null, done:false, createdAt:todayStr()
       });
     });
