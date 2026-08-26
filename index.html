@@ -167,7 +167,12 @@ details.path-block > summary::-webkit-details-marker{display:none;}
 .pl-group:last-of-type{border-bottom:none;}
 /* a plain foldable label row — same shape as the ledger group heads, minus the
    ledger-specific number column */
+/* the financial goal's edit fold: a divider under the numbers, controls inside */
+.fg-fold{justify-content:center;margin-top:10px;border-top:1px solid var(--line);padding-top:10px;}
+.fg-fold .grow{flex:0 0 auto;}
+.fg-edit{text-align:right;margin-top:8px;}
 .fold-line{
+
   display:flex;align-items:center;gap:8px;width:100%;
   background:none;border:none;padding:6px 2px;
   font-family:inherit;font-size:var(--t2);color:var(--ink);text-align:right;cursor:pointer;
@@ -1010,7 +1015,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 47';
+const APP_BUILD = '2026-08-17 · 48';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -5130,7 +5135,12 @@ function renderFinanceDashboard(){
   const nextStage = fg.stages.find(s=>!s.done);
   const upcoming = fg.stages.filter(s=>!s.done && s!==nextStage);
   const done = fg.stages.filter(s=>s.done);
-  const fgDetailsCollapsed = state.collapsed.fgDetails;
+  /* This opened by default and put the summary numbers and the editing controls
+     in one undifferentiated column. The numbers are the answer and stay out;
+     only the things that change something go behind the fold, which now starts
+     closed. (The shared toggle reads an unset key as open, so it is seeded.) */
+  if(state.collapsed.fgDetails === undefined) state.collapsed.fgDetails = true;
+  const fgDetailsCollapsed = !!state.collapsed.fgDetails;
   return `
   <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:4px;">🎯 ${escapeHtml(fg.title)}</h2>
   ${(()=>{ /* the other direction of the link the yearly-goal card already offers,
@@ -5145,19 +5155,25 @@ function renderFinanceDashboard(){
     <div style="height:12px;background:var(--line);border-radius:8px;overflow:hidden;margin:10px 0;">
       <div style="height:100%;width:${pct}%;background:var(--sage);"></div>
     </div>
-    <button type="button" class="icon-btn sm" data-toggle-collapse="fgDetails" style="display:inline-flex;align-items:center;gap:6px;">التفاصيل<span class="chev ${fgDetailsCollapsed?"":"open"}">▾</span></button>
+    <p class="muted" style="margin:8px 0 0;">${fgFmt(fg.currentAmount)} من ${fgFmt(fg.targetAmount)} ريال${daysLeft!=null? ` · ⏳ باقي ${daysLeft} يوم` : ''}</p>
+    <p style="margin:2px 0 0;font-size:var(--t2);color:var(--petrol-dark);font-weight:700;">الباقي ${fgFmt(remaining)} ريال</p>
+
+    <button type="button" class="fold-line fg-fold" data-toggle-collapse="fgDetails">
+      <span class="chev ${fgDetailsCollapsed?"":"open"}">▾</span>
+      <span class="grow">تحديث المبلغ أو الهدف</span>
+    </button>
     ${fgDetailsCollapsed? '' : `
-    <p class="muted" style="margin-top:8px;">${fgFmt(fg.currentAmount)} من ${fgFmt(fg.targetAmount)} ريال — الباقي ${fgFmt(remaining)} ريال</p>
-    ${daysLeft!=null? `<p class="muted">⏳ باقي ${daysLeft} يوم على موعدك</p>`:''}
-    <div style="display:flex;gap:8px;margin-top:12px;">
-      <input type="number" id="fgAddAmountInput" min="0" step="0.01" placeholder="أضيفي مبلغ ادّخرتيه…" style="flex:1;"/>
-      <button class="btn sm" id="fgAddAmountBtn">+ إضافة للمدخر</button>
+    <div class="fg-edit">
+      <div style="display:flex;gap:8px;">
+        <input type="number" id="fgAddAmountInput" min="0" step="0.01" placeholder="مبلغ ادّخرتيه…" style="flex:1;min-width:0;"/>
+        <button class="btn sm" id="fgAddAmountBtn" style="flex-shrink:0;">+ إضافة</button>
+      </div>
+      ${state.safety? `<label style="display:flex;align-items:center;gap:7px;margin-top:9px;font-size:var(--t2);color:var(--ink);cursor:pointer;text-align:right;">
+        <input type="checkbox" id="fgAlsoAsset" style="width:auto;margin:0;flex-shrink:0;"/>
+        <span>وكمان زيديه على رصيد التوفير في أصولك</span>
+      </label>`:''}
+      <button class="btn ghost sm btn-block" id="financeEdit" style="margin-top:10px;">تعديل الهدف أو الموعد</button>
     </div>
-    ${state.safety? `<label style="display:flex;align-items:center;gap:7px;justify-content:center;margin-top:9px;font-size:var(--tf);color:var(--ink);cursor:pointer;">
-      <input type="checkbox" id="fgAlsoAsset" style="width:auto;margin:0;"/>
-      وكمان زيديه على رصيد التوفير في أصولك
-    </label>`:''}
-    <button class="btn ghost sm" id="financeEdit" style="margin-top:10px;">تعديل الهدف أو الموعد</button>
     `}
   </div>
 
