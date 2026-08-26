@@ -188,7 +188,15 @@ details.path-block > summary::-webkit-details-marker{display:none;}
   padding:14px 0;margin:0;
 }
 .reflect-group > .card + .card{border-top:1px solid var(--line);}
-.day-counts{font-size:var(--t2);color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums;}
+/* the task's lineage: which part of who she wants to be this serves */
+.task-chain{
+  display:flex;align-items:center;gap:5px;flex-wrap:wrap;
+  margin-top:3px;font-size:var(--t1);color:var(--petrol-dark);font-weight:600;
+}
+.task-chain .sep{color:var(--muted);font-weight:400;}
+.task-title.done + .task-chain{opacity:.5;}
+.day-counts{
+font-size:var(--t2);color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums;}
 .day-counts .sep{margin:0 4px;opacity:.6;}
 .storage-warn{
 
@@ -661,6 +669,29 @@ function defaultGoalPillars(){
 }
 function pillarOf(id){ return (state.goalPillars||[]).find(p=>p.id===id) || null; }
 
+/* ---- the chain: رؤية ← جانب هوية ← هدف ← مهمة ----
+   A goal belongs to exactly one identity aspect, and a task's aspect is read
+   off its goal rather than stored on the task. That way re-filing a goal under
+   a different aspect carries its tasks with it, and the two can never disagree
+   — which is what happened while goals were grouped by identity and their tasks
+   were grouped by domain on another page. */
+function goalPillarId(g){
+  if(!g) return null;
+  if(g.pillarId) return g.pillarId;
+  const ids = g.pillarIds || [];
+  return ids.length? ids[0] : null;
+}
+function taskGoal(t){ return t && t.goalId? (state.goals.find(g=>g.id===t.goalId) || null) : null; }
+function taskPillar(t){ return pillarOf(goalPillarId(taskGoal(t))); }
+/* The detailed financial goal is the breakdown of her yearly finance goal — the
+   app already says so in words — so the tasks it generates belong to that goal
+   instead of to nothing, which is how most goal-linked work used to lose its
+   place in the chain. */
+function financeParentGoalId(){
+  const g = state.goals.find(x=> x.cat==='finance');
+  return g? g.id : null;
+}
+
 /* categories used to classify raw inbox tasks — user-editable, lives in state.taskCategories.
    Mirrors CATS (the same life-domain list used for yearly goals) so a task's category and
    a goal's domain always read as the same taxonomy across the app. */
@@ -963,7 +994,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 42';
+const APP_BUILD = '2026-08-17 · 43';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -1004,8 +1035,11 @@ function hydrateState(parsed){
   }
   if(!state.goalPillars || !state.goalPillars.length) state.goalPillars = defaultGoalPillars();
   (state.goals||[]).forEach(g=>{
-    if(g.pillarId && !g.pillarIds){ g.pillarIds = [g.pillarId]; delete g.pillarId; }
-    if(!g.pillarIds) g.pillarIds = [];
+    if(!g.pillarIds) g.pillarIds = g.pillarId? [g.pillarId] : [];
+    /* a goal now hangs under exactly one aspect so the chain is a tree, but the
+       old multi-select array is left in place untouched — nothing she chose is
+       thrown away, and re-editing the goal lets her pick a different parent */
+    if(!g.pillarId && g.pillarIds.length) g.pillarId = g.pillarIds[0];
     if(!g.customPillars) g.customPillars = [];
     /* pillars she typed were held as loose text that displayed but grouped
        nothing. Each distinct wording becomes a real pillar, shared by every goal
@@ -1017,6 +1051,7 @@ function hydrateState(parsed){
         let p = state.goalPillars.find(x=> x.label.trim() === val);
         if(!p){ p = {id:uid(), label:val, icon:'✨'}; state.goalPillars.push(p); }
         if(!g.pillarIds.includes(p.id)) g.pillarIds.push(p.id);
+        if(!g.pillarId) g.pillarId = p.id;
       });
       g.customPillars = [];
     }
@@ -1910,7 +1945,7 @@ function renderGoalWizard(){
       <div class="field">
         <label>بند الهوية — مَن تكونين لما تحققينه؟</label><p class="muted" style="margin:-2px 0 8px;font-size:var(--t2);">يجمع أهدافك بصفحة الأساس. اختياري، وتقدرين تختارين أكثر من بند.</p>
         <div class="chip-row" id="gwPillars">
-          ${state.goalPillars.map(p=>`<button type="button" class="chip ${(goalWizard.pillarIds||[]).includes(p.id)?'selected':''}" data-pillar="${p.id}">${p.icon} ${p.label}</button>`).join('')}
+          ${state.goalPillars.map(p=>`<button type="button" class="chip ${goalWizard.pillarId===p.id?'selected':''}" data-pillar="${p.id}">${p.icon} ${p.label}</button>`).join('')}
         </div>
         ${(goalWizard.customPillars||[]).length? `
         <div class="chip-row" style="margin-top:8px;">
@@ -1973,10 +2008,10 @@ function attachGoalWizardEvents(){
   document.querySelectorAll('#gwPillars .chip').forEach(b=>{
     b.onclick = ()=>{
       goalWizard.title = document.getElementById('gwTitle').value;
-      goalWizard.pillarIds = goalWizard.pillarIds || [];
+      /* one parent per goal — tapping another aspect moves it rather than
+         adding a second place for the same goal to appear */
       const id = b.dataset.pillar;
-      const idx = goalWizard.pillarIds.indexOf(id);
-      if(idx>-1) goalWizard.pillarIds.splice(idx,1); else goalWizard.pillarIds.push(id);
+      goalWizard.pillarId = (goalWizard.pillarId===id)? null : id;
       render();
     };
   });
@@ -1992,8 +2027,7 @@ function attachGoalWizardEvents(){
     const existing = state.goalPillars.find(p=> p.label.trim() === val);
     const pillar = existing || {id:uid(), label:val, icon:'✨'};
     if(!existing) state.goalPillars.push(pillar);
-    goalWizard.pillarIds = goalWizard.pillarIds || [];
-    if(!goalWizard.pillarIds.includes(pillar.id)) goalWizard.pillarIds.push(pillar.id);
+    goalWizard.pillarId = pillar.id;
     inp.value = '';
     saveState(); render();
   };
@@ -2041,15 +2075,16 @@ function attachGoalWizardEvents(){
     if(!title){ document.getElementById('gwTitle').focus(); return; }
     const qs = QUESTIONS[goalWizard.cat]||[];
     const answers = qs.map((_,i)=> (document.getElementById('gwAns'+i)?.value||'').trim());
-    const pillarIds = (goalWizard.pillarIds||[]).slice();
+    const pillarId = goalWizard.pillarId || null;
+    const pillarIds = pillarId? [pillarId] : [];
     const customPillars = (goalWizard.customPillars||[]).slice();
     const notes = document.getElementById('gwNotes').value.trim();
     const attachments = (goalWizard.attachments||[]).slice();
     if(goalWizard.id){
       const g = state.goals.find(x=>x.id===goalWizard.id);
-      if(g){ g.title = title; g.cat = goalWizard.cat; g.answers = answers; g.pillarIds = pillarIds; g.customPillars = customPillars; g.notes = notes; g.attachments = attachments; }
+      if(g){ g.title = title; g.cat = goalWizard.cat; g.answers = answers; g.pillarId = pillarId; g.pillarIds = pillarIds; g.customPillars = customPillars; g.notes = notes; g.attachments = attachments; }
     }else{
-      state.goals.push({id:uid(), title, cat:goalWizard.cat, pillarIds, customPillars, notes, attachments, answers, createdAt:todayStr()});
+      state.goals.push({id:uid(), title, cat:goalWizard.cat, pillarId, pillarIds, customPillars, notes, attachments, answers, createdAt:todayStr()});
     }
     attachError = null;
     saveState();
@@ -2947,11 +2982,18 @@ function taskRowHtml(t, opts){
         ${device? `<span style="flex-shrink:0;" title="${DEVICE_LABELS[device]}">${deviceIconSvg(device,15)}</span>`:''}
         <span>${escapeHtml(t.title)}</span>
       </div>
+      ${/* where this task sits in the chain — the aspect of herself it serves and
+            the goal under it. Read from the goal, so it can never contradict the
+            grouping on the tasks page. */''}
+      ${g? `<div class="task-chain">
+        ${(()=>{ const p = pillarOf(goalPillarId(g));
+                 return p? `<span>${p.icon} ${escapeHtml(p.label)}</span><span class="sep">›</span>` : ''; })()}
+        <span>🎯 ${escapeHtml(g.title)}</span>
+      </div>` : ''}
       <div style="margin-top:3px;display:flex;gap:6px;flex-wrap:wrap;">
         <span class="tag p-${t.priority}">${t.priority}</span>
         ${t.actionType? `<span class="tag">🔸 ${escapeHtml(t.actionType)}</span>`:''}
         ${t.category? `<span class="tag">${tcatOf(t.category)?.icon||''} ${tcatOf(t.category)?.label||''}</span>`:''}
-        ${g? `<span class="tag">${catIcon(g.cat)} ${escapeHtml(g.title)}</span>`:''}
         ${t.period? `<span class="tag" ${timeBoxTagStyle(box)}>${box? escapeHtml(box.label) : escapeHtml(t.period)}</span>`:''}
         ${t.due? `<span class="tag">🗓️ ${t.due}</span>`:''}
         ${taskAwaitingDate(t)? `<span class="tag" style="background:rgba(178,76,99,.13);color:var(--rose-dark);" title="فاتت بلا إنجاز، فرفعت عنها التاريخ — حددي لها موعدًا جديدًا وترجع ليومك">⏳ بلا تاريخ · فاتت ${t.lapsedFrom}</span>`:''}
@@ -3406,101 +3448,93 @@ function renderReflectionCard(log){
 let taskSearchQuery = '';
 /* shared category -> goal grouping, reused by the tasks page and the manual top-3 picker
    so both present the exact same organized view */
+/* The chain, laid out: identity aspect -> goal -> task. This used to group by
+   domain and needed a tie-break heuristic to decide which domain a goal landed
+   in, because its tasks could each carry a different one. A goal has exactly one
+   aspect and a task takes its aspect from its goal, so there is nothing left to
+   arbitrate. */
 function renderGroupedTaskBlocks(taskList, rowRenderer, emptyMsg){
-  const grouped = {}; /* catId -> {goalId -> {goal, tasks, mixed}} */
-  const tcatGroups = {}; /* catId -> tasks[], for tasks with no goal to nest under */
+  const byGoal = {};      /* goalId -> {goal, tasks} */
+  const looseByCat = {};  /* tasks with no goal still fall back to their domain */
   const freeTasks = [];
-  /* Goal-linked tasks are collected per goal first, because a goal has to land in
-     exactly one category. Placing each task independently split a goal across
-     every category its tasks happened to use — a task tagged "المشروع" went there
-     while a sibling with no tag fell back to the goal's own domain, printing the
-     same goal heading twice. */
-  const byGoal = {};
   taskList.forEach(t=>{
-    const g = t.goalId? state.goals.find(x=>x.id===t.goalId) : null;
+    const g = taskGoal(t);
     if(g){
       byGoal[g.id] = byGoal[g.id] || {goal:g, tasks:[]};
       byGoal[g.id].tasks.push(t);
-      return;
-    }
-    if(t.category){
-      tcatGroups[t.category] = tcatGroups[t.category] || [];
-      tcatGroups[t.category].push(t);
-      return;
-    }
-    freeTasks.push(t);
-  });
-  Object.values(byGoal).forEach(entry=>{
-    const cats = {};
-    entry.tasks.forEach(t=>{ if(t.category) cats[t.category] = (cats[t.category]||0)+1; });
-    const ids = Object.keys(cats);
-    entry.mixed = ids.length > 1;
-    /* the category her tasks actually use decides where the goal sits, so tagging
-       a goal's work with a category still moves the goal there. Ties fall to the
-       goal's own domain, then to list order, so the answer never shifts on rerender. */
-    let key = entry.goal.cat || 'other';
-    if(ids.length){
-      const rank = c=>{ const i = state.taskCategories.findIndex(x=>x.id===c); return i<0? 999 : i; };
-      key = ids.reduce((best,id)=>{
-        if(cats[id] !== cats[best]) return cats[id] > cats[best] ? id : best;
-        if(id === entry.goal.cat) return id;
-        if(best === entry.goal.cat) return best;
-        return rank(id) < rank(best) ? id : best;
-      }, ids[0]);
-    }
-    grouped[key] = grouped[key] || {};
-    grouped[key][entry.goal.id] = entry;
+    } else if(t.category){
+      (looseByCat[t.category] = looseByCat[t.category] || []).push(t);
+    } else freeTasks.push(t);
   });
 
-  const renderCatBlock = (catKey, icon, label, goalGroups)=>{
-    const catCollapsed = state.collapsed[catKey];
-    const taskCount = goalGroups.reduce((s,x)=>s+x.tasks.length,0);
+  const byPillar = {};    /* pillarId -> [{goal, tasks}] */
+  const goalNoPillar = [];
+  Object.values(byGoal).forEach(entry=>{
+    const pid = goalPillarId(entry.goal);
+    if(pid && pillarOf(pid)) (byPillar[pid] = byPillar[pid] || []).push(entry);
+    else goalNoPillar.push(entry);
+  });
+
+  const goalBlock = ({goal, tasks})=>{
+    const key = 'goal:'+goal.id;
+    const closed = state.collapsed[key];
+    return `
+    <div style="margin-bottom:10px;border-top:1px dashed var(--line);padding-top:10px;">
+      <h4 style="cursor:pointer;font-size:var(--t3);color:var(--petrol-dark);margin-bottom:6px;display:flex;align-items:center;gap:7px;" data-toggle-collapse="${key}"><span style="flex:1;">🎯 ${escapeHtml(goal.title)} <span class="muted" style="font-size:var(--t1);font-weight:400;">(${tasks.length})</span></span><span class="chev ${closed?"":"open"}">▾</span></h4>
+      ${closed? '' : tasks.map(rowRenderer).join('')}
+    </div>`;
+  };
+  const block = (key, icon, label, goalGroups, looseTasks)=>{
+    const closed = state.collapsed[key];
+    const count = goalGroups.reduce((s,x)=>s+x.tasks.length,0) + (looseTasks? looseTasks.length : 0);
+    if(!count) return '';
     return `
     <div class="card" style="margin-bottom:12px;">
-      <div class="card-title"><h3 style="cursor:pointer;flex:1;font-size:var(--t4);display:flex;align-items:center;gap:7px;" data-toggle-collapse="${catKey}"><span style="flex:1;">${icon} ${label} <span class="muted" style="font-size:var(--t2);font-weight:400;">(${taskCount})</span></span><span class="chev ${catCollapsed?"":"open"}">▾</span></h3></div>
-      ${catCollapsed? '' : goalGroups.map(({goal, tasks, mixed})=>{
-        if(!goal) return tasks.map(rowRenderer).join('');
-        const goalKey = 'goal:'+goal.id;
-        const goalCollapsed = state.collapsed[goalKey];
-        return `
-        <div style="margin-bottom:10px;border-top:1px dashed var(--line);padding-top:10px;">
-          <h4 style="cursor:pointer;font-size:var(--t3);color:var(--petrol-dark);margin-bottom:6px;display:flex;align-items:center;gap:7px;" data-toggle-collapse="${goalKey}"><span style="flex:1;">${escapeHtml(goal.title)} <span class="muted" style="font-size:var(--t1);font-weight:400;">(${tasks.length})</span></span><span class="chev ${goalCollapsed?"":"open"}">▾</span></h4>
-          ${mixed? `<p class="muted" style="font-size:var(--t1);margin:-2px 0 6px;color:var(--rose-dark);">⚠️ مهام هذا الهدف بتصنيفات مختلفة — وحّدي تصنيفها لو تبين ترتيبًا أوضح</p>`:''}
-          ${goalCollapsed? '' : tasks.map(rowRenderer).join('')}
-        </div>`;
-      }).join('')}
+      <div class="card-title"><h3 style="cursor:pointer;flex:1;font-size:var(--t4);display:flex;align-items:center;gap:7px;" data-toggle-collapse="${key}"><span style="flex:1;">${icon} ${escapeHtml(label)} <span class="muted" style="font-size:var(--t2);font-weight:400;">(${count})</span></span><span class="chev ${closed?"":"open"}">▾</span></h3></div>
+      ${closed? '' : (looseTasks||[]).map(rowRenderer).join('') + goalGroups.map(goalBlock).join('')}
     </div>`;
   };
 
-  /* one card per category, holding both the tasks that carry that category
-     directly and the tasks that inherit it from their goal — task categories and
-     goal domains are the same taxonomy now, so splitting them into two cards
-     would print the same heading twice */
   let body = '';
-  const seen = {};
-  const emitCat = (c)=>{
-    if(seen[c.id]) return;
-    seen[c.id] = true;
-    const loose = tcatGroups[c.id] || [];
-    const goalGroups = grouped[c.id]? Object.values(grouped[c.id]) : [];
-    if(!loose.length && !goalGroups.length) return;
-    const blocks = loose.length? [{goal:null, tasks:loose}, ...goalGroups] : goalGroups;
-    body += renderCatBlock('cat:'+c.id, c.icon, c.label, blocks);
-  };
-  state.taskCategories.forEach(emitCat);
-  CATS.forEach(emitCat); /* safety net for a goal whose domain she removed from her category list */
-  /* anything still holding a category id that no longer exists — she deleted the
-     category after tagging tasks with it. Emit it under its bare id rather than
-     letting those tasks fall off the page entirely. */
-  Object.keys(Object.assign({}, tcatGroups, grouped)).forEach(id=>{
-    emitCat({id, icon:'🏷️', label:'تصنيف محذوف'});
+  (state.goalPillars||[]).forEach(p=>{
+    body += block('pillarTasks:'+p.id, p.icon, p.label, byPillar[p.id] || []);
   });
-  if(freeTasks.length){
-    body += renderCatBlock('cat:__none__', '🗂️', 'غير مصنّفة', [{goal:null, tasks:freeTasks}]);
+  /* an aspect she deleted after tagging goals with it — those goals still have
+     tasks, and dropping them off the page would hide real work */
+  Object.keys(byPillar).forEach(pid=>{
+    if((state.goalPillars||[]).some(p=>p.id===pid)) return;
+    body += block('pillarTasks:'+pid, '❓', 'بند ما عاد بقائمتك', byPillar[pid]);
+  });
+  if(goalNoPillar.length){
+    body += block('pillarTasks:__none__', '🎯', 'أهداف بلا بند هوية', goalNoPillar);
+  }
+  /* tasks with no goal at all: still shown, still grouped by their domain, so
+     nothing that used to appear on this page disappears from it */
+  const looseIds = Object.keys(looseByCat);
+  if(looseIds.length || freeTasks.length){
+    const rows = looseIds.map(id=>{
+      const c = catOf(id) || {icon:'🏷️', label:'تصنيف محذوف'};
+      const key = 'looseCat:'+id;
+      const closed = state.collapsed[key];
+      return `
+      <div style="margin-bottom:10px;border-top:1px dashed var(--line);padding-top:10px;">
+        <h4 style="cursor:pointer;font-size:var(--t3);color:var(--petrol-dark);margin-bottom:6px;display:flex;align-items:center;gap:7px;" data-toggle-collapse="${key}"><span style="flex:1;">${c.icon} ${escapeHtml(c.label)} <span class="muted" style="font-size:var(--t1);font-weight:400;">(${looseByCat[id].length})</span></span><span class="chev ${closed?"":"open"}">▾</span></h4>
+        ${closed? '' : looseByCat[id].map(rowRenderer).join('')}
+      </div>`;
+    }).join('') + freeTasks.map(rowRenderer).join('');
+    const key = 'pillarTasks:__nogoal__';
+    const closed = state.collapsed[key];
+    const count = looseIds.reduce((s,id)=>s+looseByCat[id].length,0) + freeTasks.length;
+    body += `
+    <div class="card" style="margin-bottom:12px;">
+      <div class="card-title"><h3 style="cursor:pointer;flex:1;font-size:var(--t4);display:flex;align-items:center;gap:7px;" data-toggle-collapse="${key}"><span style="flex:1;">🗂️ مهام بلا هدف <span class="muted" style="font-size:var(--t2);font-weight:400;">(${count})</span></span><span class="chev ${closed?"":"open"}">▾</span></h3></div>
+      ${closed? '' : `<p class="muted" style="font-size:var(--t1);margin:-4px 0 8px;">اربطيها بهدف عشان تاخذ مكانها في التسلسل.</p>${rows}`}
+    </div>`;
   }
   if(!body) body = `<div class="empty">${emptyMsg}</div>`;
   return body;
 }
+
 /* the standing list holds only what's still open — anything finished moves down
    to the by-day section below, so a task is never in both places at once. A
    recurring task ticked today counts as finished for today and comes back
@@ -3581,7 +3615,33 @@ const VISION_QUESTIONS = [
   {q:'وش الأثر اللي تبين تسوينه بحياة اللي حولك؟', ph:'مثال: أكون مصدر دعم وإلهام'},
   {q:'لو وصف حد حياتك بجملة وحدة بعد سنوات، وش يقول؟', ph:'مثال: عاشت حياة صادقة ومؤثرة'},
 ];
+/* The vision questions already ask her who she wants to be in each part of her
+   life — صحيًا، ماليًا، عاطفيًا، وأي أثر. Those answers used to melt into one
+   paragraph and stop there, leaving اهداف hanging under identity aspects that
+   had nothing to do with the vision above them. They become the suggested
+   aspects instead, so the chain starts where she starts it. */
+function visionPillarSuggestions(answers){
+  const a = (answers||[]).map(x=>(x||'').trim());
+  const strip = t => t.replace(/^(أكون|اكون|أن أكون|ان اكون)\s+/,'').trim();
+  const raw = [
+    {icon:'🌿', text:a[2]},
+    {icon:'💰', text:a[3]},
+    {icon:'❤️', text:a[4]},
+    {icon:'✨', text:a[5]},
+  ];
+  const seen = new Set((state.goalPillars||[]).map(p=>p.label.trim()));
+  const out = [];
+  raw.forEach(r=>{
+    if(!r.text) return;
+    const label = 'أنا ' + strip(r.text);
+    if(seen.has(label)) return;
+    seen.add(label);
+    out.push({icon:r.icon, label});
+  });
+  return out;
+}
 function composeVisionText(answers){
+
   const a = answers.map(x=>(x||'').trim());
   const sentences = [];
   if(a[0]) sentences.push(`أعيش حياة محورها ${a[0]}`);
@@ -3623,6 +3683,22 @@ function renderLifeVisionSection(){
       <div style="display:flex;gap:10px;margin-top:8px;">
         <button class="btn btn-block" id="visionApprove">✓ موافقة، هذي رؤيتي</button>
         <button class="btn ghost" id="visionBackToQuestions">↺ رجوع للأسئلة</button>
+      </div>
+    </div>`;
+  }
+  if(visionWizard && visionWizard.step==='pillars'){
+    const sugg = visionWizard.suggestions || [];
+    const picked = visionWizard.picked || {};
+    return `
+    <div class="card" style="margin-bottom:14px;border-color:var(--gold);">
+      <div class="card-title"><h3>🌱 وهذي جوانب هويتك</h3></div>
+      <p class="muted" style="margin-bottom:12px;">من إجاباتك. الجوانب هي اللي تتعلق فيها أهدافك، وكل هدف تحته مهامه — اختاري اللي يمثلك، وتقدرين تعدّلينها بعدين.</p>
+      ${sugg.length? sugg.map((p,i)=>`
+        <button type="button" class="chip ${picked[i]!==false?'selected':''}" data-vision-pillar="${i}" style="display:block;width:100%;text-align:right;margin-bottom:8px;">${p.icon} ${escapeHtml(p.label)}</button>
+      `).join('') : `<p class="muted" style="margin-bottom:12px;">ما قدرت أستخرج جوانب من إجاباتك — تقدرين تضيفينها بنفسك من قائمة بنود الهوية.</p>`}
+      <div style="display:flex;gap:10px;margin-top:8px;">
+        <button class="btn btn-block" id="visionPillarsSave">${sugg.length? '✓ أضيفيها لبنود هويتي' : 'تمام'}</button>
+        ${sugg.length? `<button class="btn ghost" id="visionPillarsSkip">تخطّي</button>`:''}
       </div>
     </div>`;
   }
@@ -3698,8 +3774,8 @@ function renderGoals(){
   const byPillar = {};
   const noPillar = [];
   state.goals.forEach(g=>{
-    const ids = (g.pillarIds||[]).filter(id=>pillarOf(id));
-    if(ids.length){ ids.forEach(id=> (byPillar[id] = byPillar[id]||[]).push(g)); }
+    const pid = goalPillarId(g);
+    if(pid && pillarOf(pid)) (byPillar[pid] = byPillar[pid]||[]).push(g);
     else noPillar.push(g);
   });
   const goalGroupHtml = (key, icon, label, goals)=>{
@@ -5173,7 +5249,7 @@ function attachFinanceEvents(){
     const {cp, step} = cpStepOf(b.dataset.cpStepTask);
     if(!cp || !step) return;
     state.tasks.push({
-      id:uid(), title:step.text, goalId:null, category:'business', priority:'متوسطة',
+      id:uid(), title:step.text, goalId:financeParentGoalId(), category:'business', priority:'متوسطة',
       period:null, due:todayStr(), link:null, done:false, createdAt:todayStr()
     });
     saveState(); popStamp('انضافت لمهامك','بالتوفيق'); render();
@@ -5222,7 +5298,7 @@ function attachFinanceEvents(){
     if(!pendingTipAdd) return;
     const fg = state.financialGoal;
     const due = pendingTipAdd.due || todayStr();
-    state.tasks.push({id:uid(), title:pendingTipAdd.tipText, goalId:null, category:'business', priority:'متوسطة', period:pendingTipAdd.period||null, due, link:null, done:false, createdAt:todayStr()});
+    state.tasks.push({id:uid(), title:pendingTipAdd.tipText, goalId:financeParentGoalId(), category:'business', priority:'متوسطة', period:pendingTipAdd.period||null, due, link:null, done:false, createdAt:todayStr()});
     if(!fg.pathProgress) fg.pathProgress = {};
     fg.pathProgress[pendingTipAdd.methodId] = (fg.pathProgress[pendingTipAdd.methodId]||0)+1;
     pendingTipAdd = null;
@@ -5290,7 +5366,7 @@ function attachFinanceEvents(){
     const t = stage && stage.tasks.find(x=>x.id===pendingStageTaskAdd.taskId);
     if(t){
       const due = pendingStageTaskAdd.due || todayStr();
-      state.tasks.push({id:uid(), title:t.text, goalId:null, category:'business', priority:'متوسطة', period:pendingStageTaskAdd.period||null, due, link:null, done:false, createdAt:todayStr()});
+      state.tasks.push({id:uid(), title:t.text, goalId:financeParentGoalId(), category:'business', priority:'متوسطة', period:pendingStageTaskAdd.period||null, due, link:null, done:false, createdAt:todayStr()});
     }
     pendingStageTaskAdd = null;
     saveState(); render();
@@ -7113,7 +7189,7 @@ document.querySelectorAll('[data-qnote]').forEach(ta=>{
   document.querySelectorAll('[data-edit-goal]').forEach(b=> b.onclick=()=>{
     const g = state.goals.find(x=>x.id===b.dataset.editGoal);
     if(!g) return;
-    goalWizard = {id:g.id, title:g.title, cat:g.cat, pillarIds:(g.pillarIds||[]).slice(), customPillars:(g.customPillars||[]).slice(), answers:(g.answers||[]).slice(), notes:g.notes||'', attachments:(g.attachments||[]).slice()};
+    goalWizard = {id:g.id, title:g.title, cat:g.cat, pillarId:goalPillarId(g), pillarIds:(g.pillarIds||[]).slice(), customPillars:(g.customPillars||[]).slice(), answers:(g.answers||[]).slice(), notes:g.notes||'', attachments:(g.attachments||[]).slice()};
     attachError = null;
     render();
   });
@@ -7263,6 +7339,26 @@ document.querySelectorAll('[data-qnote]').forEach(ta=>{
   const visionApprove = document.getElementById('visionApprove');
   if(visionApprove) visionApprove.onclick = ()=>{
     state.lifeVision.text = document.getElementById('visionDraftText').value.trim();
+    const suggestions = visionPillarSuggestions(visionWizard.answers);
+    visionWizard = {step:'pillars', answers:visionWizard.answers, suggestions, picked:{}};
+    saveState(); render();
+  };
+  document.querySelectorAll('[data-vision-pillar]').forEach(b=> b.onclick=()=>{
+    const i = b.dataset.visionPillar;
+    visionWizard.picked = visionWizard.picked || {};
+    visionWizard.picked[i] = visionWizard.picked[i]===false;
+    render();
+  });
+  const visionPillarsSkip = document.getElementById('visionPillarsSkip');
+  if(visionPillarsSkip) visionPillarsSkip.onclick = ()=>{ visionWizard = null; render(); };
+  const visionPillarsSave = document.getElementById('visionPillarsSave');
+  if(visionPillarsSave) visionPillarsSave.onclick = ()=>{
+    (visionWizard.suggestions||[]).forEach((p,i)=>{
+      if((visionWizard.picked||{})[i]===false) return;
+      /* added alongside whatever she already had — an existing aspect with the
+         same name was filtered out when the suggestions were built */
+      state.goalPillars.push({id:uid(), label:p.label, icon:p.icon});
+    });
     visionWizard = null;
     saveState(); render();
   };
