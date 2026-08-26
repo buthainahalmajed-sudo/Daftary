@@ -165,6 +165,15 @@ details.path-block > summary::-webkit-details-marker{display:none;}
 /* project ledger, grouped by category so each line reads as a total */
 .pl-group{border-bottom:1px dashed var(--line);}
 .pl-group:last-of-type{border-bottom:none;}
+/* a plain foldable label row — same shape as the ledger group heads, minus the
+   ledger-specific number column */
+.fold-line{
+  display:flex;align-items:center;gap:8px;width:100%;
+  background:none;border:none;padding:6px 2px;
+  font-family:inherit;font-size:var(--t2);color:var(--ink);text-align:right;cursor:pointer;
+}
+.fold-line .grow{flex:1;min-width:0;font-weight:700;}
+.fold-line .chip{font-size:var(--t1);padding:3px 9px;}
 .pl-group-head{
   display:flex;align-items:center;gap:8px;width:100%;
   background:none;border:none;padding:10px 2px;
@@ -889,7 +898,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 34';
+const APP_BUILD = '2026-08-17 · 35';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -3189,9 +3198,26 @@ function renderJournalEntryRow(j){
    finance achievement can be either. Sharing CATS here means her journal can be
    sliced the same way her goals and tasks are. */
 function journalCatPicker(kind, selected){
-  return `<div class="chip-row" style="margin-bottom:10px;">
+  /* nine domain chips pushed the "إضافة" button off the bottom of the screen,
+     and the field is optional anyway — so it stays folded, with whatever she
+     picked shown on the closed row so she never has to open it just to check.
+     Key has no colon on purpose: that's what marks it a fixed section the
+     stale-fold sweep leaves alone. */
+  const key = 'journalCat' + (kind==='work' ? 'Work' : 'Personal');
+  /* the shared toggle reads an unset key as "open", so a section that starts
+     folded has to say so explicitly or the first click does nothing */
+  if(state.collapsed[key] === undefined) state.collapsed[key] = true;
+  const closed = !!state.collapsed[key];
+  const chosen = selected ? state.taskCategories.find(c=>c.id===selected) : null;
+  return `
+  <button type="button" class="fold-line" data-toggle-collapse="${key}">
+    <span class="chev ${closed?'':'open'}">▾</span>
+    <span class="grow">في أي مجال؟ <span class="muted" style="font-weight:400;">(اختياري)</span></span>
+    ${chosen? `<span class="chip cat selected" style="pointer-events:none;">${chosen.icon} ${escapeHtml(chosen.label)}</span>` : ''}
+  </button>
+  ${closed? '' : `<div class="chip-row" style="margin:8px 0 10px;">
     ${state.taskCategories.map(c=>`<button type="button" class="chip cat ${selected===c.id?'selected':''}" data-journal-cat="${kind}" data-cat="${c.id}">${c.icon} ${c.label}</button>`).join('')}
-  </div>`;
+  </div>`}`;
 }
 function renderJournalPage(){
   const year = journalViewYear || parseInt(todayStr().slice(0,4),10);
@@ -3212,7 +3238,6 @@ function renderJournalPage(){
     <div class="field" style="margin-bottom:8px;">
       <textarea id="journalWorkInput" placeholder="اكتبي بحرية…">${escapeHtml(journalWorkDraft)}</textarea>
     </div>
-    <p class="muted" style="margin-bottom:6px;font-size:var(--t2);">في أي مجال؟ (اختياري)</p>
     ${journalCatPicker('work', journalWorkCat)}
     <button class="btn btn-block" id="journalWorkAdd">إضافة</button>
   </div>
@@ -3222,7 +3247,6 @@ function renderJournalPage(){
     <div class="field" style="margin-bottom:8px;">
       <textarea id="journalPersonalInput" placeholder="اكتبي بحرية…">${escapeHtml(journalPersonalDraft)}</textarea>
     </div>
-    <p class="muted" style="margin-bottom:6px;font-size:var(--t2);">في أي مجال؟ (اختياري)</p>
     ${journalCatPicker('personal', journalPersonalCat)}
     <button class="btn btn-block" id="journalPersonalAdd">إضافة</button>
   </div>
