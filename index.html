@@ -177,7 +177,21 @@ details.path-block > summary::-webkit-details-marker{display:none;}
 /* per-path counter: what this one income path earned, cost and netted, so the
    ledger answers "is this path working?" and not only "how am I doing overall?" */
 /* المالية hub: one tappable row per area, its headline number on the left */
+/* three reflection cards sharing one frame: they keep their own headings and
+   folds, and gain dividers instead of three separate borders */
+.reflect-group{
+  background:var(--paper);border:1px solid var(--line);border-radius:16px;
+  padding:0 16px;margin-bottom:16px;box-shadow:0 1px 0 rgba(31,58,61,0.03);
+}
+.reflect-group > .card{
+  background:none;border:none;box-shadow:none;border-radius:0;
+  padding:14px 0;margin:0;
+}
+.reflect-group > .card + .card{border-top:1px solid var(--line);}
+.day-counts{font-size:var(--t2);color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums;}
+.day-counts .sep{margin:0 4px;opacity:.6;}
 .storage-warn{
+
   border:1.5px solid var(--rose);background:rgba(178,76,99,.08);
   border-radius:14px;padding:10px 12px;margin-bottom:14px;
 }
@@ -940,7 +954,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 39';
+const APP_BUILD = '2026-08-17 · 40';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -2685,40 +2699,37 @@ function renderDateNav(){
   `;
 }
 
-function renderProgressStatCard(){
+/* These counts used to be their own card sitting above يومك, saying in numbers
+   what the task list right under it already showed. They live in that card's
+   header now — same information, one card instead of two. */
+function homeProgressCounts(){
   const today = todayStr();
   const plannedToday = tasksPlannedForDate(today);
   const doneTodayCount = tasksDoneCountForDate(today, plannedToday);
-
   const weekStart = startOfWeek(today);
-  const weekDates = Array.from({length:7},(_,i)=>addDays(weekStart,i));
   let plannedWeek = 0, doneWeek = 0;
-  weekDates.forEach(d=>{
+  Array.from({length:7},(_,i)=>addDays(weekStart,i)).forEach(d=>{
     const planned = tasksPlannedForDate(d);
     plannedWeek += planned.length;
     doneWeek += tasksDoneCountForDate(d, planned);
   });
-
-  let msg;
-  if(plannedToday.length===0) msg = 'ما خططتي أي مهمة لليوم بعد — أضيفي وحدة وابدئي.';
-  else if(doneTodayCount===plannedToday.length) msg = 'خلصتي كل مهام اليوم، ماشاءالله! 🌿';
-  else msg = `باقي ${plannedToday.length-doneTodayCount} مهمة لتخلصين يومك.`;
-
-  return `
-  <div class="card">
-    <div class="stats-grid">
-      <div class="stat-box" style="background:#e7f7ef;">
-        <div class="p" style="color:#2f9e6e;">${doneTodayCount} من ${plannedToday.length}</div>
-        <div class="l" style="color:#2f9e6e;">مهام اليوم</div>
-      </div>
-      <div class="stat-box" style="background:#e8effb;">
-        <div class="p" style="color:#3f6fd1;">${doneWeek} من ${plannedWeek}</div>
-        <div class="l" style="color:#3f6fd1;">مهام هالأسبوع</div>
-      </div>
-    </div>
-    <p class="muted" style="margin-top:10px;">${msg}</p>
-  </div>`;
+  return {plannedToday:plannedToday.length, doneTodayCount, plannedWeek, doneWeek};
 }
+function homeProgressChip(){
+  const c = homeProgressCounts();
+  return `<span class="day-counts">
+    <b style="color:#2f9e6e;">${c.doneTodayCount}/${c.plannedToday}</b> اليوم
+    <span class="sep">·</span>
+    <b style="color:#3f6fd1;">${c.doneWeek}/${c.plannedWeek}</b> الأسبوع
+  </span>`;
+}
+function homeProgressMsg(){
+  const c = homeProgressCounts();
+  if(c.plannedToday===0) return 'ما خططتي أي مهمة لليوم بعد — أضيفي وحدة وابدئي.';
+  if(c.doneTodayCount===c.plannedToday) return 'خلصتي كل مهام اليوم، ماشاءالله! 🌿';
+  return `باقي ${c.plannedToday-c.doneTodayCount} مهمة لتخلصين يومك.`;
+}
+
 
 /* ============ HOME ============ */
 function renderHome(){
@@ -2732,10 +2743,16 @@ function renderHome(){
   <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:4px;">${isToday? `صباحك أهداف، ${escapeHtml(state.name)} 🌿` : `روتين يوم ${tpl.name}`}</h2>
   <p class="muted" style="margin-bottom:18px;">${isToday? 'يلا نبني يومك خطوة خطوة' : 'تقدرين تراجعين أو تخططين لهذا اليوم من هنا'}</p>
 
-  ${isToday && homeCardOn('progress')? renderProgressStatCard() : ''}
   ${isToday && homeCardOn('voice')? renderVoiceQuickAddCard() : ''}
-  ${homeCardOn('routine')? renderTemplateCard(tpl, dow) : ''}
+  ${homeCardOn('schedule')? renderScheduleCard(selectedDate) : ''}
   ${homeCardOn('habits')? renderHabitsCard(tpl, log, dow) : ''}
+  ${homeCardOn('routine')? renderTemplateCard(tpl, dow) : ''}
+
+  ${/* three cards that all ask her to reflect used to stack as three identical
+        collapsed bars. They keep their own titles, folds and on/off switches —
+        they just share one frame now instead of three. */''}
+  ${(homeCardOn('questions') || homeCardOn('mood') || homeCardOn('suggestions'))? `
+  <div class="reflect-group">
   ${homeCardOn('questions')? renderQuestionsCard(log) : ''}
 
   ${!homeCardOn('mood')? '' : `
@@ -2748,13 +2765,14 @@ function renderHome(){
     ` : `<div class="empty tight">ما فيه مشاعر نشطة<span class="hint">فعّليها أو أضيفيها من تبويب «الأساس»</span></div>`)}
   </div>`}
 
+  ${isToday && homeCardOn('suggestions')? renderSuggestionsCard():''}
+  </div>`:''}
+
   ${isToday && !hasUrgentToday() && homeCardOn('calm')? `
   <div class="card" style="text-align:center;">
     <p style="font-size:var(--t4);color:var(--petrol-dark);line-height:1.8;margin:6px 0;">${escapeHtml(dailyPick(RELAXATION_MESSAGES, todayStr()))}</p>
   </div>`:''}
 
-  ${homeCardOn('schedule')? renderScheduleCard(selectedDate) : ''}
-  ${isToday && homeCardOn('suggestions')? renderSuggestionsCard():''}
   ${top3Picker? renderTop3Picker():''}
   `;
 }
@@ -2983,7 +3001,8 @@ function renderScheduleCard(){
   const restCount = rest.filter(t=> state.timeBoxes.some(b=>b.id===t.period)).length;
   return `
   <div class="card">
-    <div class="card-title"><h3>${isToday? 'يومك' : 'جدول هذا اليوم'}</h3></div>
+    <div class="card-title"><h3>${isToday? 'يومك' : 'جدول هذا اليوم'}</h3>${isToday && homeCardOn('progress')? homeProgressChip() : ''}</div>
+    ${isToday && homeCardOn('progress')? `<p class="muted" style="margin:-4px 0 12px;">${homeProgressMsg()}</p>` : ''}
     ${`
     ${focus.length? `
     <div class="focus-strip">
