@@ -2,7 +2,7 @@
    Bump SW_VERSION whenever you want to force every open copy of the app to
    pick up a fresh index.html sooner (it changes the cache name, which the
    activate handler uses to clear out the old one). */
-const SW_VERSION = 'v42';
+const SW_VERSION = 'v43';
 const CACHE = 'daftari-' + SW_VERSION;
 
 self.addEventListener('install', e => {

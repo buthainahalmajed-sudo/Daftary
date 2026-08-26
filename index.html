@@ -168,7 +168,47 @@ details.path-block > summary::-webkit-details-marker{display:none;}
 /* a plain foldable label row — same shape as the ledger group heads, minus the
    ledger-specific number column */
 /* the financial goal's edit fold: a divider under the numbers, controls inside */
-.fg-fold{justify-content:center;margin-top:10px;border-top:1px solid var(--line);padding-top:10px;}
+/* the figure that actually moves gets the size; the percentage becomes a label */
+/* the day's framing strip — sized to its content, centred, never full-bleed */
+.routine-strip{
+  display:inline-block;max-width:100%;box-sizing:border-box;
+  background:var(--parchment);border:1px solid var(--line);border-radius:14px;
+  padding:9px 14px;margin:0 auto 14px;text-align:right;
+}
+.home-strip-wrap{text-align:center;}
+.routine-strip .rs-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.routine-strip .rs-line b{font-size:var(--t3);color:var(--petrol-dark);}
+.routine-strip .rs-note{font-size:var(--t1);color:var(--muted);}
+.routine-strip .rs-motto{
+  font-size:var(--t2);color:var(--ink);line-height:1.6;margin-top:4px;
+  border-right:2px solid var(--gold);padding-right:8px;
+}
+.routine-strip .rs-tags{display:flex;gap:10px;flex-wrap:wrap;margin-top:5px;font-size:var(--t1);color:var(--muted);}
+.routine-strip .rs-tags a{color:var(--petrol-dark);text-decoration:none;}
+.routine-strip .rs-edit{
+  background:none;border:none;padding:2px 4px;cursor:pointer;
+  font-family:inherit;font-size:var(--t2);color:var(--muted);flex-shrink:0;
+}
+.routine-strip.is-empty{background:none;border-style:dashed;}
+.fg-headline{
+font-size:30px;font-weight:800;color:var(--petrol-dark);font-family:'IBM Plex Sans Arabic',sans-serif;line-height:1.15;font-variant-numeric:tabular-nums;}
+.fg-headline span{font-size:var(--t3);font-weight:700;color:var(--muted);}
+.fg-bar{position:relative;height:12px;background:var(--line);border-radius:8px;margin:12px 0 8px;}
+.fg-bar .fill{height:100%;background:var(--sage);border-radius:8px;}
+/* where she is in the time, so the bar answers "ahead or behind" not just "how much" */
+.fg-bar .now{position:absolute;top:-4px;width:2px;height:20px;background:var(--petrol-dark);border-radius:2px;}
+.fg-bar .now::after{content:'';position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;background:var(--petrol-dark);}
+.fg-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:4px;font-size:var(--t1);color:var(--muted);}
+.fg-legend .sep{opacity:.5;}
+.fg-inline-edit{margin-top:12px;border-top:1px dashed var(--line);padding-top:10px;}
+.fg-inline-edit label{font-size:var(--t1);}
+.fg-inline-edit > div{margin-bottom:8px;}
+.fg-log{margin-top:4px;}
+.fg-log-row{display:flex;align-items:center;gap:8px;font-size:var(--t2);padding:5px 2px;border-bottom:1px dashed var(--line);}
+.fg-log-row .grow{flex:1;color:var(--muted);}
+.fg-log-row b{font-variant-numeric:tabular-nums;}
+.fg-fold{
+justify-content:center;margin-top:10px;border-top:1px solid var(--line);padding-top:10px;}
 .fg-fold .grow{flex:0 0 auto;}
 .fg-edit{text-align:right;margin-top:8px;}
 .fold-line{
@@ -1015,7 +1055,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 48';
+const APP_BUILD = '2026-08-17 · 49';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -1055,6 +1095,14 @@ function hydrateState(parsed){
     });
   }
   if(!state.goalPillars || !state.goalPillars.length) state.goalPillars = defaultGoalPillars();
+  /* the progress bar compares money spent against time elapsed, which needs a
+     start. A goal made before this existed has none and we cannot invent one, so
+     it starts counting from today and the comparison becomes meaningful as time
+     passes rather than being wrong from a guessed date. */
+  if(state.financialGoal && state.financialGoal.configured && !state.financialGoal.startedAt){
+    state.financialGoal.startedAt = todayStr();
+  }
+
   (state.goals||[]).forEach(g=>{
     if(!g.pillarIds) g.pillarIds = g.pillarId? [g.pillarId] : [];
     /* a goal now hangs under exactly one aspect so the chain is a tree, but the
@@ -2808,10 +2856,10 @@ function renderHome(){
   <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:4px;">${isToday? `صباحك أهداف، ${escapeHtml(state.name)} 🌿` : `روتين يوم ${tpl.name}`}</h2>
   <p class="muted" style="margin-bottom:18px;">${isToday? 'يلا نبني يومك خطوة خطوة' : 'تقدرين تراجعين أو تخططين لهذا اليوم من هنا'}</p>
 
+  ${homeCardOn("routine")? `<div class="home-strip-wrap">${renderTemplateCard(tpl, dow)}</div>` : ""}
   ${isToday && homeCardOn('voice')? renderVoiceQuickAddCard() : ''}
   ${homeCardOn('schedule')? renderScheduleCard(selectedDate) : ''}
   ${homeCardOn('habits')? renderHabitsCard(tpl, log, dow) : ''}
-  ${homeCardOn('routine')? renderTemplateCard(tpl, dow) : ''}
 
   ${/* three cards that all ask her to reflect used to stack as three identical
         collapsed bars. They keep their own titles, folds and on/off switches —
@@ -2842,20 +2890,30 @@ function renderHome(){
   `;
 }
 
+/* The day's framing, not a section of its own: it was a full-width card with a
+   heading row, a quote block, a note line and a row of tags — four stacked
+   blocks to say "today is X, and it runs from Y to Z". It sits at the top now
+   as one compact strip that shrinks to its content instead of stretching. */
 function renderTemplateCard(tpl, dow){
+  const learning = [tpl.learningDomain, tpl.learningMode, tpl.learning].filter(Boolean).map(escapeHtml).join(' · ');
+  const empty = !tpl.motto && !tpl.timeLabel && !tpl.note && !learning && !state.habits.some(h=>h.days.includes(dow));
+  if(empty) return `
+  <div class="routine-strip is-empty">
+    <button type="button" class="rs-edit" data-edit-template="${dow}">ما فيه روتين لهذا اليوم — ابنيه ✎</button>
+  </div>`;
   return `
-  <div class="card">
-    <div class="card-title"><h3>${tpl.name}</h3>
-      <button class="icon-btn sm" data-edit-template="${dow}">تعديل الروتين</button>
+  <div class="routine-strip">
+    <div class="rs-line">
+      <b>${escapeHtml(tpl.name)}</b>
+      ${tpl.note? `<span class="rs-note">${escapeHtml(tpl.note)}</span>`:''}
+      <button type="button" class="rs-edit" data-edit-template="${dow}" title="تعديل الروتين">✎</button>
     </div>
-    ${tpl.motto? `<div class="quote-box"><p>"${escapeHtml(tpl.motto)}"</p></div>`:''}
-    ${tpl.note? `<p class="muted" style="margin-bottom:8px;">${escapeHtml(tpl.note)}</p>`:''}
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      ${tpl.timeLabel? `<span class="tag">⏰ ${escapeHtml(tpl.timeLabel)}</span>`:''}
-      ${(tpl.learningDomain||tpl.learningMode||tpl.learning)? `<span class="tag">📖 ${[tpl.learningDomain, tpl.learningMode, tpl.learning].filter(Boolean).map(escapeHtml).join(' · ')}</span>`:''}
-      ${tpl.learningLink? `<a href="${escapeHtml(tpl.learningLink)}" target="_blank" rel="noopener" class="tag" style="text-decoration:none;">🔗 رابط التعلّم</a>`:''}
-    </div>
-    ${(!tpl.motto && !tpl.timeLabel && !state.habits.some(h=>h.days.includes(dow)))? `<p class="muted" style="margin-top:10px;">ما فيه روتين محدد لهذا اليوم بعد، اضغطي "تعديل الروتين" عشان تبنينه.</p>`:''}
+    ${tpl.motto? `<div class="rs-motto">"${escapeHtml(tpl.motto)}"</div>`:''}
+    ${(tpl.timeLabel||learning||tpl.learningLink)? `<div class="rs-tags">
+      ${tpl.timeLabel? `<span>⏰ ${escapeHtml(tpl.timeLabel)}</span>`:''}
+      ${learning? `<span>📖 ${learning}</span>`:''}
+      ${tpl.learningLink? `<a href="${escapeHtml(tpl.learningLink)}" target="_blank" rel="noopener">🔗 رابط التعلّم</a>`:''}
+    </div>`:''}
   </div>`;
 }
 
@@ -5150,13 +5208,40 @@ function renderFinanceDashboard(){
     return `<p class="muted" style="margin-bottom:14px;font-size:var(--t2);">التفصيل المالي لـ ${yearly.map(g=>`<b style="color:var(--petrol-dark);">${escapeHtml(g.title)}</b>`).join(' و ')} — <button type="button" class="linkish" data-goto-goals="1">افتحي الهدف السنوي</button></p>`;
   })()}
 
+  ${(()=>{
+    /* أ: the big number was the percentage, which sits at 0 for months. What
+       actually moves — and what she can act on — is how much is still to go. */
+    /* ب: the bar measured money only, so it never answered the real question:
+       am I ahead or behind? A marker for how far through the time she is turns
+       it into a comparison. */
+    const start = fg.startedAt || fg.createdAt || null;
+    let timePct = null;
+    if(start && fg.deadline){
+      const total = parseISO(fg.deadline) - parseISO(start);
+      const gone  = parseISO(todayStr()) - parseISO(start);
+      if(total > 0) timePct = Math.max(0, Math.min(100, Math.round(gone/total*100)));
+    }
+    /* a verdict on day one would be noise — 0% of the time elapsed always reads
+       as "ahead" no matter how little is saved */
+    const ahead = (timePct==null || timePct < 5)? null : (pct >= timePct);
+
+    /* هـ: what came from her income sources versus what she put in herself */
+    const fromProject = parseFloat(state.projectLedgerClaimed)||0;
+    const fromSaving = Math.max(0, (fg.currentAmount||0) - fromProject);
+    return `
   <div class="card" style="text-align:center;">
-    <div style="font-size:34px;font-weight:800;color:var(--petrol-dark);font-family:'IBM Plex Sans Arabic',sans-serif;">${pct}%</div>
-    <div style="height:12px;background:var(--line);border-radius:8px;overflow:hidden;margin:10px 0;">
-      <div style="height:100%;width:${pct}%;background:var(--sage);"></div>
+    <div class="fg-headline">${fgFmt(remaining)} <span>ريال باقية</span></div>
+    <div class="fg-bar">
+      <div class="fill" style="width:${pct}%;"></div>
+      ${timePct!=null? `<span class="now" style="right:${timePct}%;" title="موضعك الزمني"></span>`:''}
+    </div>
+    <div class="fg-legend">
+      <span><b>${pct}%</b> من المبلغ</span>
+      ${timePct!=null? `<span class="sep">·</span><span><b>${timePct}%</b> من الوقت</span>`:''}
+      ${ahead!=null? `<span class="sep">·</span><span style="color:${ahead?'#2f9e6e':'var(--rose-dark)'};font-weight:700;">${ahead?'متقدمة على جدولك':'متأخرة عن جدولك'}</span>`:''}
     </div>
     <p class="muted" style="margin:8px 0 0;">${fgFmt(fg.currentAmount)} من ${fgFmt(fg.targetAmount)} ريال${daysLeft!=null? ` · ⏳ باقي ${daysLeft} يوم` : ''}</p>
-    <p style="margin:2px 0 0;font-size:var(--t2);color:var(--petrol-dark);font-weight:700;">الباقي ${fgFmt(remaining)} ريال</p>
+    ${fromProject>0? `<p class="muted" style="margin:2px 0 0;font-size:var(--t1);">منها ${fgFmt(fromProject)} من مصادر دخلك، و${fgFmt(fromSaving)} من ادخارك</p>`:''}
 
     <button type="button" class="fold-line fg-fold" data-toggle-collapse="fgDetails">
       <span class="chev ${fgDetailsCollapsed?"":"open"}">▾</span>
@@ -5172,10 +5257,37 @@ function renderFinanceDashboard(){
         <input type="checkbox" id="fgAlsoAsset" style="width:auto;margin:0;flex-shrink:0;"/>
         <span>وكمان زيديه على رصيد التوفير في أصولك</span>
       </label>`:''}
-      <button class="btn ghost sm btn-block" id="financeEdit" style="margin-top:10px;">تعديل الهدف أو الموعد</button>
+
+      ${/* ج: changing a date used to replace the whole page with the first-run
+            setup form. The three things worth changing are edited in place. */''}
+      <div class="fg-inline-edit">
+        <div><label>اسم الهدف</label><input type="text" id="fgQuickTitle" value="${escapeHtml(fg.title||'')}"/></div>
+        <div class="row2">
+          <div><label>المبلغ المستهدف</label><input type="number" id="fgQuickTarget" min="0" step="0.01" value="${fg.targetAmount||''}"/></div>
+          <div><label>الموعد</label><input type="date" id="fgQuickDeadline" value="${fg.deadline||''}"/></div>
+        </div>
+      </div>
+
+      ${/* د: the total moved and left no trace of where it came from. Every
+            addition is logged, and the last few can be undone. */''}
+      ${(fg.contributions&&fg.contributions.length)? (()=>{
+        const key='fgLog'; const closed = state.collapsed[key]!==false;
+        const list = fg.contributions.slice().reverse();
+        return `
+        <button type="button" class="fold-line" data-toggle-collapse="${key}" style="margin-top:10px;">
+          <span class="chev ${closed?'':'open'}">▾</span>
+          <span class="grow">آخر الإضافات <span class="muted" style="font-weight:400;">(${list.length})</span></span>
+        </button>
+        ${closed? '' : `<div class="fg-log">${list.slice(0,12).map(c=>`
+          <div class="fg-log-row">
+            <span class="grow">${c.date}${c.toAsset? ' · وللأصول':''}</span>
+            <b>${fgFmt(c.amount)} ريال</b>
+            <button type="button" class="icon-btn sm" data-fg-undo="${c.id}" title="تراجع">↩</button>
+          </div>`).join('')}</div>`}`;
+      })() : ''}
     </div>
     `}
-  </div>
+  </div>`;})()}
 
   ${renderProjectLedgerCard()}
 
@@ -5268,7 +5380,7 @@ function attachFinanceEvents(){
     const existing = state.financialGoal;
     const keepStages = existing && existing.configured && existing.targetAmount===target;
     state.financialGoal = {
-      title, targetAmount: target, currentAmount: current, deadline, configured:true,
+      title, targetAmount: target, currentAmount: current, deadline, configured:true, startedAt: (fg&&fg.startedAt)||todayStr(),
       stages: keepStages? existing.stages : generateFinanceStages(target, current),
       paths: existing? (existing.paths||[]) : [],
       customPaths: existing? (existing.customPaths||[]) : [],
@@ -5438,7 +5550,27 @@ function attachFinanceEvents(){
     saveState(); render();
   };
 
+  document.querySelectorAll('[data-fg-undo]').forEach(b=> b.onclick=()=>{
+    const fg = state.financialGoal;
+    const c = (fg.contributions||[]).find(x=>x.id===b.dataset.fgUndo);
+    if(!c) return;
+    if(!confirm(`تتراجعين عن إضافة ${fgFmt(c.amount)} ريال؟`)) return;
+    fg.currentAmount = Math.max(0, (fg.currentAmount||0) - c.amount);
+    if(c.toAsset) scAddToSavingsAsset(-c.amount);
+    /* a stage that was only marked done because of this amount goes back to open */
+    fg.stages.forEach(s=>{ if(s.done && fg.currentAmount < s.targetAmount) s.done = false; });
+    fg.contributions = fg.contributions.filter(x=>x!==c);
+    saveState(); render();
+  });
+  const fgQuickTitle = document.getElementById('fgQuickTitle');
+  if(fgQuickTitle) fgQuickTitle.onchange = (e)=>{ state.financialGoal.title = e.target.value.trim() || state.financialGoal.title; saveState(); render(); };
+  const fgQuickTarget = document.getElementById('fgQuickTarget');
+  if(fgQuickTarget) fgQuickTarget.onchange = (e)=>{ const v = parseFloat(e.target.value); if(v>0){ state.financialGoal.targetAmount = v; saveState(); render(); } };
+  const fgQuickDeadline = document.getElementById('fgQuickDeadline');
+  if(fgQuickDeadline) fgQuickDeadline.onchange = (e)=>{ state.financialGoal.deadline = e.target.value || null; saveState(); render(); };
+
   const financeEdit = document.getElementById('financeEdit');
+
   if(financeEdit) financeEdit.onclick = ()=>{
     const fg = state.financialGoal;
     financeSetupDraft = {title:fg.title, targetAmount:fg.targetAmount, currentAmount:fg.currentAmount, deadline:fg.deadline||''};
@@ -5455,7 +5587,12 @@ function attachFinanceEvents(){
     /* opt-in, because the money may already be sitting in the savings balance she
        recorded on the safety page — auto-adding it there would double-count */
     const alsoAsset = document.getElementById('fgAlsoAsset');
-    if(alsoAsset && alsoAsset.checked) scAddToSavingsAsset(amt);
+    const toAsset = !!(alsoAsset && alsoAsset.checked);
+    if(toAsset) scAddToSavingsAsset(amt);
+    /* the running total used to move with no record of what went into it, so a
+       mistyped figure could only be corrected by doing the arithmetic herself */
+    if(!fg.contributions) fg.contributions = [];
+    fg.contributions.push({id:uid(), amount:amt, date:todayStr(), toAsset});
     saveState(); popStamp('زادت مدخراتك!','ماشاءالله عليك'); render();
   };
 
@@ -5954,10 +6091,16 @@ function scRenderIncomeRows(){
    moves the safety number, instead of the two pages disagreeing about the same
    riyals. Creates the row if she doesn't have one yet. */
 const SC_SAVINGS_ITEM = "حساب توفير (الرصيد الحالي)";
+/* Positive to record money moved into savings, negative to take it back out when
+   she undoes a contribution. The old guard rejected negatives, so undoing an
+   addition that had also gone to her assets reversed the goal but quietly left
+   the asset balance inflated. */
 function scAddToSavingsAsset(amt){
   const sc = state.safety;
-  if(!sc || !amt || amt<=0) return;
+  if(!sc || !amt) return;
   let row = sc.assets.find(r=>r.item===SC_SAVINGS_ITEM);
+  /* nothing to take away from — never create a row to hold a negative */
+  if(!row && amt < 0) return;
   if(!row){
     row = {id:uid(), item:SC_SAVINGS_ITEM, custom:"", tag:SC_ASSET_TAG_MAP[SC_SAVINGS_ITEM]||'fast', amount:""};
     /* drop it into the first blank row if there is one, so she doesn't end up
@@ -5965,7 +6108,7 @@ function scAddToSavingsAsset(amt){
     const blank = sc.assets.findIndex(r=>!scRowHasData(r));
     if(blank>-1) sc.assets.splice(blank, 1, row); else sc.assets.push(row);
   }
-  row.amount = String((parseFloat(row.amount)||0) + amt);
+  row.amount = String(Math.max(0, (parseFloat(row.amount)||0) + amt));
 }
 function scRenderGoalRows(){
   const sc = state.safety;
