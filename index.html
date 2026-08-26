@@ -925,7 +925,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 37';
+const APP_BUILD = '2026-08-17 · 38';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -5370,36 +5370,17 @@ function scYearsToSafety(liquidAssets, safetyTarget, annualNetSavings, rate){
 function renderSafetyPage(){
   if(!state.safety) state.safety = scDefaultState();
   const sc = state.safety;
+  /* the answer sits at the top of the page and the sections she fills in sit
+     under it — but on an empty account there is no answer yet, so those
+     sections start open and invite the first entry. Once they hold something
+     they default to folded, and any choice she makes herself outranks both. */
+  const P = scPicture();
+  const filled = P.liquidAssets>0 || P.totalIncomeMonthly>0 || P.totalExpenseMonthly>0;
+  const sec = id => ((openSections[id]===undefined ? !filled : openSections[id]) ? 'open' : '');
   return `
   <div class="safety-calc">
     <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:4px;">🛡️ نقطة الأمان المالي</h2>
     <p class="muted" style="margin-bottom:16px;">المبلغ اللي إذا وصلتيه، تكون احتياجاتك الأساسية مغطاة بدون الحاجة للعمل</p>
-
-    <details class="card" data-sec="scAssets" ${openSections.scAssets!==false?'open':''}>
-      <summary><h3>الأصول <span class="chev">▾</span></h3></summary><div class="details-body">
-      <p class="muted" style="margin-bottom:10px;">عقار، ذهب، فضة، حساب توفير، أسهم، ودائع، برنامج استثماري، منزلك... اكتبي القيمة الإجمالية الحالية لكل بند. حددي لكل بند: ⚡ سيولة سريعة، 🐢 سيولة طويلة المدى (تُحسب الاثنتان)، أو 🏠 أصل ثابت لا يُحسب (كالمسكن الأساسي)</p>
-      <div id="scAssetRows"></div>
-      <button class="btn ghost btn-block" id="scAddAssetBtn" style="margin-top:10px;">+ إضافة أصل</button>
-      <div class="total-line"><span class="lbl">إجمالي الأملاك</span><span class="val" id="scAssetsTotal">0 ريال</span></div>
-      <p class="muted" id="scAssetsBreakdown" style="margin-top:8px;"></p>
-    </div></details>
-
-    <details class="card" data-sec="scIncome" ${openSections.scIncome!==false?'open':''}>
-      <summary><h3>مصادر الدخل الشهري <span class="chev">▾</span></h3></summary><div class="details-body">
-      <p class="muted" style="margin-bottom:10px;">راتب شهري، إيجار عقار (لو سنوي، اقسميه ÷12)، عائد برنامج استثماري، مكافآت مالية... قيمة الأسهم والودائع ورأس مال أي برنامج استثماري تُكتب في "الأصول" أعلاه، مو هنا. استثناء: "أرباح الودائع السنوية" اكتبيها كمبلغ سنوي مباشرة، وبنقسمها ÷12 تلقائيًا.</p>
-      <div id="scIncomeRows"></div>
-      <button class="btn ghost btn-block" id="scAddIncomeBtn" style="margin-top:10px;">+ إضافة مصدر دخل</button>
-      <div class="total-line"><span class="lbl">إجمالي الدخل الشهري</span><span class="val" id="scIncomeTotal">0 ريال</span></div>
-    </div></details>
-
-    <details class="card" data-sec="scExpenses" ${openSections.scExpenses!==false?'open':''}>
-      <summary><h3>بنود الصرف الشهرية <span class="chev">▾</span></h3></summary><div class="details-body">
-      <p class="muted" style="margin-bottom:10px;">نفس بنود صفحة "المصاريف" بالضبط — كل بند يحمل تصنيفه (🟢 ضروري، 🟡 قابل للتقليل، 🔴 كمالي، 🟠 دين، 🔵 ادخار)، ومنه يُعرف تلقائيًا إن كان أساسيًا. رقم الأمان يعتمد على الأساسي فقط.</p>
-      <div id="scExpenseRows"></div>
-      <button class="btn ghost btn-block" id="scAddExpenseBtn" style="margin-top:10px;">+ إضافة بند صرف</button>
-      <div class="total-line"><span class="lbl">إجمالي المصاريف الشهرية</span><span class="val" id="scExpenseTotal">0 ريال</span></div>
-      <p class="muted" id="scExpenseBreakdown" style="margin-top:8px;"></p>
-    </div></details>
 
     <div class="card">
       <div class="card-title"><h3>نقطة الأمان المالي</h3></div>
@@ -5430,6 +5411,35 @@ function renderSafetyPage(){
         <div class="details-body">        الافتراضات المستخدمة: كل بند دخل أو مصروف يُحوَّل لقيمته الشهرية حسب تكراره اللي حددتيه (شهري، أو سنوي فيُقسم ÷12)، وبعدها يُضرب × 12 لحساب القيم السنوية. المبلغ المستهدف = مصاريفك الأساسية السنوية × عدد سنوات التغطية اللي اخترتيها (5 افتراضيًا) + تضخم تقديري 2%. والوقت المتبقي يفترض أن أصولك السائلة تنمو بالنسبة اللي حددتيها فوق (4% افتراضيًا بعد التضخم) إضافةً لادخارك السنوي، فهي لا تُفترض جامدة. صافي الادخار = دخلك السنوي − كل مصاريفك السنوية (أساسية وغير أساسية). بنود الادخار والاستثمار 🔵 لا تُحسب مصروفًا لأنها تحويل بين جيوبك، فتظهر ضمن فائضك لا خصمًا منه. الأصول لا تُحسب كدخل أو مصروف. الأصول ذات السيولة السريعة أو طويلة المدى (⚡🐢) تُحسب بالكامل مقابل المبلغ المستهدف؛ الأصول الثابتة (🏠 كالمسكن الأساسي) تظهر ضمن أملاكك لكن لا تُخصم من المبلغ المطلوب.</div>
       </details>
     </div>
+
+
+    <details class="card" data-sec="scAssets" ${sec('scAssets')}>
+      <summary><h3>الأصول <span class="chev">▾</span></h3></summary><div class="details-body">
+      <p class="muted" style="margin-bottom:10px;">عقار، ذهب، فضة، حساب توفير، أسهم، ودائع، برنامج استثماري، منزلك... اكتبي القيمة الإجمالية الحالية لكل بند. حددي لكل بند: ⚡ سيولة سريعة، 🐢 سيولة طويلة المدى (تُحسب الاثنتان)، أو 🏠 أصل ثابت لا يُحسب (كالمسكن الأساسي)</p>
+      <div id="scAssetRows"></div>
+      <button class="btn ghost btn-block" id="scAddAssetBtn" style="margin-top:10px;">+ إضافة أصل</button>
+      <div class="total-line"><span class="lbl">إجمالي الأملاك</span><span class="val" id="scAssetsTotal">0 ريال</span></div>
+      <p class="muted" id="scAssetsBreakdown" style="margin-top:8px;"></p>
+    </div></details>
+
+    <details class="card" data-sec="scIncome" ${sec('scIncome')}>
+      <summary><h3>مصادر الدخل الشهري <span class="chev">▾</span></h3></summary><div class="details-body">
+      <p class="muted" style="margin-bottom:10px;">راتب شهري، إيجار عقار (لو سنوي، اقسميه ÷12)، عائد برنامج استثماري، مكافآت مالية... قيمة الأسهم والودائع ورأس مال أي برنامج استثماري تُكتب في "الأصول" أعلاه، مو هنا. استثناء: "أرباح الودائع السنوية" اكتبيها كمبلغ سنوي مباشرة، وبنقسمها ÷12 تلقائيًا.</p>
+      <div id="scIncomeRows"></div>
+      <button class="btn ghost btn-block" id="scAddIncomeBtn" style="margin-top:10px;">+ إضافة مصدر دخل</button>
+      <div class="total-line"><span class="lbl">إجمالي الدخل الشهري</span><span class="val" id="scIncomeTotal">0 ريال</span></div>
+    </div></details>
+
+    <details class="card" data-sec="scExpenses" ${sec('scExpenses')}>
+      <summary><h3>بنود الصرف الشهرية <span class="chev">▾</span></h3></summary><div class="details-body">
+      <p class="muted" style="margin-bottom:10px;">نفس بنود صفحة "المصاريف" بالضبط — كل بند يحمل تصنيفه (🟢 ضروري، 🟡 قابل للتقليل، 🔴 كمالي، 🟠 دين، 🔵 ادخار)، ومنه يُعرف تلقائيًا إن كان أساسيًا. رقم الأمان يعتمد على الأساسي فقط.</p>
+      <div id="scExpenseRows"></div>
+      <button class="btn ghost btn-block" id="scAddExpenseBtn" style="margin-top:10px;">+ إضافة بند صرف</button>
+      <div class="total-line"><span class="lbl">إجمالي المصاريف الشهرية</span><span class="val" id="scExpenseTotal">0 ريال</span></div>
+      <p class="muted" id="scExpenseBreakdown" style="margin-top:8px;"></p>
+    </div></details>
+
+
 
     <details class="card" data-sec="scWishes" ${openSections.scWishes!==false?'open':''}>
       <summary><h3>الرغبات طويلة المدى (هدف منفصل) <span class="chev">▾</span></h3></summary><div class="details-body">
@@ -5924,43 +5934,15 @@ function edActiveExpenses(m){
 
 function renderExpensesPage(){
   const m = edGetMonth();
+  /* same rule as the safety page: the reading comes first, and the list she
+     types into folds itself once it is no longer empty */
+  const filled = edActiveExpenses(m).length > 0;
+  const sec = id => ((openSections[id]===undefined ? !filled : openSections[id]) ? 'open' : '');
   return `
   <div class="expense-diag">
     <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:4px;">🩺 تشخيص المصاريف الشهرية</h2>
     <p class="muted" style="margin-bottom:6px;">مو بس تسجيل أرقام — تعرفين وين يروح راتبك ووين تقدرين توفرين</p>
     <span class="month-badge">${edCurrentMonthLabel()}</span>
-
-    <div class="card" style="margin-top:14px;">
-      <div class="card-title"><h3>الدخل الشهري</h3></div>
-      <div class="row2">
-        <div class="field"><label>الراتب الأساسي</label><input id="edSalaryInput" type="number" min="0" step="1" placeholder="0" value="${escapeHtml(state.sharedIncome||'')}"/></div>
-        <div class="field"><label>دخل إضافي</label><input id="edExtraInput" type="number" min="0" step="1" placeholder="0" value="${escapeHtml(m.extra||'')}"/></div>
-      </div>
-      <div class="total-line"><span class="lbl">إجمالي الدخل</span><span class="val" id="edIncomeTotal">0 ريال</span></div>
-    </div>
-
-    <details class="card" data-sec="edRows" ${openSections.edRows!==false?'open':''}>
-      <summary><h3>بنود المصروفات <span class="chev">▾</span></h3></summary><div class="details-body">
-      <p class="muted" style="margin-bottom:10px;">كل ما صار عندك مصروف، اضغطي "+ إضافة" وسجليه — كل عملية شراء تدخل مستقلة، وأنا أجمعها لك تلقائيًا تحت كل بند.</p>
-      <div id="edExpenseRows"></div>
-      <button class="btn ghost btn-block" id="edAddRowBtn" style="margin-top:10px;">+ إضافة مصروف جديد</button>
-      <div class="total-line"><span class="lbl">إجمالي المصروفات</span><span class="val" id="edExpenseTotal">0 ريال</span></div>
-      <div class="total-line" id="edRemainingLine"><span class="lbl">الباقي من راتبك هذا الشهر</span><span class="val" id="edRemainingVal">0 ريال</span></div>
-    </div></details>
-
-    <div class="card">
-      <div class="card-title"><h3>أين يذهب راتبك؟</h3></div>
-      <div id="edAlertsBox"></div>
-      <div class="bar" id="edDiagBar"></div>
-      <div class="legend" id="edDiagLegend"></div>
-      <div class="breakdown-grid" id="edBreakdownGrid"></div>
-    </div>
-
-    <div class="card" id="edPlanVsActualCard" style="display:none;">
-      <div class="card-title"><h3>خطتك مقابل الفعلي</h3></div>
-      <p class="muted" style="margin-bottom:10px;">البنود اللي خططتيها في حاسبة الأمان، مقارنة بالمسجّل فعليًا هالشهر.</p>
-      <div id="edPlanVsActualBox"></div>
-    </div>
 
     <div class="card">
       <div class="card-title"><h3>مؤشر اليسر المالي</h3></div>
@@ -5973,6 +5955,43 @@ function renderExpensesPage(){
       </div>
       <p class="muted" id="edScoreExplain" style="margin-top:8px;line-height:1.7;"></p>
     </div>
+
+    <div class="card">
+      <div class="card-title"><h3>أين يذهب راتبك؟</h3></div>
+      <div id="edAlertsBox"></div>
+      <div class="bar" id="edDiagBar"></div>
+      <div class="legend" id="edDiagLegend"></div>
+      <div class="breakdown-grid" id="edBreakdownGrid"></div>
+    </div>
+
+
+    <div class="card" style="margin-top:14px;">
+      <div class="card-title"><h3>الدخل الشهري</h3></div>
+      <div class="row2">
+        <div class="field"><label>الراتب الأساسي</label><input id="edSalaryInput" type="number" min="0" step="1" placeholder="0" value="${escapeHtml(state.sharedIncome||'')}"/></div>
+        <div class="field"><label>دخل إضافي</label><input id="edExtraInput" type="number" min="0" step="1" placeholder="0" value="${escapeHtml(m.extra||'')}"/></div>
+      </div>
+      <div class="total-line"><span class="lbl">إجمالي الدخل</span><span class="val" id="edIncomeTotal">0 ريال</span></div>
+    </div>
+
+    <details class="card" data-sec="edRows" ${sec('edRows')}>
+      <summary><h3>بنود المصروفات <span class="chev">▾</span></h3></summary><div class="details-body">
+      <p class="muted" style="margin-bottom:10px;">كل ما صار عندك مصروف، اضغطي "+ إضافة" وسجليه — كل عملية شراء تدخل مستقلة، وأنا أجمعها لك تلقائيًا تحت كل بند.</p>
+      <div id="edExpenseRows"></div>
+      <button class="btn ghost btn-block" id="edAddRowBtn" style="margin-top:10px;">+ إضافة مصروف جديد</button>
+      <div class="total-line"><span class="lbl">إجمالي المصروفات</span><span class="val" id="edExpenseTotal">0 ريال</span></div>
+      <div class="total-line" id="edRemainingLine"><span class="lbl">الباقي من راتبك هذا الشهر</span><span class="val" id="edRemainingVal">0 ريال</span></div>
+    </div></details>
+
+
+
+    <div class="card" id="edPlanVsActualCard" style="display:none;">
+      <div class="card-title"><h3>خطتك مقابل الفعلي</h3></div>
+      <p class="muted" style="margin-bottom:10px;">البنود اللي خططتيها في حاسبة الأمان، مقارنة بالمسجّل فعليًا هالشهر.</p>
+      <div id="edPlanVsActualBox"></div>
+    </div>
+
+
 
     <details class="card" data-sec="edTop" ${openSections.edTop!==false?'open':''}>
       <summary><h3>أعلى 5 بنود تستنزف أموالك <span class="chev">▾</span></h3></summary><div class="details-body">
