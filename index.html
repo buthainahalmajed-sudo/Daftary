@@ -244,7 +244,15 @@ display:flex;flex-direction:column;gap:10px;}
 .sub-card{background:none;border:none;box-shadow:none;border-radius:0;padding:0;margin:12px 0 0;border-top:1px solid var(--line);}
 .sub-card > summary{padding-top:12px;}
 .sub-card > summary h3{font-size:var(--t3);}
+/* the one-tap control that empties the unfiled bucket */
+.pl-assign{display:flex;gap:8px;margin:-4px 0 10px;padding-right:22px;}
+.pl-assign select, .pl-assign input{
+  flex:1;min-width:0;font-size:var(--t2);padding:6px 8px;border:1px dashed var(--line);
+  border-radius:9px;background:var(--parchment);color:var(--petrol-dark);font-family:inherit;
+}
+.pl-assign .btn{flex-shrink:0;}
 .pl-slot{
+
 margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed var(--line);}
 .pl-slot:empty{display:none;}
 .pl-mini{
@@ -1002,7 +1010,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 46';
+const APP_BUILD = '2026-08-17 · 47';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -4791,12 +4799,32 @@ function plRowHtml(r, opts){
 }
 /* one product's line inside a path: its own total, its transactions folded
    behind it, and no redundant header when there is only one transaction */
-function plItemsHtml(g, items){
+/* Rows in the unassigned bucket need one tap to be filed, not four. The ✎ icon
+   opened an editor several fields down; here the picker sits on the row, with
+   the same "name your own" escape hatch the editor has. */
+function plSourcePicker(r){
+  if(plNewSourceFor===r.id) return `
+    <div class="pl-assign">
+      <input type="text" class="inp-newsource" placeholder="اسم المصدر… مثل: تصميم بالطلب" value="${escapeHtml(plNewSourceDraft)}"/>
+      <button type="button" class="btn sm" data-newsource-save="${r.id}">حفظ</button>
+      <button type="button" class="btn ghost sm" data-newsource-cancel="${r.id}">✕</button>
+    </div>`;
+  return `
+    <div class="pl-assign">
+      <select class="sel-path" data-assign-row="${r.id}">
+        <option value="">↳ من أي مصدر؟</option>
+        ${plPathOptions().map(o=>`<option value="${escapeHtml(o.id)}">${o.icon} ${escapeHtml(o.label)}</option>`).join('')}
+        <option value="__new__">➕ مصدر جديد من عندي…</option>
+      </select>
+    </div>`;
+}
+function plItemsHtml(g, items, opt){
+  opt = opt || {};
   return items.map(it=>{
     const iKey = 'plItem:'+(g.id||'none')+'|'+it.name;
     const single = it.rows.length===1;
     const iClosed = state.collapsed[iKey] !== false;
-    if(single) return `<div class="pl-item">${plRowHtml(it.rows[0],{inGroup:true})}</div>`;
+    if(single) return `<div class="pl-item">${plRowHtml(it.rows[0],{inGroup:true})}${opt.assign? plSourcePicker(it.rows[0]) : ''}</div>`;
     return `
     <div class="pl-item">
       <button type="button" class="pl-item-head" data-toggle-collapse="${iKey}">
@@ -4804,7 +4832,7 @@ function plItemsHtml(g, items){
         <span class="grow">${escapeHtml(it.name)} <span class="muted" style="font-weight:400;">(${it.rows.length})</span></span>
         <b style="color:${it.isIncome?'#2f9e6e':'var(--rose-dark)'};">${plFmt(it.total)} ريال</b>
       </button>
-      ${iClosed? '' : it.rows.map(x=>plRowHtml(x,{inGroup:true})).join('')}
+      ${iClosed? '' : it.rows.map(x=>plRowHtml(x,{inGroup:true})+(opt.assign? plSourcePicker(x) : '')).join('')}
     </div>`;
   }).join('');
 }
@@ -4884,28 +4912,32 @@ function plGroupHtml(g, opt){
   const net = g.income - g.expense;
   const empty = !g.items.length;
   const pKey = 'plPath:'+(g.id||'none');
-  const closed = opt.head ? state.collapsed[pKey] !== false : false;
+  /* the unfiled bucket is work waiting to be done, so it opens itself and each
+     row carries the control that empties it */
+  const assign = !g.id;
+  const closed = opt.head ? (assign ? state.collapsed[pKey] === true : state.collapsed[pKey] !== false) : false;
   const body = `
     <div class="pl-mini">
       <div><span class="v" style="color:#2f9e6e;">${plFmt(g.income)}</span><span class="k">عائدات</span></div>
       <div><span class="v" style="color:var(--rose-dark);">${plFmt(g.expense)}</span><span class="k">تكاليف</span></div>
       <div><span class="v" style="color:${net<0?'var(--rose-dark)':'var(--petrol-dark)'};">${plFmt(Math.abs(net))}${net<0?' −':''}</span><span class="k">صافي</span></div>
     </div>
-    ${g.items.length? plItemsHtml(g, g.items.filter(it=>it.isIncome))
+    ${assign? `<p class="muted" style="font-size:var(--t1);margin:0 0 8px;">حدّدي مصدر كل عملية عشان تدخل بدفتره — أو اكتبي مصدرًا جديدًا من عندك.</p>`:''}
+    ${g.items.length? plItemsHtml(g, g.items.filter(it=>it.isIncome), {assign})
                     : `<div class="empty tight">ما سجّلتِ شيئًا لهذا المصدر بعد</div>`}
     ${(()=>{ /* what the path costs her, folded away from what it brings in —
                 she opens a path to see whether it earns, not to read invoices */
       const costs = g.items.filter(it=>!it.isIncome);
       if(!costs.length) return '';
       const cKey = 'plCosts:'+(g.id||'none');
-      const cClosed = state.collapsed[cKey] !== false;
+      const cClosed = assign ? state.collapsed[cKey] === true : state.collapsed[cKey] !== false;
       return `
       <button type="button" class="pl-item-head pl-costs-head" data-toggle-collapse="${cKey}">
         <span class="chev ${cClosed?'':'open'}">▾</span>
         <span class="grow">تكاليف هذا المصدر <span class="muted" style="font-weight:400;">(${costs.length})</span></span>
         <b style="color:var(--rose-dark);">${plFmt(g.expense)} ريال</b>
       </button>
-      ${cClosed? '' : plItemsHtml(g, costs)}`;
+      ${cClosed? '' : plItemsHtml(g, costs, {assign})}`;
     })()}
     ${opt.head? '' : `<button type="button" class="btn ghost sm btn-block" data-pl-add-to="${g.id}" style="margin-top:10px;">+ إضافة عملية لهذا المصدر</button>`}`;
   if(!opt.head) return body;
@@ -4928,7 +4960,23 @@ function plWire(container){
     state.collapsed[key] = state.collapsed[key]===false;
     saveState(); plRenderRows();
   });
+  container.querySelectorAll('.inp-newsource').forEach(inp=>{
+    const row = state.projectLedger.find(x=>x.id===plNewSourceFor);
+    inp.oninput = (e)=>{ plNewSourceDraft = e.target.value; };
+    inp.onkeydown = (e)=>{ if(e.key==='Enter'){ e.preventDefault(); plCreateSource(row); } };
+    inp.focus();
+    inp.setSelectionRange(inp.value.length, inp.value.length);
+  });
+  container.querySelectorAll('[data-assign-row]').forEach(sel=> sel.onchange=()=>{
+
+    const row = state.projectLedger.find(x=>x.id===sel.dataset.assignRow);
+    if(!row) return;
+    if(sel.value === '__new__'){ plNewSourceFor = row.id; plNewSourceDraft = ''; plRenderRows(); return; }
+    if(!sel.value) return;
+    row.pathId = sel.value; saveState(); render();
+  });
   container.querySelectorAll('[data-newsource-save]').forEach(b=> b.onclick=()=>{
+
     plCreateSource(state.projectLedger.find(r=>r.id===b.dataset.newsourceSave));
   });
   container.querySelectorAll('[data-newsource-cancel]').forEach(b=> b.onclick=()=>{
@@ -4977,13 +5025,6 @@ function plWire(container){
       if(e.target.value === '__new__'){ plNewSourceFor = row.id; plNewSourceDraft = ''; plRenderRows(); return; }
       row.pathId = e.target.value || null; saveState(); plRenderRows();
     };
-    const newSrc = rowEl.querySelector('.inp-newsource');
-    if(newSrc){
-      newSrc.oninput = (e)=>{ plNewSourceDraft = e.target.value; };
-      newSrc.onkeydown = (e)=>{ if(e.key==='Enter'){ e.preventDefault(); plCreateSource(row); } };
-      newSrc.focus();
-      newSrc.setSelectionRange(newSrc.value.length, newSrc.value.length);
-    }
 
     rowEl.querySelector('.del-row').onclick = ()=>{
       if(!confirm('تحذفين هذي العملية؟')) return;
