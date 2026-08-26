@@ -994,7 +994,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 43';
+const APP_BUILD = '2026-08-17 · 44';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -1943,7 +1943,7 @@ function renderGoalWizard(){
         <input type="text" id="gwTitle" placeholder="مثال: تحسين صحة شعري" value="${escapeHtml(goalWizard.title)}"/>
       </div>
       <div class="field">
-        <label>بند الهوية — مَن تكونين لما تحققينه؟</label><p class="muted" style="margin:-2px 0 8px;font-size:var(--t2);">يجمع أهدافك بصفحة الأساس. اختياري، وتقدرين تختارين أكثر من بند.</p>
+        <label>بند الهوية — مَن تكونين لما تحققينه؟</label><p class="muted" style="margin:-2px 0 8px;font-size:var(--t2);">البند هو مكان الهدف في التسلسل — يجمع الهدف بصفحة الأساس، ويجمع مهامه بصفحة المهام. بند واحد لكل هدف.</p>
         <div class="chip-row" id="gwPillars">
           ${state.goalPillars.map(p=>`<button type="button" class="chip ${goalWizard.pillarId===p.id?'selected':''}" data-pillar="${p.id}">${p.icon} ${p.label}</button>`).join('')}
         </div>
@@ -3791,7 +3791,7 @@ function renderGoals(){
     + goalGroupHtml('pillarGroup:__none__', '🗂️', 'بدون بند', noPillar);
   return `
   <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:4px;">الأساس</h2>
-  <p class="muted" style="margin-bottom:16px;">رؤيتك وأهدافك السنوية. كل هدف له <b>بند هوية</b> (مَن تكونين) و<b>مجال</b> (نوع الشغل) — البند يجمع أهدافك هنا، والمجال يجمع مهامها بصفحة المهام.</p>
+  <p class="muted" style="margin-bottom:16px;">رؤيتك ← <b>بنود هويتك</b> ← أهداف كل بند ← مهام كل هدف. البند هو مَن تكونين، والهدف خطوتك نحوه، والمهام شغلك اليومي عليه — نفس التسلسل بصفحة المهام.</p>
 
   ${renderLifeVisionSection()}
 
