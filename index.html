@@ -174,6 +174,13 @@ details.path-block > summary::-webkit-details-marker{display:none;}
 }
 .fold-line .grow{flex:1;min-width:0;font-weight:700;}
 .fold-line .chip{font-size:var(--t1);padding:3px 9px;}
+/* per-path counter: what this one income path earned, cost and netted, so the
+   ledger answers "is this path working?" and not only "how am I doing overall?" */
+.pl-mini{display:flex;gap:8px;margin:4px 0 10px;}
+.pl-mini > div{flex:1;text-align:center;background:var(--parchment);border-radius:10px;padding:7px 4px;}
+.pl-mini .v{display:block;font-weight:800;font-size:var(--t3);font-variant-numeric:tabular-nums;}
+.pl-mini .k{display:block;font-size:var(--t1);color:var(--muted);margin-top:1px;}
+.pl-costs-head{margin-top:6px;border-top:1px dashed var(--line);}
 .pl-group-head{
   display:flex;align-items:center;gap:8px;width:100%;
   background:none;border:none;padding:10px 2px;
@@ -898,7 +905,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 35';
+const APP_BUILD = '2026-08-17 · 36';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -1109,7 +1116,7 @@ function hydrateState(parsed){
   ]);
   /* these group by a category *name*, not by an item id, so there is no id to
      outlive — sweeping them would wipe her fold choices on every load */
-  const NAME_KEYED = /^(plGroup|plPath|plItem|edGroup):/;
+  const NAME_KEYED = /^(plGroup|plPath|plItem|plCosts|edGroup):/;
   const sweep = obj=>{
     Object.keys(obj||{}).forEach(k=>{
       const i = k.indexOf(':');
@@ -4563,6 +4570,26 @@ function plRowHtml(r, opts){
     ${plRowHasData(r)? `<button type="button" class="btn ghost sm" style="margin-top:10px;" data-pl-done="${r.id}">✓ تم</button>`:''}
   </div>`;
 }
+/* one product's line inside a path: its own total, its transactions folded
+   behind it, and no redundant header when there is only one transaction */
+function plItemsHtml(g, items){
+  return items.map(it=>{
+    const iKey = 'plItem:'+(g.id||'none')+'|'+it.name;
+    const single = it.rows.length===1;
+    const iClosed = state.collapsed[iKey] !== false;
+    if(single) return `<div class="pl-item">${plRowHtml(it.rows[0],{inGroup:true})}</div>`;
+    return `
+    <div class="pl-item">
+      <button type="button" class="pl-item-head" data-toggle-collapse="${iKey}">
+        <span class="chev ${iClosed?'':'open'}">▾</span>
+        <span class="grow">${escapeHtml(it.name)} <span class="muted" style="font-weight:400;">(${it.rows.length})</span></span>
+        <b style="color:${it.isIncome?'#2f9e6e':'var(--rose-dark)'};">${plFmt(it.total)} ريال</b>
+      </button>
+      ${iClosed? '' : it.rows.map(x=>plRowHtml(x,{inGroup:true})).join('')}
+    </div>`;
+  }).join('');
+}
+
 function plRenderRows(){
   const container = document.getElementById('plRows');
   if(!container) return;
@@ -4573,7 +4600,10 @@ function plRenderRows(){
   const rows = state.projectLedger;
   const draft = rows.filter(r=> plEditingId===r.id || !plRowHasData(r));
   const filed = rows.filter(r=> !draft.includes(r));
-  const paths = [];
+  /* every path she picked gets a tracker, even at zero — a path with nothing
+     recorded is itself worth seeing, and an empty row is the invitation to
+     record the first one */
+  const paths = plPathOptions().map(p=>({id:p.id, label:p.label, icon:p.icon, items:[], income:0, expense:0}));
   filed.forEach(r=>{
     const pid = r.pathId || '';
     let g = paths.find(x=>x.id===pid);
@@ -4591,38 +4621,50 @@ function plRenderRows(){
     it.total += amt;
   });
   paths.forEach(g=> g.items.sort((a,b)=> (a.isIncome===b.isIncome? b.total-a.total : (a.isIncome? -1 : 1))));
-  paths.sort((a,b)=> (b.income-b.expense) - (a.income-a.expense));
+  paths.sort((a,b)=>{
+    const aEmpty = !a.items.length, bEmpty = !b.items.length;
+    if(aEmpty !== bEmpty) return aEmpty? 1 : -1;
+    return (b.income-b.expense) - (a.income-a.expense);
+  });
 
-  container.innerHTML = rows.length? (
+
+  container.innerHTML = (rows.length || paths.length)? (
     paths.map(g=>{
       const pKey = 'plPath:'+(g.id||'none');
       const pClosed = state.collapsed[pKey] !== false;
       const net = g.income - g.expense;
+      const empty = !g.items.length;
       return `
       <div class="pl-group">
         <button type="button" class="pl-group-head" data-toggle-collapse="${pKey}">
           <span class="chev ${pClosed?'':'open'}">▾</span>
           <span style="flex-shrink:0;">${g.icon}</span>
-          <span class="grow">${escapeHtml(g.label)} <span class="muted" style="font-weight:400;">(${g.items.length})</span></span>
-          <b style="color:${net<0?'var(--rose-dark)':'#2f9e6e'};">${plFmt(Math.abs(net))} ريال${net<0?' −':''}</b>
+          <span class="grow">${escapeHtml(g.label)} ${empty? '' : `<span class="muted" style="font-weight:400;">(${g.items.length})</span>`}</span>
+          ${empty? `<span class="muted" style="font-size:var(--t1);">لا عمليات</span>`
+                 : `<b style="color:${net<0?'var(--rose-dark)':'#2f9e6e'};">${plFmt(Math.abs(net))} ريال${net<0?' −':''}</b>`}
         </button>
-        ${pClosed? '' : g.items.map(it=>{
-          const iKey = 'plItem:'+(g.id||'none')+'|'+it.name;
-          const single = it.rows.length===1;
-          const iClosed = state.collapsed[iKey] !== false;
-          /* one entry needs no header of its own — the row already carries the
-             name, the date and the amount, and repeating the name reads as noise */
-          if(single) return `<div class="pl-item">${plRowHtml(it.rows[0],{inGroup:true})}</div>`;
+        ${pClosed? '' : `
+        <div class="pl-mini">
+          <div><span class="v" style="color:#2f9e6e;">${plFmt(g.income)}</span><span class="k">عائدات</span></div>
+          <div><span class="v" style="color:var(--rose-dark);">${plFmt(g.expense)}</span><span class="k">تكاليف</span></div>
+          <div><span class="v" style="color:${net<0?'var(--rose-dark)':'var(--petrol-dark)'};">${plFmt(Math.abs(net))}${net<0?' −':''}</span><span class="k">صافي</span></div>
+        </div>
+        ${g.items.length? plItemsHtml(g, g.items.filter(it=>it.isIncome))
+                        : `<div class="empty tight">ما سجّلتِ شيئًا لهذي الطريقة بعد</div>`}
+        ${(()=>{ /* what the path costs her, folded away from what it brings in —
+                    she opens a path to see whether it earns, not to read invoices */
+          const costs = g.items.filter(it=>!it.isIncome);
+          if(!costs.length) return '';
+          const cKey = 'plCosts:'+(g.id||'none');
+          const cClosed = state.collapsed[cKey] !== false;
           return `
-          <div class="pl-item">
-            <button type="button" class="pl-item-head" data-toggle-collapse="${iKey}">
-              <span class="chev ${iClosed?'':'open'}">▾</span>
-              <span class="grow">${escapeHtml(it.name)} <span class="muted" style="font-weight:400;">(${it.rows.length})</span></span>
-              <b style="color:${it.isIncome?'#2f9e6e':'var(--rose-dark)'};">${plFmt(it.total)} ريال</b>
-            </button>
-            ${iClosed? '' : it.rows.map(x=>plRowHtml(x,{inGroup:true})).join('')}
-          </div>`;
-        }).join('')}
+          <button type="button" class="pl-item-head pl-costs-head" data-toggle-collapse="${cKey}">
+            <span class="chev ${cClosed?'':'open'}">▾</span>
+            <span class="grow">تكاليف هذي الطريقة <span class="muted" style="font-weight:400;">(${costs.length})</span></span>
+            <b style="color:var(--rose-dark);">${plFmt(g.expense)} ريال</b>
+          </button>
+          ${cClosed? '' : plItemsHtml(g, costs)}`;
+        })()}`}
       </div>`;
     }).join('') + draft.map(plRowHtml).join('')
   ) : `<div class="empty tight">ما فيه عمليات مسجلة بعد<span class="hint">اضغطي "إضافة عملية جديدة"</span></div>`;
