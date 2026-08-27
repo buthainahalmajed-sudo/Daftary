@@ -191,7 +191,16 @@ details.path-block > summary::-webkit-details-marker{display:none;}
 .home-strip-wrap{text-align:center;}
 .routine-strip .rs-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 .routine-strip .rs-line b{font-size:var(--t3);color:var(--petrol-dark);}
-.routine-strip .rs-note{font-size:var(--t1);color:var(--muted);}
+.routine-strip .rs-mood{display:flex;gap:6px;flex-wrap:wrap;margin-top:3px;}
+.routine-strip .rs-mood span{
+  font-size:var(--t1);color:var(--petrol-dark);background:#fff;
+  border:1px solid var(--line);border-radius:20px;padding:2px 9px;
+}
+.routine-strip .rs-row{display:flex;gap:6px;align-items:flex-start;margin-top:5px;font-size:var(--t2);color:var(--ink);line-height:1.55;}
+.routine-strip .rs-row .k{flex-shrink:0;opacity:.85;}
+.routine-strip .rs-row a{color:var(--petrol-dark);}
+.routine-strip .rs-goal{font-weight:700;color:var(--petrol-dark);font-size:var(--t2);line-height:1.6;margin-top:6px;border-right:2px solid var(--gold);padding-right:8px;}
+.routine-strip .rs-note{color:var(--muted);font-size:var(--t1);}
 .routine-strip .rs-motto{
   font-size:var(--t2);color:var(--ink);line-height:1.6;margin-top:4px;
   border-right:2px solid var(--gold);padding-right:8px;
@@ -300,6 +309,8 @@ display:flex;flex-direction:column;gap:10px;}
 .money-entry .me-val{font-size:var(--t5);font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums;}
 .money-entry .me-go{color:var(--muted);font-size:18px;flex-shrink:0;}
 .crumb{
+  display:inline-flex;align-items:center;gap:4px;margin-bottom:10px;
+
   background:none;border:none;padding:2px 0 8px;font-family:inherit;
   font-size:var(--t2);color:var(--petrol-dark);font-weight:700;cursor:pointer;
 }
@@ -394,8 +405,20 @@ display:flex;gap:8px;margin:4px 0 10px;}
 .chip.cat{font-size:var(--t3);}
 
 /* ---------- task/habit rows ---------- */
-.task-row{display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px dashed var(--line);}
+/* the task row: name across the top, its place in the chain under it, and
+   everything she set once folded away behind ▸ */
+.task-row{display:block;padding:10px 4px;border-bottom:1px dashed var(--line);}
 .task-row:last-child{border-bottom:none;}
+.tr-top{display:flex;align-items:center;gap:8px;}
+.tr-top .task-title{flex:1;min-width:0;display:flex;align-items:center;gap:6px;}
+.tr-top .icon-btn{flex-shrink:0;}
+.tr-more{opacity:.6;}
+.task-chain{margin-right:34px;}
+.tr-assign{margin:4px 34px 0 0;}
+.tr-warn{margin:4px 34px 0 0;}
+.tr-details{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 34px 0 0;}
+.tr-acts{margin-right:auto;display:flex;gap:2px;}
+
 .check{
   width:26px;height:26px;border-radius:50%;border:2px solid var(--petrol);flex-shrink:0;
   display:flex;align-items:center;justify-content:center;background:var(--paper);position:relative;
@@ -1152,7 +1175,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 51';
+const APP_BUILD = '2026-08-17 · 52';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -2036,11 +2059,11 @@ function renderMoneyPage(){
   if(moneySubView==='safety') body = renderSafetyPage();
   else if(moneySubView==='expenses') body = renderExpensesPage();
   else body = renderFinancePage();
+  /* Opening one area used to leave the other two listed above it, so she was
+     still looking at the whole section while trying to read one part of it.
+     One way back, and nothing else competing for the top of the page. */
   return `
     <button type="button" class="crumb" data-money-tab="hub">‹ المالية</button>
-    <div class="period-tabs" style="margin-bottom:16px;">
-      ${MONEY_TABS.map(t=>`<button type="button" class="period-tab ${moneySubView===t.id?'active':''}" data-money-tab="${t.id}">${t.label}</button>`).join('')}
-    </div>
     ${body}
   `;
 }
@@ -2953,7 +2976,7 @@ function renderHome(){
   <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:4px;">${isToday? `صباحك أهداف، ${escapeHtml(state.name)} 🌿` : `روتين يوم ${tpl.name}`}</h2>
   <p class="muted" style="margin-bottom:18px;">${isToday? 'يلا نبني يومك خطوة خطوة' : 'تقدرين تراجعين أو تخططين لهذا اليوم من هنا'}</p>
 
-  ${homeCardOn("routine")? `<div class="home-strip-wrap">${renderTemplateCard(tpl, dow)}</div>` : ""}
+  ${homeCardOn("routine")? `<div class="home-strip-wrap">${renderTemplateCard(tpl, dow, log)}</div>` : ""}
   ${isToday && homeCardOn('voice')? renderVoiceQuickAddCard() : ''}
   ${homeCardOn('schedule')? renderScheduleCard(selectedDate) : ''}
   ${homeCardOn('habits')? renderHabitsCard(tpl, log, dow) : ''}
@@ -2991,9 +3014,14 @@ function renderHome(){
    heading row, a quote block, a note line and a row of tags — four stacked
    blocks to say "today is X, and it runs from Y to Z". It sits at the top now
    as one compact strip that shrinks to its content instead of stretching. */
-function renderTemplateCard(tpl, dow){
+/* The day's framing in one strip: what today is for, what it teaches, when it
+   runs, and how she said she feels — the last sitting right under the day's
+   name because it is about today rather than about the routine. */
+function renderTemplateCard(tpl, dow, log){
   const learning = [tpl.learningDomain, tpl.learningMode, tpl.learning].filter(Boolean).map(escapeHtml).join(' · ');
-  const empty = !tpl.motto && !tpl.timeLabel && !tpl.note && !learning && !state.habits.some(h=>h.days.includes(dow));
+  const moods = ((log&&log.mood)||[]).map(id=>moodOf(id)).filter(Boolean);
+  const empty = !tpl.motto && !tpl.timeLabel && !tpl.note && !learning && !moods.length
+    && !state.habits.some(h=>h.days.includes(dow));
   if(empty) return `
   <div class="routine-strip is-empty">
     <button type="button" class="rs-edit" data-edit-template="${dow}">ما فيه روتين لهذا اليوم — ابنيه ✎</button>
@@ -3002,15 +3030,14 @@ function renderTemplateCard(tpl, dow){
   <div class="routine-strip">
     <div class="rs-line">
       <b>${escapeHtml(tpl.name)}</b>
-      ${tpl.note? `<span class="rs-note">${escapeHtml(tpl.note)}</span>`:''}
       <button type="button" class="rs-edit" data-edit-template="${dow}" title="تعديل الروتين">✎</button>
     </div>
-    ${tpl.motto? `<div class="rs-motto">"${escapeHtml(tpl.motto)}"</div>`:''}
-    ${(tpl.timeLabel||learning||tpl.learningLink)? `<div class="rs-tags">
-      ${tpl.timeLabel? `<span>⏰ ${escapeHtml(tpl.timeLabel)}</span>`:''}
-      ${learning? `<span>📖 ${learning}</span>`:''}
-      ${tpl.learningLink? `<a href="${escapeHtml(tpl.learningLink)}" target="_blank" rel="noopener">🔗 رابط التعلّم</a>`:''}
-    </div>`:''}
+    ${moods.length? `<div class="rs-mood">${moods.map(m=>`<span>${escapeHtml(m.icon)} ${escapeHtml(m.label)}</span>`).join('')}</div>`:''}
+    ${tpl.motto? `<div class="rs-goal">${escapeHtml(tpl.motto)}</div>`:''}
+    ${tpl.note? `<div class="rs-row rs-note"><span class="k">📝</span><span>${escapeHtml(tpl.note)}</span></div>`:''}
+    ${learning? `<div class="rs-row"><span class="k">📖</span><span>${learning}${tpl.learningLink? ` <a href="${escapeHtml(tpl.learningLink)}" target="_blank" rel="noopener">🔗</a>`:''}</span></div>`
+      : (tpl.learningLink? `<div class="rs-row"><span class="k">📖</span><a href="${escapeHtml(tpl.learningLink)}" target="_blank" rel="noopener">رابط تعلّم اليوم</a></div>`:'')}
+    ${tpl.timeLabel? `<div class="rs-row"><span class="k">⏰</span><span>${escapeHtml(tpl.timeLabel)}</span></div>`:''}
   </div>`;
 }
 
@@ -3147,58 +3174,61 @@ function taskRowHtml(t, opts){
   const done = taskDoneOnDate(t, opts.date || todayStr());
   const box = t.period? timeBoxOf(t.period) : null;
   const device = t.device || null;
-  const hasExtra = t.longNote || (t.attachments && t.attachments.length);
-  const noteKey = 'taskNote:'+t.id;
-  const noteOpen = !!state.collapsed[noteKey]; /* truthy here means "expanded", opposite of every other data-toggle-collapse usage — this one defaults hidden */
+  /* priority, time box, date, repeat, link and notes are things she sets once
+     and rereads rarely, so the row shows the name and its place in the chain and
+     keeps the rest folded until she asks. Seeded, because the shared toggle
+     reads an unset key as open. */
+  const detailKey = 'taskDetail:'+t.id;
+  if(state.collapsed[detailKey] === undefined) state.collapsed[detailKey] = true;
+  const detailOpen = !state.collapsed[detailKey];
   return `
   <div class="task-row" data-task="${t.id}">
-    <button class="check ${done?'done':''}" data-toggle="${t.id}">${done?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
-    <div style="flex:1;">
-      <div class="task-title ${done?'done':''}" style="display:flex;align-items:center;gap:6px;">
+    <div class="tr-top">
+      <button class="check ${done?'done':''}" data-toggle="${t.id}">${done?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
+      ${/* the name gets the full width of the row to itself — it is what she
+            reads, and it was competing with three icon buttons for space */''}
+      <div class="task-title ${done?'done':''}">
         ${device? `<span style="flex-shrink:0;" title="${DEVICE_LABELS[device]}">${deviceIconSvg(device,15)}</span>`:''}
         <span>${escapeHtml(t.title)}</span>
       </div>
-      ${/* where this task sits in the chain — the aspect of herself it serves and
-            the goal under it. Read from the goal, so it can never contradict the
-            grouping on the tasks page. */''}
-      ${g? `<div class="task-chain">
-        ${(()=>{ const p = pillarOf(goalPillarId(g));
-                 return p? `<span>${p.icon} ${escapeHtml(p.label)}</span><span class="sep">›</span>` : ''; })()}
-        <span>🎯 ${escapeHtml(g.title)}</span>
-      </div>` : ''}
-      <div style="margin-top:3px;display:flex;gap:6px;flex-wrap:wrap;">
-        <span class="tag p-${t.priority}">${t.priority}</span>
-        ${t.actionType? `<span class="tag">🔸 ${escapeHtml(t.actionType)}</span>`:''}
-        ${/* Picking a goal fills the category from that goal's domain, so on a
-              goal-linked task the two are the same thing printed twice — same
-              words, same emoji, one line apart. It is only worth showing when it
-              disagrees with the goal, which is a real signal. */''}
-        ${(t.category && !(g && t.category===g.cat))? `<span class="tag">${tcatOf(t.category)?.icon||''} ${tcatOf(t.category)?.label||''}</span>`:''}
-        ${t.period? `<span class="tag" ${timeBoxTagStyle(box)}>${box? escapeHtml(box.label) : escapeHtml(t.period)}</span>`:''}
-        ${/* on a view that is already one specific day, stamping that same date
-              on every row says nothing */''}
-        ${(t.due && !(opts.date && t.due===opts.date))? `<span class="tag">🗓️ ${t.due}</span>`:''}
-        ${taskAwaitingDate(t)? `<span class="tag" style="background:rgba(178,76,99,.13);color:var(--rose-dark);" title="فاتت بلا إنجاز، فرفعت عنها التاريخ — حددي لها موعدًا جديدًا وترجع ليومك">⏳ بلا تاريخ · فاتت ${t.lapsedFrom}</span>`:''}
-        ${t.recurType? `<span class="tag">🔁 ${recurLabel(t)}</span>`:''}
-        ${t.link? `<a href="${escapeHtml(t.link)}" target="_blank" rel="noopener" class="tag" style="text-decoration:none;">🔗 رابط مساعد</a>`:''}
-      ${(opts.assign && !g && state.goals.length)? `<select class="row-goal" data-quick-goal="${t.id}">
-        <option value="">↳ اربطيها بهدف…</option>
-        ${state.goals.map(x=>{ const p = pillarOf(goalPillarId(x));
-          return `<option value="${x.id}">${p? p.icon+' '+p.label+' › ' : ''}${escapeHtml(x.title)}</option>`;}).join('')}
-      </select>`:''}
-      </div>
-      ${hasExtra? `
-      <button type="button" class="icon-btn sm" style="padding:2px 4px;margin-top:2px;" data-toggle-collapse="${noteKey}">${noteOpen?'▾':'▸'} 📝 تفاصيل إضافية</button>
-      ${noteOpen? `
-        ${t.longNote? `<div class="rte-editable" style="margin-top:4px;min-height:auto;border-style:dashed;">${t.longNote}</div>`:''}
-        ${(t.attachments&&t.attachments.length)? `<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;">${t.attachments.map(a=>`<a href="${a.dataUrl}" download="${escapeHtml(a.name)}" style="font-size:var(--t3);color:var(--petrol-dark);text-decoration:none;">📄 ${escapeHtml(a.name)}</a>`).join('')}</div>`:''}
-      `:''}
-      `:''}
+      ${/* edit and delete move into the fold with everything else, so the name
+            gets the whole row instead of sharing it with three icons */''}
+      <button type="button" class="icon-btn tr-more" data-toggle-collapse="${detailKey}" title="${detailOpen?'إخفاء التفاصيل':'عرض التفاصيل'}">${detailOpen?'▾':'▸'}</button>
+      ${opts.restore? `<button class="icon-btn" data-restore-task="${t.id}" title="استعادة — تراجعي عن إنجازها">↺</button>`:''}
     </div>
-    ${opts.restore? `<button class="icon-btn" data-restore-task="${t.id}" title="استعادة — تراجعي عن إنجازها">↺</button>`:''}
-    <button class="icon-btn" data-edit-task="${t.id}">✎</button>
-    <button class="icon-btn" data-del="${t.id}">✕</button>
+
+    ${/* the chain stays out: it is the task's place in her plan, not a detail */''}
+    ${g? `<div class="task-chain">
+      ${(()=>{ const p = pillarOf(goalPillarId(g));
+               return p? `<span>${p.icon} ${escapeHtml(p.label)}</span><span class="sep">›</span>` : ''; })()}
+      <span>🎯 ${escapeHtml(g.title)}</span>
+    </div>` : ''}
+    ${(opts.assign && !g && state.goals.length)? `<div class="tr-assign"><select class="row-goal" data-quick-goal="${t.id}">
+      <option value="">↳ اربطيها بهدف…</option>
+      ${state.goals.map(x=>{ const p = pillarOf(goalPillarId(x));
+        return `<option value="${x.id}">${p? p.icon+' '+p.label+' › ' : ''}${escapeHtml(x.title)}</option>`;}).join('')}
+    </select></div>`:''}
+    ${/* anything overdue has to speak up whether the details are open or not */''}
+    ${taskAwaitingDate(t)? `<div class="tr-warn"><span class="tag" style="background:rgba(178,76,99,.13);color:var(--rose-dark);" title="فاتت بلا إنجاز، فرفعت عنها التاريخ — حددي لها موعدًا جديدًا وترجع ليومك">⏳ بلا تاريخ · فاتت ${t.lapsedFrom}</span></div>`:''}
+
+    ${/* everything she set once and rarely rereads — folded until asked for */''}
+    ${detailOpen? `
+    <div class="tr-details">
+      <span class="tag p-${t.priority}">${t.priority}</span>
+      ${t.actionType? `<span class="tag">🔸 ${escapeHtml(t.actionType)}</span>`:''}
+      ${t.period? `<span class="tag" ${timeBoxTagStyle(box)}>${box? escapeHtml(box.label) : escapeHtml(t.period)}</span>`:''}
+      ${t.due? `<span class="tag">🗓️ ${t.due}</span>`:''}
+      ${t.recurType? `<span class="tag">🔁 ${recurLabel(t)}</span>`:''}
+      ${t.link? `<a href="${escapeHtml(t.link)}" target="_blank" rel="noopener" class="tag" style="text-decoration:none;">🔗 رابط مساعد</a>`:''}
+      ${t.longNote? `<div class="rte-editable" style="margin-top:6px;min-height:auto;border-style:dashed;width:100%;">${t.longNote}</div>`:''}
+      ${(t.attachments&&t.attachments.length)? `<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;width:100%;">${t.attachments.map(a=>`<a href="${a.dataUrl}" download="${escapeHtml(a.name)}" style="font-size:var(--t3);color:var(--petrol-dark);text-decoration:none;">📄 ${escapeHtml(a.name)}</a>`).join('')}</div>`:''}
+      <div class="tr-acts">
+        <button class="icon-btn" data-edit-task="${t.id}" title="تعديل">✎</button>
+        <button class="icon-btn" data-del="${t.id}" title="حذف">✕</button>
+      </div>
+    </div>`:''}
   </div>`;
+
 }
 
 function renderScheduleCard(){
@@ -7182,14 +7212,6 @@ function renderTaskDraft(){
         <summary><h3>تفاصيل أكثر <span class="chev">▾</span></h3></summary>
         <div class="details-body">
       <div class="field">
-        <label>التصنيف</label>
-        <select id="tdCat">
-          <option value="">بدون تصنيف</option>
-          ${state.taskCategories.map(c=>`<option value="${c.id}" ${d.category===c.id?'selected':''}>${c.icon} ${c.label}</option>`).join('')}
-        </select>
-        <p class="muted" style="margin:4px 0 0;font-size:var(--t1);">وسم للفرز فقط — التسلسل يجي من الهدف فوق.</p>
-      </div>
-      <div class="field">
         <label>نوع الفعل المطلوب</label>
         <select id="tdAction">
           <option value="">بدون تحديد</option>
@@ -7295,18 +7317,11 @@ function attachTaskDraftEvents(){
     /* the goal carries a domain already — asking her for it again was the last
        place the two axes were still being filled in separately */
     const g = taskDraft.goalId? state.goals.find(x=>x.id===taskDraft.goalId) : null;
-    if(g && g.cat && !taskDraft.category){
+    if(g && g.cat){
       taskDraft.category = g.cat;
       const box = timeBoxForCategory(taskDraft.category);
       if(box && !taskDraft.period) taskDraft.period = box.id;
     }
-    render();
-  };
-  const tdCat = document.getElementById('tdCat');
-  if(tdCat) tdCat.onchange = ()=>{
-    syncDraft();
-    const box = timeBoxForCategory(taskDraft.category);
-    if(box) taskDraft.period = box.id;
     render();
   };
   document.querySelectorAll('[data-pri]').forEach(b=> b.onclick=()=>{ syncDraft(); taskDraft.priority=b.dataset.pri; render(); });
@@ -7417,7 +7432,9 @@ function attachTaskDraftEvents(){
 function syncDraft(){
   taskDraft.title = document.getElementById('tdTitle').value;
   taskDraft.goalId = document.getElementById('tdGoal').value;
-  taskDraft.category = document.getElementById('tdCat').value;
+  /* the domain is no longer asked for on a task — it rides along invisibly from
+     the goal, which is the only thing that still uses it (to pick a time box) */
+
   taskDraft.actionType = document.getElementById('tdAction').value;
   taskDraft.due = document.getElementById('tdDue').value;
   taskDraft.link = document.getElementById('tdLink').value;
