@@ -396,7 +396,14 @@ display:flex;gap:8px;margin:4px 0 10px;}
 .tr-top{display:flex;align-items:center;gap:8px;}
 .tr-top .task-title{flex:1;min-width:0;display:flex;align-items:center;gap:6px;}
 .tr-top .icon-btn{flex-shrink:0;}
-.tr-more{opacity:.6;}
+/* a heading for a group of related fields, so a form reads in sections */
+.form-group-label{
+  font-size:var(--t1);font-weight:700;color:var(--muted);letter-spacing:.03em;
+  margin:16px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--line);
+}
+/* every fold marker is this chevron, at the far end of the row it opens */
+.fold-line .chev,.card-title .chev,.tr-more .chev,.df-toggle .chev{margin-right:auto;}
+.tr-more{opacity:.65;padding:2px 5px;}
 .task-chain{margin-right:34px;}
 .tr-assign{margin:4px 34px 0 0;}
 .tr-warn{margin:4px 34px 0 0;}
@@ -752,6 +759,20 @@ table.htable td.habit-label-cell{text-align:right;font-size:var(--t2);padding-ri
 }
 .period-tab.active{background:var(--petrol);color:#fff;box-shadow:0 1px 3px rgba(31,58,61,.22);transform:none;}
 .period-tab:active{transform:none;box-shadow:none;}
+/* the day's purpose, sitting with the date rather than in a box of its own */
+.day-frame{text-align:center;margin:-4px 0 14px;}
+.day-frame .df-goal{
+  font-size:var(--t4);font-weight:600;color:var(--petrol-dark);
+  line-height:1.6;margin:0 auto;max-width:32ch;
+}
+.day-frame .df-learn{font-size:var(--t1);color:var(--muted);margin:5px 0 0;}
+.day-frame .df-learn a{color:var(--petrol);}
+.day-frame .df-toggle{
+  background:none;border:none;padding:4px;margin-top:2px;cursor:pointer;
+  font-family:inherit;font-size:var(--t1);color:var(--muted);
+}
+.day-frame .df-rest{display:inline-flex;flex-direction:column;gap:3px;margin-top:2px;text-align:right;}
+.day-frame .df-row{display:flex;gap:6px;font-size:var(--t1);color:var(--muted);}
 </style>
 </head>
 <body>
@@ -1194,7 +1215,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 55';
+const APP_BUILD = '2026-08-17 · 56';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -2318,37 +2339,41 @@ function renderTemplateDraft(){
       <h3 style="margin-bottom:6px;">تعديل روتين يوم ${d.name}</h3>
       <p class="muted" style="margin-bottom:16px;">أي تعديل هنا ينطبق على كل يوم ${d.name} في المستقبل.</p>
       <div class="field">
-        <label>شعار اليوم</label>
+        <label>هدف اليوم — يظهر تحت اسم اليوم</label>
         <input type="text" id="tdMotto" value="${escapeHtml(d.motto)}" placeholder="مثال: الحركة تصنع الطاقة"/>
       </div>
       <div class="field">
-        <label>ملاحظة إضافية (اختياري)</label>
+        <label>ملاحظة إضافية</label>
         <textarea id="tdNote" placeholder="أي تفاصيل زيادة عن طابع اليوم…">${escapeHtml(d.note)}</textarea>
       </div>
-      <div class="field">
-        <label>وقت الروتين</label>
-        <input type="text" id="tdTime" value="${escapeHtml(d.timeLabel)}" placeholder="مثال: 4:30 - 6:15 صباحًا"/>
-      </div>
-      <div class="field">
-        <label>مجال تعلّم اليوم (اختياري)</label>
-        <div class="chip-row">
-          ${LEARNING_DOMAINS.map(dom=>`<button type="button" class="chip ${d.learningDomain===dom?'selected':''}" data-learn-domain="${escapeHtml(dom)}">${dom}</button>`).join('')}
+
+      ${/* eleven domains and two modes were laid out as chips, which took four
+            rows apiece and pushed everything below them off the screen. A list
+            you pick exactly one thing from is a dropdown. */''}
+      <p class="form-group-label">تعلّم اليوم</p>
+      <div class="row2">
+        <div class="field">
+          <label>المجال</label>
+          <select id="tdLearnDomain">
+            <option value="">— بدون —</option>
+            ${LEARNING_DOMAINS.map(dom=>`<option value="${escapeHtml(dom)}" ${d.learningDomain===dom?'selected':''}>${escapeHtml(dom)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>النوع</label>
+          <select id="tdLearnMode">
+            <option value="">— بدون —</option>
+            ${LEARNING_MODES.map(m=>`<option value="${escapeHtml(m.id)}" ${d.learningMode===m.id?'selected':''}>${escapeHtml(m.label)}</option>`).join('')}
+          </select>
         </div>
       </div>
       <div class="field">
-        <label>نوع التعلّم (اختياري)</label>
-        <div class="chip-row">
-          ${LEARNING_MODES.map(m=>`<button type="button" class="chip ${d.learningMode===m.id?'selected':''}" data-learn-mode="${m.id}">${m.label}</button>`).join('')}
-        </div>
-      </div>
-      <div class="field">
-        <label>تفاصيل (اختياري)</label>
+        <label>تفاصيل</label>
         <input type="text" id="tdLearning" value="${escapeHtml(d.learning)}" placeholder="مثال: كورس أو كتاب معيّن"/>
       </div>
       <div class="field">
-        <label>🔗 رابط مساعد لتعلّم اليوم (اختياري)</label>
+        <label>🔗 رابط مساعد</label>
         <input type="text" id="tdLearningLink" value="${escapeHtml(d.learningLink||'')}" placeholder="مثال: رابط فيديو أو كورس" style="direction:ltr;text-align:left;"/>
-        <p class="muted" style="margin-top:6px;">اطلبي مني بالمحادثة رابط يناسب موضوع تعلّمك، وألصقيه هنا.</p>
       </div>
       <p class="muted" style="margin-bottom:16px;">📌 إدارة عادات هذا اليوم (إضافة، تفعيل، تعطيل) صارت من صفحة "العادات".</p>
       <div style="display:flex;gap:10px;margin-top:8px;">
@@ -2359,21 +2384,13 @@ function renderTemplateDraft(){
   </div>`;
 }
 function attachTemplateDraftEvents(){
-  document.querySelectorAll('[data-learn-domain]').forEach(b=> b.onclick=()=>{
-    syncTemplateDraftFields();
-    templateDraft.learningDomain = (templateDraft.learningDomain===b.dataset.learnDomain? '' : b.dataset.learnDomain);
-    render();
-  });
-  document.querySelectorAll('[data-learn-mode]').forEach(b=> b.onclick=()=>{
-    syncTemplateDraftFields();
-    templateDraft.learningMode = (templateDraft.learningMode===b.dataset.learnMode? '' : b.dataset.learnMode);
-    render();
-  });
   document.getElementById('tdSaveTemplate').onclick = ()=>{
     syncTemplateDraftFields();
     state.dayTemplates[templateDraft.dow] = {
       name: templateDraft.name, motto: templateDraft.motto, note: templateDraft.note,
-      timeLabel: templateDraft.timeLabel, learning: templateDraft.learning, learningLink: templateDraft.learningLink,
+      /* the routine's hours are gone from the form; anything a day already had
+         is carried through rather than blanked on the next save */
+      timeLabel: templateDraft.timeLabel || '', learning: templateDraft.learning, learningLink: templateDraft.learningLink,
       learningDomain: templateDraft.learningDomain, learningMode: templateDraft.learningMode
     };
     saveState();
@@ -2385,7 +2402,8 @@ function attachTemplateDraftEvents(){
 function syncTemplateDraftFields(){
   templateDraft.motto = document.getElementById('tdMotto').value;
   templateDraft.note = document.getElementById('tdNote').value;
-  templateDraft.timeLabel = document.getElementById('tdTime').value;
+  templateDraft.learningDomain = document.getElementById('tdLearnDomain').value;
+  templateDraft.learningMode = document.getElementById('tdLearnMode').value;
   templateDraft.learning = document.getElementById('tdLearning').value;
   templateDraft.learningLink = document.getElementById('tdLearningLink').value;
 }
@@ -2894,7 +2912,32 @@ function renderDateNav(){
     ${!isToday? `<button type="button" class="today-btn" id="jumpToday">اليوم</button>`:''}
   </div>
   ${!isToday? `<span class="browsing-badge">${selectedDate > todayStr() ? '🗓️ تخطيط ليوم قادم' : '📖 تصفح يوم سابق'}</span>`:''}
+  ${renderDayFrame(dow)}
   `;
+}
+/* What the day is for, directly under its name — the one line she wrote in the
+   routine — with a notable bit of learning beneath it in small type. The rest of
+   the routine (its note, its hours) folds, because it is reference rather than
+   something to read each morning. */
+function renderDayFrame(dow){
+  const tpl = state.dayTemplates[dow] || {};
+  const learning = [tpl.learningDomain, tpl.learningMode, tpl.learning].filter(Boolean).map(escapeHtml).join(' · ');
+  const rest = [];
+  if(tpl.note) rest.push(`<div class="df-row"><span class="k">📝</span><span>${escapeHtml(tpl.note)}</span></div>`);
+
+  if(!tpl.motto && !learning && !rest.length) return '';
+  const key = 'dayFrame';
+  if(state.collapsed[key] === undefined) state.collapsed[key] = true;
+  const closed = !!state.collapsed[key];
+  return `
+  <div class="day-frame">
+    ${tpl.motto? `<p class="df-goal">${escapeHtml(tpl.motto)}</p>`:''}
+    ${learning? `<p class="df-learn">📖 ${learning}${tpl.learningLink? ` <a href="${escapeHtml(tpl.learningLink)}" target="_blank" rel="noopener">رابط</a>`:''}</p>`:''}
+    ${rest.length? `
+      <button type="button" class="df-toggle" data-toggle-collapse="${key}">${closed?'تفاصيل الروتين':'إخفاء'} <span class="chev ${closed?'':'open'}">▾</span></button>
+      ${closed? '' : `<div class="df-rest">${rest.join('')}</div>`}
+    `:''}
+  </div>`;
 }
 
 /* These counts used to be their own card sitting above يومك, saying in numbers
@@ -3015,7 +3058,7 @@ function renderHabitsCard(tpl, log, dow){
     ${pending.map(habitRow).join('')}
     ${dayHabits.length && pending.length===0? `<p style="text-align:center;font-size:var(--t4);color:var(--petrol-dark);margin:6px 0;">🌿 خلّصتي عادات اليوم كلها، ماشاءالله</p>`:''}
     ${finished.length? `
-      <button type="button" class="icon-btn sm" style="padding:3px 4px;margin-top:4px;" data-toggle-collapse="habitsDoneOpen">${doneOpen?'▾':'▸'} ✓ اللي خلّصتيها (${finished.length})</button>
+      <button type="button" class="fold-line" style="margin-top:4px;" data-toggle-collapse="habitsDoneOpen"><span class="grow">✓ اللي خلّصتيها (${finished.length})</span><span class="chev ${doneOpen?'open':''}">▾</span></button>
       ${doneOpen? finished.map(habitRow).join('') : ''}
     `:''}
     `}
@@ -3130,7 +3173,7 @@ function taskRowHtml(t, opts){
       </div>
       ${/* edit and delete move into the fold with everything else, so the name
             gets the whole row instead of sharing it with three icons */''}
-      <button type="button" class="icon-btn tr-more" data-toggle-collapse="${detailKey}" title="${detailOpen?'إخفاء التفاصيل':'عرض التفاصيل'}">${detailOpen?'▾':'▸'}</button>
+      <button type="button" class="icon-btn tr-more" data-toggle-collapse="${detailKey}" title="${detailOpen?'إخفاء التفاصيل':'عرض التفاصيل'}"><span class="chev ${detailOpen?'open':''}">▾</span></button>
       ${opts.restore? `<button class="icon-btn" data-restore-task="${t.id}" title="استعادة — تراجعي عن إنجازها">↺</button>`:''}
     </div>
 
