@@ -730,6 +730,56 @@ table.htable td.habit-label-cell{text-align:right;font-size:var(--t2);padding-ri
   .btn, .check, .hbox, .period-tab{transition:none;}
   .btn:active, .check:active, .hbox:active, .period-tab:active{transform:none;}
 }
+/* ---------- the day, tightened ----------
+   Nested boxes were the problem: a card holding a bordered strip holding
+   bordered rows, three frames deep for one list. The list keeps its rows; the
+   frames around it go, and a hairline rule does the work a border was doing. */
+.card{padding:14px;margin-bottom:12px;}
+.card-title{margin-bottom:8px;}
+
+.routine-strip{
+  display:block;max-width:100%;box-sizing:border-box;
+  background:var(--parchment);border:1px solid var(--line);border-radius:12px;
+  padding:8px 12px;margin:0 auto 12px;text-align:right;
+}
+.routine-strip .rs-line{display:flex;align-items:center;gap:8px;}
+.routine-strip .rs-time{flex:1;min-width:0;font-size:var(--t2);font-weight:700;color:var(--petrol-dark);}
+.routine-strip .rs-toggle,.routine-strip .rs-edit{
+  background:none;border:none;padding:2px 4px;cursor:pointer;
+  font-family:inherit;font-size:var(--t2);color:var(--muted);flex-shrink:0;
+}
+.routine-strip .rs-body{margin-top:7px;padding-top:7px;border-top:1px solid var(--line);}
+.routine-strip .rs-goal{
+  font-weight:700;color:var(--petrol-dark);font-size:var(--t2);line-height:1.65;
+  border-right:2px solid var(--gold);padding-right:9px;
+}
+.routine-strip .rs-row{display:flex;gap:6px;align-items:flex-start;margin-top:6px;font-size:var(--t2);color:var(--ink);line-height:1.55;}
+.routine-strip .rs-row .k{flex-shrink:0;opacity:.85;}
+.routine-strip .rs-row a{color:var(--petrol-dark);}
+.routine-strip .rs-note{color:var(--muted);font-size:var(--t1);}
+.routine-strip.is-empty{background:none;border-style:dashed;text-align:center;}
+
+/* the day's three: a labelled list, not a box inside a box */
+.focus-strip{border:none;background:none;box-shadow:none;padding:0;margin-bottom:14px;}
+.focus-head{
+  display:flex;align-items:center;gap:6px;
+  font-size:var(--t1);font-weight:700;color:var(--muted);letter-spacing:.03em;
+  padding-bottom:6px;margin-bottom:8px;border-bottom:1px solid var(--line);
+}
+.focus-strip .task-row{
+  background:var(--paper);border:1px solid var(--line);border-radius:10px;
+  padding:9px 11px;margin-bottom:6px;box-shadow:0 1px 2px rgba(31,58,61,.05);
+}
+.focus-strip .task-row:last-of-type{border-bottom:1px solid var(--line);margin-bottom:0;}
+
+/* time boxes: one quiet segmented control instead of five outlined buttons */
+.period-tabs{display:flex;gap:0;margin-bottom:10px;background:var(--parchment);border:1px solid var(--line);border-radius:10px;padding:3px;}
+.period-tab{
+  flex:1;text-align:center;padding:6px 4px;border:none;background:none;border-radius:8px;
+  font-size:var(--t2);font-weight:700;color:#6b7a78;box-shadow:none;
+}
+.period-tab.active{background:var(--petrol);color:#fff;box-shadow:0 1px 3px rgba(31,58,61,.22);transform:none;}
+.period-tab:active{transform:none;box-shadow:none;}
 </style>
 </head>
 <body>
@@ -1175,7 +1225,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 52';
+const APP_BUILD = '2026-08-17 · 53';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -2973,8 +3023,8 @@ function renderHome(){
 
   return `
   ${renderDateNav()}
-  <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:4px;">${isToday? `صباحك أهداف، ${escapeHtml(state.name)} 🌿` : `روتين يوم ${tpl.name}`}</h2>
-  <p class="muted" style="margin-bottom:18px;">${isToday? 'يلا نبني يومك خطوة خطوة' : 'تقدرين تراجعين أو تخططين لهذا اليوم من هنا'}</p>
+  <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:10px;">${isToday? `صباحك أهداف، ${escapeHtml(state.name)} 🌿` : `روتين يوم ${tpl.name}`}</h2>
+  ${isToday? '' : `<p class="muted" style="margin-bottom:10px;">تقدرين تراجعين أو تخططين لهذا اليوم من هنا</p>`}
 
   ${homeCardOn("routine")? `<div class="home-strip-wrap">${renderTemplateCard(tpl, dow, log)}</div>` : ""}
   ${isToday && homeCardOn('voice')? renderVoiceQuickAddCard() : ''}
@@ -3017,27 +3067,34 @@ function renderHome(){
 /* The day's framing in one strip: what today is for, what it teaches, when it
    runs, and how she said she feels — the last sitting right under the day's
    name because it is about today rather than about the routine. */
+/* The date bar above already prints the day's name and the mood she picked, so
+   this said both a second time. It carries only what the date bar cannot: when
+   the day runs, and — folded, because it is a thing to reach for rather than
+   read every morning — what today is for and what it teaches. */
 function renderTemplateCard(tpl, dow, log){
   const learning = [tpl.learningDomain, tpl.learningMode, tpl.learning].filter(Boolean).map(escapeHtml).join(' · ');
-  const moods = ((log&&log.mood)||[]).map(id=>moodOf(id)).filter(Boolean);
-  const empty = !tpl.motto && !tpl.timeLabel && !tpl.note && !learning && !moods.length
-    && !state.habits.some(h=>h.days.includes(dow));
-  if(empty) return `
+  const hasInside = tpl.motto || tpl.note || learning || tpl.learningLink;
+  if(!tpl.timeLabel && !hasInside) return `
   <div class="routine-strip is-empty">
     <button type="button" class="rs-edit" data-edit-template="${dow}">ما فيه روتين لهذا اليوم — ابنيه ✎</button>
   </div>`;
+  const key = 'dayFrame';
+  if(state.collapsed[key] === undefined) state.collapsed[key] = true;
+  const closed = !!state.collapsed[key];
   return `
   <div class="routine-strip">
     <div class="rs-line">
-      <b>${escapeHtml(tpl.name)}</b>
+      ${hasInside? `<button type="button" class="rs-toggle" data-toggle-collapse="${key}"><span class="chev ${closed?'':'open'}">▾</span></button>`:''}
+      <span class="rs-time">${tpl.timeLabel? `⏰ ${escapeHtml(tpl.timeLabel)}` : 'روتين اليوم'}</span>
       <button type="button" class="rs-edit" data-edit-template="${dow}" title="تعديل الروتين">✎</button>
     </div>
-    ${moods.length? `<div class="rs-mood">${moods.map(m=>`<span>${escapeHtml(m.icon)} ${escapeHtml(m.label)}</span>`).join('')}</div>`:''}
-    ${tpl.motto? `<div class="rs-goal">${escapeHtml(tpl.motto)}</div>`:''}
-    ${tpl.note? `<div class="rs-row rs-note"><span class="k">📝</span><span>${escapeHtml(tpl.note)}</span></div>`:''}
-    ${learning? `<div class="rs-row"><span class="k">📖</span><span>${learning}${tpl.learningLink? ` <a href="${escapeHtml(tpl.learningLink)}" target="_blank" rel="noopener">🔗</a>`:''}</span></div>`
-      : (tpl.learningLink? `<div class="rs-row"><span class="k">📖</span><a href="${escapeHtml(tpl.learningLink)}" target="_blank" rel="noopener">رابط تعلّم اليوم</a></div>`:'')}
-    ${tpl.timeLabel? `<div class="rs-row"><span class="k">⏰</span><span>${escapeHtml(tpl.timeLabel)}</span></div>`:''}
+    ${(closed || !hasInside)? '' : `
+    <div class="rs-body">
+      ${tpl.motto? `<div class="rs-goal">${escapeHtml(tpl.motto)}</div>`:''}
+      ${tpl.note? `<div class="rs-row rs-note"><span class="k">📝</span><span>${escapeHtml(tpl.note)}</span></div>`:''}
+      ${learning? `<div class="rs-row"><span class="k">📖</span><span>${learning}${tpl.learningLink? ` <a href="${escapeHtml(tpl.learningLink)}" target="_blank" rel="noopener">🔗</a>`:''}</span></div>`
+        : (tpl.learningLink? `<div class="rs-row"><span class="k">📖</span><a href="${escapeHtml(tpl.learningLink)}" target="_blank" rel="noopener">رابط تعلّم اليوم</a></div>`:'')}
+    </div>`}
   </div>`;
 }
 
@@ -3197,12 +3254,6 @@ function taskRowHtml(t, opts){
       ${opts.restore? `<button class="icon-btn" data-restore-task="${t.id}" title="استعادة — تراجعي عن إنجازها">↺</button>`:''}
     </div>
 
-    ${/* the chain stays out: it is the task's place in her plan, not a detail */''}
-    ${g? `<div class="task-chain">
-      ${(()=>{ const p = pillarOf(goalPillarId(g));
-               return p? `<span>${p.icon} ${escapeHtml(p.label)}</span><span class="sep">›</span>` : ''; })()}
-      <span>🎯 ${escapeHtml(g.title)}</span>
-    </div>` : ''}
     ${(opts.assign && !g && state.goals.length)? `<div class="tr-assign"><select class="row-goal" data-quick-goal="${t.id}">
       <option value="">↳ اربطيها بهدف…</option>
       ${state.goals.map(x=>{ const p = pillarOf(goalPillarId(x));
@@ -3214,6 +3265,11 @@ function taskRowHtml(t, opts){
     ${/* everything she set once and rarely rereads — folded until asked for */''}
     ${detailOpen? `
     <div class="tr-details">
+      ${g? `<div class="task-chain">
+        ${(()=>{ const p = pillarOf(goalPillarId(g));
+                 return p? `<span>${p.icon} ${escapeHtml(p.label)}</span><span class="sep">›</span>` : ''; })()}
+        <span>🎯 ${escapeHtml(g.title)}</span>
+      </div>` : ''}
       <span class="tag p-${t.priority}">${t.priority}</span>
       ${t.actionType? `<span class="tag">🔸 ${escapeHtml(t.actionType)}</span>`:''}
       ${t.period? `<span class="tag" ${timeBoxTagStyle(box)}>${box? escapeHtml(box.label) : escapeHtml(t.period)}</span>`:''}
