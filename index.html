@@ -182,36 +182,20 @@ details.path-block > summary::-webkit-details-marker{display:none;}
 .goal-head .gh-bar{flex:0 0 54px;height:6px;background:var(--line);border-radius:4px;overflow:hidden;}
 .goal-head .gh-bar i{display:block;height:100%;background:var(--sage);}
 .goal-body{padding:0 16px 16px;}
-.routine-strip{
 
   display:inline-block;max-width:100%;box-sizing:border-box;
   background:var(--parchment);border:1px solid var(--line);border-radius:14px;
   padding:9px 14px;margin:0 auto 14px;text-align:right;
 }
-.home-strip-wrap{text-align:center;}
-.routine-strip .rs-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-.routine-strip .rs-line b{font-size:var(--t3);color:var(--petrol-dark);}
-.routine-strip .rs-mood{display:flex;gap:6px;flex-wrap:wrap;margin-top:3px;}
-.routine-strip .rs-mood span{
   font-size:var(--t1);color:var(--petrol-dark);background:#fff;
   border:1px solid var(--line);border-radius:20px;padding:2px 9px;
 }
-.routine-strip .rs-row{display:flex;gap:6px;align-items:flex-start;margin-top:5px;font-size:var(--t2);color:var(--ink);line-height:1.55;}
-.routine-strip .rs-row .k{flex-shrink:0;opacity:.85;}
-.routine-strip .rs-row a{color:var(--petrol-dark);}
-.routine-strip .rs-goal{font-weight:700;color:var(--petrol-dark);font-size:var(--t2);line-height:1.6;margin-top:6px;border-right:2px solid var(--gold);padding-right:8px;}
-.routine-strip .rs-note{color:var(--muted);font-size:var(--t1);}
-.routine-strip .rs-motto{
   font-size:var(--t2);color:var(--ink);line-height:1.6;margin-top:4px;
   border-right:2px solid var(--gold);padding-right:8px;
 }
-.routine-strip .rs-tags{display:flex;gap:10px;flex-wrap:wrap;margin-top:5px;font-size:var(--t1);color:var(--muted);}
-.routine-strip .rs-tags a{color:var(--petrol-dark);text-decoration:none;}
-.routine-strip .rs-edit{
   background:none;border:none;padding:2px 4px;cursor:pointer;
   font-family:inherit;font-size:var(--t2);color:var(--muted);flex-shrink:0;
 }
-.routine-strip.is-empty{background:none;border-style:dashed;}
 .fg-headline{
 font-size:30px;font-weight:800;color:var(--petrol-dark);font-family:'IBM Plex Sans Arabic',sans-serif;line-height:1.15;font-variant-numeric:tabular-nums;}
 .fg-headline span{font-size:var(--t3);font-weight:700;color:var(--muted);}
@@ -719,7 +703,6 @@ table.htable td.habit-label-cell{text-align:right;font-size:var(--t2);padding-ri
 .focus-strip .task-row:last-child{margin-bottom:0;}
 
 /* the day's framing, and the selected time box, sit slightly proud */
-.routine-strip{box-shadow:0 2px 0 var(--line), 0 4px 10px rgba(31,58,61,.07), inset 0 1px 0 #fff;}
 .period-tab{transition:transform .1s ease, box-shadow .1s ease;}
 .period-tab.active{box-shadow:0 2px 0 rgba(31,58,61,.22), 0 4px 9px rgba(31,58,61,.14);transform:translateY(-1px);}
 .period-tab:active{transform:translateY(1px);box-shadow:inset 0 2px 4px rgba(31,58,61,.18);}
@@ -737,27 +720,16 @@ table.htable td.habit-label-cell{text-align:right;font-size:var(--t2);padding-ri
 .card{padding:14px;margin-bottom:12px;}
 .card-title{margin-bottom:8px;}
 
-.routine-strip{
   display:block;max-width:100%;box-sizing:border-box;
   background:var(--parchment);border:1px solid var(--line);border-radius:12px;
   padding:8px 12px;margin:0 auto 12px;text-align:right;
 }
-.routine-strip .rs-line{display:flex;align-items:center;gap:8px;}
-.routine-strip .rs-time{flex:1;min-width:0;font-size:var(--t2);font-weight:700;color:var(--petrol-dark);}
-.routine-strip .rs-toggle,.routine-strip .rs-edit{
   background:none;border:none;padding:2px 4px;cursor:pointer;
   font-family:inherit;font-size:var(--t2);color:var(--muted);flex-shrink:0;
 }
-.routine-strip .rs-body{margin-top:7px;padding-top:7px;border-top:1px solid var(--line);}
-.routine-strip .rs-goal{
   font-weight:700;color:var(--petrol-dark);font-size:var(--t2);line-height:1.65;
   border-right:2px solid var(--gold);padding-right:9px;
 }
-.routine-strip .rs-row{display:flex;gap:6px;align-items:flex-start;margin-top:6px;font-size:var(--t2);color:var(--ink);line-height:1.55;}
-.routine-strip .rs-row .k{flex-shrink:0;opacity:.85;}
-.routine-strip .rs-row a{color:var(--petrol-dark);}
-.routine-strip .rs-note{color:var(--muted);font-size:var(--t1);}
-.routine-strip.is-empty{background:none;border-style:dashed;text-align:center;}
 
 /* the day's three: a labelled list, not a box inside a box */
 .focus-strip{border:none;background:none;box-shadow:none;padding:0;margin-bottom:14px;}
@@ -979,7 +951,7 @@ const DEFAULT_MOOD_TITLE = 'شلون تبين تحسين هالليوم؟';
 const HOME_CARDS = [
   {id:'progress',    label:'تقدّم اليوم والأسبوع', hint:'عدّاد المنجز من المخطط'},
   {id:'voice',       label:'إضافة سريعة بالصوت',   hint:'تسجيل مهمة بالكلام'},
-  {id:'routine',     label:'روتين اليوم',          hint:'شعار اليوم ووقته وتعلّمه'},
+
   {id:'habits',      label:'العادات',              hint:'عادات هذا اليوم'},
   {id:'questions',   label:'التساؤلات',            hint:'أسئلتك اليومية'},
   {id:'mood',        label:'شعور اليوم',           hint:'كيف تبين تحسين'},
@@ -1222,7 +1194,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 54';
+const APP_BUILD = '2026-08-17 · 55';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -2949,12 +2921,6 @@ function homeProgressChip(){
     <b style="color:#3f6fd1;">${c.doneWeek}/${c.plannedWeek}</b> الأسبوع
   </span>`;
 }
-function homeProgressMsg(){
-  const c = homeProgressCounts();
-  if(c.plannedToday===0) return 'ما خططتي أي مهمة لليوم بعد — أضيفي وحدة وابدئي.';
-  if(c.doneTodayCount===c.plannedToday) return 'خلصتي كل مهام اليوم، ماشاءالله! 🌿';
-  return `باقي ${c.plannedToday-c.doneTodayCount} مهمة لتخلصين يومك.`;
-}
 
 
 /* ============ HOME ============ */
@@ -2969,7 +2935,7 @@ function renderHome(){
   <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:10px;">${isToday? `صباحك أهداف، ${escapeHtml(state.name)} 🌿` : `روتين يوم ${tpl.name}`}</h2>
   ${isToday? '' : `<p class="muted" style="margin-bottom:10px;">تقدرين تراجعين أو تخططين لهذا اليوم من هنا</p>`}
 
-  ${homeCardOn("routine")? `<div class="home-strip-wrap">${renderTemplateCard(tpl, dow, log)}</div>` : ""}
+
   ${isToday && homeCardOn('voice')? renderVoiceQuickAddCard() : ''}
   ${homeCardOn('schedule')? renderScheduleCard(selectedDate) : ''}
   ${homeCardOn('habits')? renderHabitsCard(tpl, log, dow) : ''}
@@ -3010,36 +2976,6 @@ function renderHome(){
 /* The day's framing in one strip: what today is for, what it teaches, when it
    runs, and how she said she feels — the last sitting right under the day's
    name because it is about today rather than about the routine. */
-/* The date bar above already prints the day's name and the mood she picked, so
-   this said both a second time. It carries only what the date bar cannot: when
-   the day runs, and — folded, because it is a thing to reach for rather than
-   read every morning — what today is for and what it teaches. */
-function renderTemplateCard(tpl, dow, log){
-  const learning = [tpl.learningDomain, tpl.learningMode, tpl.learning].filter(Boolean).map(escapeHtml).join(' · ');
-  const hasInside = tpl.motto || tpl.note || learning || tpl.learningLink;
-  if(!tpl.timeLabel && !hasInside) return `
-  <div class="routine-strip is-empty">
-    <button type="button" class="rs-edit" data-edit-template="${dow}">ما فيه روتين لهذا اليوم — ابنيه ✎</button>
-  </div>`;
-  const key = 'dayFrame';
-  if(state.collapsed[key] === undefined) state.collapsed[key] = true;
-  const closed = !!state.collapsed[key];
-  return `
-  <div class="routine-strip">
-    <div class="rs-line">
-      ${hasInside? `<button type="button" class="rs-toggle" data-toggle-collapse="${key}"><span class="chev ${closed?'':'open'}">▾</span></button>`:''}
-      <span class="rs-time">${tpl.timeLabel? `⏰ ${escapeHtml(tpl.timeLabel)}` : 'روتين اليوم'}</span>
-      <button type="button" class="rs-edit" data-edit-template="${dow}" title="تعديل الروتين">✎</button>
-    </div>
-    ${(closed || !hasInside)? '' : `
-    <div class="rs-body">
-      ${tpl.motto? `<div class="rs-goal">${escapeHtml(tpl.motto)}</div>`:''}
-      ${tpl.note? `<div class="rs-row rs-note"><span class="k">📝</span><span>${escapeHtml(tpl.note)}</span></div>`:''}
-      ${learning? `<div class="rs-row"><span class="k">📖</span><span>${learning}${tpl.learningLink? ` <a href="${escapeHtml(tpl.learningLink)}" target="_blank" rel="noopener">🔗</a>`:''}</span></div>`
-        : (tpl.learningLink? `<div class="rs-row"><span class="k">📖</span><a href="${escapeHtml(tpl.learningLink)}" target="_blank" rel="noopener">رابط تعلّم اليوم</a></div>`:'')}
-    </div>`}
-  </div>`;
-}
 
 function renderHabitsCard(tpl, log, dow){
   const dayHabits = habitsForDow(dow);
@@ -3071,6 +3007,7 @@ function renderHabitsCard(tpl, log, dow){
   <div class="card">
     <div class="card-title">
       <h3 style="cursor:pointer;flex:1;display:flex;align-items:center;gap:7px;" data-toggle-collapse="habits"><span style="flex:1;">عادات ${tpl.name}${dayHabits.length? ` <span class="muted" style="font-size:var(--t2);font-weight:400;">(${finished.length}/${dayHabits.length})</span>`:''}</span><span class="chev ${collapsed?"":"open"}">▾</span></h3>
+      <button class="icon-btn sm" data-edit-template="${dow}" title="شعار اليوم، وقته، وتعلّمه">✎ الروتين</button>
       <button class="icon-btn sm" data-goto-habits="1">إدارة العادات</button>
     </div>
     ${collapsed? '' : `
@@ -3269,7 +3206,7 @@ function renderScheduleCard(){
   return `
   <div class="card">
     <div class="card-title"><h3>${isToday? 'يومك' : 'جدول هذا اليوم'}</h3>${isToday && homeCardOn('progress')? homeProgressChip() : ''}</div>
-    ${isToday && homeCardOn('progress')? `<p class="muted" style="margin:-4px 0 12px;">${homeProgressMsg()}</p>` : ''}
+
     ${`
     ${focus.length? `
     <div class="focus-strip">
@@ -7004,7 +6941,15 @@ function renderHabitsPage(){
   const weekPct = totalPossible? Math.round(totalDone/totalPossible*100) : null;
 
   return `
-  <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:14px;">متابعة العادات الأسبوعية</h2>
+  <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:4px;">متابعة العادات الأسبوعية</h2>
+  ${/* the day view's habits card carries this too, but she can switch that card
+        off in settings — this tab is always in the nav, so the day's routine can
+        never become unreachable */''}
+  <p class="muted" style="margin-bottom:14px;font-size:var(--t2);">روتين كل يوم (شعاره ووقته وتعلّمه) يُعدَّل من هنا:
+    <span class="chip-row" style="display:inline-flex;gap:5px;margin-right:4px;vertical-align:middle;">
+      ${DOW_NAMES.map((nm,i)=>`<button type="button" class="chip" data-edit-template="${i}" style="padding:3px 8px;font-size:var(--t1);">${nm}</button>`).join('')}
+    </span>
+  </p>
 
   <div class="card">
     <div class="week-nav">
