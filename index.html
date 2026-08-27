@@ -1157,9 +1157,6 @@ let taskDraftRecurOpen = false;
 let taskDraftMoreOpen = false; /* the editor re-renders on every chip tap, so the extra-details fold has to remember itself */
 let templateDraft = null;
 let settingsOpen = false;
-let syncExportCode = '';
-let syncImportText = '';
-let syncMsg = null; /* {ok:bool, text:string} */
 let attachError = null; /* error message shown under the goal-attachment file picker */
 let scAssetEditingId = null; /* id of the one safety-calc asset row currently shown as an editable card; others show as a clean summary line */
 let scIncomeEditingId = null; /* same, for income-source rows */
@@ -1225,7 +1222,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 53';
+const APP_BUILD = '2026-08-17 · 54';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -2165,7 +2162,7 @@ function attachOnboardingEvents(){
     attachError = null;
     render();
   };
-  document.getElementById('onImport').onclick = ()=>{ settingsOpen=true; syncExportCode=''; syncMsg=null; render(); };
+  document.getElementById('onImport').onclick = ()=>{ settingsOpen=true; render(); };
 }
 
 /* ============ goal wizard ============ */
@@ -2421,13 +2418,7 @@ function syncTemplateDraftFields(){
   templateDraft.learningLink = document.getElementById('tdLearningLink').value;
 }
 
-/* ============ settings / cross-device sync (manual export-import) ============ */
-function encodeState(){
-  return btoa(unescape(encodeURIComponent(JSON.stringify(state))));
-}
-function decodeState(code){
-  return JSON.parse(decodeURIComponent(escape(atob(code.trim()))));
-}
+/* ============ settings ============ */
 function renderSettings(){
   const statusLabel = {idle:'', syncing:'⏳ يتزامن…', synced:'☁️ متزامن ✓', error:'⚠️ خطأ بالتزامن'}[cloudStatus] || '';
   return `
@@ -2455,10 +2446,8 @@ function renderSettings(){
         <p class="muted" style="margin-bottom:8px;">مرتبط بنجاح ✓ ${cloudLastSync? 'آخر تزامن: '+cloudLastSync.toLocaleTimeString('ar'):''}</p>
         ${statusLabel? `<p class="muted" style="margin-bottom:10px;">${statusLabel}</p>`:''}
         ${cloudStatus==='error'&&cloudStatusMsg? `<p class="muted" style="color:var(--rose-dark);margin-bottom:10px;">${escapeHtml(cloudStatusMsg)}</p>`:''}
-        <div style="display:flex;gap:10px;">
-          <button class="btn btn-block" id="syncNow">مزامنة الآن</button>
-          <button class="btn ghost" id="unlinkCloud">إلغاء الربط</button>
-        </div>
+        <p class="muted" style="margin-bottom:10px;font-size:var(--t1);">يتزامن وحده: عند فتح التطبيق، وكل ما ترجعين له، وكل دقيقة وهو مفتوح — وأي تعديل يُرفع فورًا.</p>
+        <button class="btn ghost btn-block" id="unlinkCloud">إلغاء الربط</button>
         <div style="margin-top:14px;border-top:1px dashed var(--line);padding-top:12px;">
           <p style="font-weight:700;color:var(--petrol-dark);margin-bottom:4px;">🕘 استعادة نسخة سابقة</p>
           <p class="muted" style="margin-bottom:8px;font-size:var(--t2);">السحاب يحفظ نسخة كاملة عند كل مزامنة. اعرضي القائمة، شوفي محتوى أي نسخة قبل ما تقرري، وارجعي لها لو ضاع منك شي.</p>
@@ -2523,27 +2512,6 @@ function renderSettings(){
       <button class="btn ghost btn-block" id="checkAppUpdate">🔄 تحديث الآن</button>
     </div>
 
-    <details class="card" data-sec="manualSync" ${openSections.manualSync?'open':''}>
-      <summary><h3>📋 نسخ يدوي (بديل بدون إنترنت دائم) <span class="chev">▾</span></h3></summary>
-      <div class="details-body">
-        <p class="muted" style="margin-bottom:12px;">إذا ما تبين تربطين السحاب، أو السحاب متعطل مؤقتًا، تقدرين تنسخين كود بياناتك وتلصقينه بجهاز ثاني يدويًا.</p>
-        <button class="btn ghost btn-block" id="genCode" style="margin-bottom:10px;">انسخي كود بياناتي</button>
-        ${syncExportCode? `
-          <div class="field">
-            <textarea id="exportBox" readonly style="min-height:90px;font-size:var(--t1);direction:ltr;text-align:left;">${syncExportCode}</textarea>
-          </div>
-          <p class="muted" style="margin-bottom:16px;">${navigator.clipboard? 'انتسخ تلقائياً للحافظة ✓ الصقيه أي مكان (واتساب، ملاحظات) ووديه للجهاز الثاني.' : 'حددي كل النص أعلاه وانسخيه يدوياً.'}</p>
-        `:''}
-        <div style="border-top:1px dashed var(--line);padding-top:14px;">
-          <p class="muted" style="margin-bottom:10px;">أو الصقي هنا كود نسختيه من جهاز ثاني — تنبيه: هذا بيستبدل كل بيانات هذا الجهاز الحالية.</p>
-          <div class="field">
-            <textarea id="importBox" placeholder="الصقي الكود هنا…" style="min-height:90px;font-size:var(--tf);direction:ltr;text-align:left;">${escapeHtml(syncImportText)}</textarea>
-          </div>
-          ${syncMsg? `<p class="muted" style="color:${syncMsg.ok?'var(--sage)':'var(--rose-dark)'};margin-bottom:10px;">${escapeHtml(syncMsg.text)}</p>`:''}
-          <button class="btn rose btn-block" id="doImport">استوردي واستبدلي بيانات هذا الجهاز</button>
-        </div>
-      </div>
-    </details>
   </div>`;
 }
 /* Wiring for the list managers (time boxes, categories, action types, daily
@@ -2797,7 +2765,7 @@ function attachManagerEvents(){
 }
 
 function attachSettingsEvents(){
-  document.getElementById('closeSettings').onclick = ()=>{ settingsOpen=false; syncExportCode=''; syncMsg=null; showLinkInfo=false; render(); };
+  document.getElementById('closeSettings').onclick = ()=>{ settingsOpen=false; showLinkInfo=false; render(); };
 
   attachManagerEvents();
 
@@ -2871,8 +2839,6 @@ function attachSettingsEvents(){
     if(!ok) cloud.linked = false;
     saveCloudCfg(); render();
   };
-  const syncNow = document.getElementById('syncNow');
-  if(syncNow) syncNow.onclick = async ()=>{ await cloudPull(); render(); };
   const unlinkCloud = document.getElementById('unlinkCloud');
   if(unlinkCloud) unlinkCloud.onclick = ()=>{
     cloud = {token:'', gistId:'', linked:false};
@@ -2919,29 +2885,6 @@ function attachSettingsEvents(){
     try{ if(navigator.clipboard) await navigator.clipboard.writeText(val); }catch(e){}
   });
 
-  document.getElementById('genCode').onclick = async ()=>{
-    syncExportCode = encodeState();
-    try{ if(navigator.clipboard) await navigator.clipboard.writeText(syncExportCode); }catch(e){}
-    render();
-  };
-  const importBox = document.getElementById('importBox');
-  if(importBox) importBox.oninput = ()=>{ syncImportText = importBox.value; };
-  document.getElementById('doImport').onclick = ()=>{
-    const val = (importBox? importBox.value : syncImportText).trim();
-    if(!val){ syncMsg = {ok:false, text:'الصقي الكود أول.'}; render(); return; }
-    try{
-      const parsed = decodeState(val);
-      if(!parsed || typeof parsed !== 'object' || !('tasks' in parsed)){ throw new Error('bad'); }
-      hydrateState(parsed);
-      saveState();
-      syncMsg = {ok:true, text:'تم الاستيراد بنجاح! بياناتك صارت نفس الجهاز الثاني.'};
-      syncImportText = '';
-      render();
-    }catch(e){
-      syncMsg = {ok:false, text:'الكود مو صحيح أو تالف، تأكدي إنك نسختيه كامل.'};
-      render();
-    }
-  };
 }
 
 /* ============ topbar ============ */
@@ -7555,7 +7498,7 @@ function attachGlobalEvents(){
   const sizeUp = document.getElementById('sizeUp');
   if(sizeUp) sizeUp.onclick = ()=> changeTextScale(0.1);
   const openSettings = document.getElementById('openSettings');
-  if(openSettings) openSettings.onclick = ()=>{ settingsOpen=true; syncExportCode=''; syncMsg=null; render(); };
+  if(openSettings) openSettings.onclick = ()=>{ settingsOpen=true; render(); };
 
   /* date navigator */
   const prevDay = document.getElementById('prevDay');
