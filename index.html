@@ -913,11 +913,6 @@ details.card::before{display:none;}
 .day-card .date-nav{background:none;border:none;padding:0;margin-bottom:0;}
 .day-card .day-frame{margin:10px 0 0;padding-top:10px;border-top:1px solid var(--line);}
 .day-card .day-frame:empty{display:none;border:none;margin:0;padding:0;}
-/* the auto-picked three open from their own heading */
-.focus-strip > .focus-head{
-  width:100%;background:none;border:none;border-bottom:1.5px solid var(--petrol-dark);
-  font-family:inherit;cursor:pointer;text-align:right;
-}
 /* the day's two marks, together in the corner and out of the reading line */
 .day-frame .df-marks{
   position:absolute;top:0;left:0;display:flex;gap:4px;
@@ -1384,7 +1379,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 65';
+const APP_BUILD = '2026-08-17 · 66';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -3490,27 +3485,20 @@ function renderScheduleCard(){
 
     ${`
     ${focus.length? `
-    ${(()=>{
-      /* the three the app picks for her — folded like everything else, so the
-         card opens on its own heading rather than on a list she did not write.
-         Seeded, because the shared toggle reads an unset key as open. */
-      if(state.collapsed.focus3 === undefined) state.collapsed.focus3 = true;
-      const f3 = !!state.collapsed.focus3;
-      return `
+    ${/* these are the day's whole point, so they stay open — no fold, and
+          nothing between her and them */''}
     <div class="focus-strip">
-      <button type="button" class="focus-head" data-toggle-collapse="focus3">
+      <div class="focus-head">
         <span style="flex:1;">⭐ أهم ${focus.length===1?'مهمة':focus.length===2?'مهمتين':focus.length+' مهام'} اليوم</span>
-        <span class="chev ${f3?'':'open'}">▾</span>
-      </button>
-      ${f3? '' : `
+        <button class="icon-btn sm" id="refreshTop" title="إعادة الاختيار">↻</button>
+      </div>
       ${focus.map(t=>taskRowHtml(t, {date:dateStr, assign:true})).join('')}
       ${topTasksHasTie() && !pinned? `<p class="muted" style="margin-top:8px;color:var(--rose-dark);font-size:var(--t2);">🤔 فيه مهام متساوية بالأهمية — تبين تختارين الثلاث بنفسك؟</p>`:''}
       <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
-        <button class="btn ghost sm" id="refreshTop" title="إعادة الاختيار">↻ إعادة الاختيار</button>
         <button class="btn ghost sm" id="openTop3Picker">🗣️ أحددها بنفسي</button>
         ${pinned? `<button class="btn ghost sm" id="resetTop3">↻ رجّعيها تلقائية</button>`:''}
-      </div>`}
-    </div>`;})()}`:''}
+      </div>
+    </div>`:''}
     <details class="day-rest" data-sec="dayPeriods" ${collapsed?'':'open'}>
       <summary><span class="grow">بقية مهام اليوم${restCount? ` <span class="ptab-count">${restCount}</span>`:''}</span><span class="chev">▾</span></summary>
       <div class="details-body">
