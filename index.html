@@ -864,6 +864,31 @@ details.card::before{display:none;}
   font-family:inherit;font-size:var(--t3);color:var(--ink);
 }
 .jrn-peek .grow{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* the routine's own controls, kept out of the day's reading line */
+.day-frame{position:relative;}
+.day-frame .df-toggle{
+  position:absolute;top:0;left:0;
+  width:24px;height:24px;border-radius:8px;padding:0;
+  border:1px solid var(--line);background:var(--paper);
+  color:var(--muted);font-size:12px;line-height:1;
+  display:flex;align-items:center;justify-content:center;
+}
+.day-frame .df-rest{margin-top:8px;}
+
+/* version and its one action, side by side instead of stacked with a paragraph */
+.update-row{display:flex;align-items:center;gap:10px;}
+.upd-ver{flex:1;min-width:0;}
+.upd-ver span{
+  display:block;font-weight:700;color:var(--petrol-dark);font-size:var(--t3);
+  font-variant-numeric:tabular-nums;
+}
+.upd-ver small{display:block;font-size:var(--t1);color:var(--muted);margin-top:1px;}
+.icon-tile{
+  width:42px;height:42px;flex-shrink:0;border-radius:12px;
+  border:1px solid var(--line);background:var(--parchment);
+  font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;
+}
+.icon-tile:active{background:var(--sage);}
 </style>
 </head>
 <body>
@@ -1319,7 +1344,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 58';
+const APP_BUILD = '2026-08-17 · 59';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -2465,11 +2490,17 @@ function renderTemplateDraft(){
       <p class="form-group-label">تعلّم اليوم</p>
       <div class="row2">
         <div class="field">
-          <label>المجال</label>
+          <label>لأي هدف؟</label>
+          ${/* it used to pick from a fixed list of subjects that answered to
+                nothing. A day's learning is work on a goal, so it points at one
+                of hers — and shows up on the day framed that way. */''}
           <select id="tdLearnDomain">
             <option value="">— بدون —</option>
-            ${LEARNING_DOMAINS.map(dom=>`<option value="${escapeHtml(dom)}" ${d.learningDomain===dom?'selected':''}>${escapeHtml(dom)}</option>`).join('')}
+            ${state.goals.map(g=>{ const p = pillarOf(goalPillarId(g));
+              return `<option value="goal:${g.id}" ${d.learningDomain==='goal:'+g.id?'selected':''}>${p? p.icon+' ' : ''}${escapeHtml(g.title)}</option>`;}).join('')}
+            ${(d.learningDomain && !/^goal:/.test(d.learningDomain))? `<option value="${escapeHtml(d.learningDomain)}" selected>${escapeHtml(d.learningDomain)}</option>`:''}
           </select>
+          ${state.goals.length? '' : `<p class="muted" style="margin:4px 0 0;font-size:var(--t1);">ما عندك أهداف سنوية بعد — أضيفيها من «الأساس».</p>`}
         </div>
         <div class="field">
           <label>النوع</label>
@@ -2535,7 +2566,7 @@ function renderSettings(){
         <button class="icon-btn" id="closeSettings">✕</button>
       </div>
       ${!cloud.linked? `
-        <p class="muted" style="margin-bottom:12px;">اربطي دفتري بـ GitHub Gist عشان يتزامن تلقائياً بين أجهزتك كل ما تفتحين أو ترفرشين. تحتاجين Gist ID وToken (شوفي خطوات إنشائهم اللي شرحتها لك).</p>
+      ${helpNote('cloudLink','اربطي دفتري بـ GitHub Gist عشان يتزامن تلقائيًا بين أجهزتك. تحتاجين Gist ID وToken.')}
         <div class="field">
           <label>Gist ID</label>
           <input type="text" id="cfgGistId" placeholder="مثال: 8f2a1b3c..." value="${escapeHtml(cloud.gistId)}" style="direction:ltr;text-align:left;"/>
@@ -2608,15 +2639,17 @@ function renderSettings(){
     ${renderListManagers()}
 
     <div class="card">
-      <div class="card-title"><h3>📦 تحديثات التطبيق</h3></div>
-      <div class="quote-box" style="margin-bottom:10px;">
-        <p class="muted" style="margin:0 0 4px;font-size:var(--t2);">نسختك الحالية</p>
-        <p style="margin:0;font-weight:700;color:var(--petrol-dark);font-size:var(--t4);">${APP_BUILD}</p>
-        <p class="muted" style="margin:6px 0 0;font-size:var(--t2);" id="buildCompare">…يقارن بالنسخة المنشورة</p>
+      <div class="card-title"><h3>📦 تحديثات التطبيق</h3>${helpNote('appUpdate','لو رقم نسختك ما يطابق المنشور، اضغطي 🔄. ما تحتاجين تحذفين الأيقونة من جوالك.')}</div>
+      ${/* a version box, a paragraph and a full-width button for one number and
+            one action — now the number and the action stand side by side */''}
+      <div class="update-row">
+        <div class="upd-ver">
+          <span>${APP_BUILD}</span>
+          <small id="buildCompare">…يقارن بالنسخة المنشورة</small>
+        </div>
+        <button class="icon-tile" id="checkAppUpdate" title="تحديث الآن" aria-label="تحديث الآن">🔄</button>
       </div>
-      <p class="muted" style="margin-bottom:10px;">لو الرقم فوق ما يطابق المنشور، اضغطي تحديث. ما تحتاجين تحذفين الأيقونة.</p>
-      ${appUpdateMsg? `<p class="muted" style="margin-bottom:10px;color:${appUpdateMsg.ok?'var(--sage)':'var(--rose-dark)'};">${escapeHtml(appUpdateMsg.text)}</p>`:''}
-      <button class="btn ghost btn-block" id="checkAppUpdate">🔄 تحديث الآن</button>
+      ${appUpdateMsg? `<p class="muted" style="margin:8px 0 0;color:${appUpdateMsg.ok?'var(--sage)':'var(--rose-dark)'};">${escapeHtml(appUpdateMsg.text)}</p>`:''}
     </div>
 
   </div>`;
@@ -3038,7 +3071,10 @@ function renderDateNav(){
    something to read each morning. */
 function renderDayFrame(dow){
   const tpl = state.dayTemplates[dow] || {};
-  const learning = [tpl.learningDomain, tpl.learningMode, tpl.learning].filter(Boolean).map(escapeHtml).join(' · ');
+  const learnGoal = /^goal:/.test(tpl.learningDomain||'')
+    ? (state.goals.find(g=>g.id===(tpl.learningDomain||'').slice(5))||null) : null;
+  const domLabel = learnGoal? learnGoal.title : (tpl.learningDomain||'');
+  const learning = [domLabel, tpl.learningMode, tpl.learning].filter(Boolean).map(escapeHtml).join(' · ');
   const rest = [];
   if(tpl.note) rest.push(`<div class="df-row"><span class="k">📝</span><span>${escapeHtml(tpl.note)}</span></div>`);
 
@@ -3050,8 +3086,10 @@ function renderDayFrame(dow){
   <div class="day-frame">
     ${tpl.motto? `<p class="df-goal">${escapeHtml(tpl.motto)}</p>`:''}
     ${learning? `<p class="df-learn">📖 ${learning}${tpl.learningLink? ` <a href="${escapeHtml(tpl.learningLink)}" target="_blank" rel="noopener">رابط</a>`:''}</p>`:''}
+    ${/* a labelled toggle sat centred under the day's purpose and broke the line
+          of it. It is a tool icon off to the side now, out of the reading path. */''}
     ${rest.length? `
-      <button type="button" class="df-toggle" data-toggle-collapse="${key}">${closed?'تفاصيل الروتين':'إخفاء'} <span class="chev ${closed?'':'open'}">▾</span></button>
+      <button type="button" class="df-toggle" data-toggle-collapse="${key}" title="${closed?'تفاصيل الروتين':'إخفاء التفاصيل'}" aria-label="تفاصيل الروتين">⚙</button>
       ${closed? '' : `<div class="df-rest">${rest.join('')}</div>`}
     `:''}
   </div>`;
@@ -3404,7 +3442,7 @@ function renderTimeBoxManager(){
   <details class="card" data-sec="tboxes" ${openSections.tboxes?'open':''} style="margin-bottom:14px;">
     <summary><h3>🎨 صناديق الزمن <span class="chev">▾</span></h3></summary>
     <div class="details-body">
-      <p class="muted" style="margin-bottom:10px;">حددي وقت كل صندوق ولونه، وأي تصنيفات تناسبه. لما تختارين أحد هذي التصنيفات لمهمة جديدة، تنتقل تلقائيًا لهذا الصندوق.</p>
+      ${helpNote('tboxes','حددي وقت كل صندوق ولونه، وأي تصنيفات تناسبه. لما تختارين أحد هذي التصنيفات لمهمة جديدة، تنتقل تلقائيًا لهذا الصندوق.')}
       ${state.timeBoxes.map(b=>`
         <div class="tbox-row" data-tbox="${b.id}">
           <input type="text" data-tbox-label="${b.id}" value="${escapeHtml(b.label)}" placeholder="اسم الصندوق"/>
@@ -3434,7 +3472,7 @@ function renderGoalPillarManager(){
   <details class="card" data-sec="pillars" ${openSections.pillars?'open':''} style="margin-bottom:14px;">
     <summary><h3>🧱 بنود الهوية الرئيسية <span class="chev">▾</span></h3></summary>
     <div class="details-body">
-      <p class="muted" style="margin-bottom:10px;"><b style="color:var(--petrol-dark);">العمود الفقري للتطبيق.</b> رؤيتك تتفرّع لبنود، وكل بند تحته أهدافه، وكل هدف تحته مهامه — بهالترتيب تظهر بصفحتَي الأساس والمهام. سميها بما يمثلك (مثل "أنا سعيدة"، "أنا ثرية").</p>
+      ${helpNote('pillars','<b>العمود الفقري للتطبيق.</b> رؤيتك تتفرّع لبنود، وكل بند تحته أهدافه، وكل هدف تحته مهامه — بهالترتيب تظهر بصفحتَي الأساس والمهام. سميها بما يمثلك (مثل «أنا سعيدة»، «أنا ثرية»).')}
       ${state.goalPillars.map(p=>`
         <div class="tcat-row" data-pillar-row="${p.id}">
           <input type="text" data-pillar-icon="${p.id}" value="${escapeHtml(p.icon)}" placeholder="✨" style="width:52px;text-align:center;flex-shrink:0;"/>
@@ -3452,7 +3490,7 @@ function renderMoodManager(){
   <details class="card" data-sec="moods" ${openSections.moods?'open':''} style="margin-bottom:14px;">
     <summary><h3>🌸 شعور اليوم <span class="chev">▾</span></h3></summary>
     <div class="details-body">
-      <p class="muted" style="margin-bottom:10px;">المشاعر اللي تختارين منها كل يوم. عدّلي الرمز والاسم، أوقفي اللي ما يناسبك، أو أخفي القسم كله.</p>
+      ${helpNote('moods','المشاعر اللي تختارين منها كل يوم. عدّلي الرمز والاسم، أوقفي اللي ما يناسبك، أو أخفي القسم كله.')}
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
         <button type="button" class="btn ghost sm" id="moodSectionToggle">${off? "▶️ رجّعي القسم لصفحة اليوم" : "🚫 أخفي القسم من صفحة اليوم"}</button>
         <span class="muted" style="font-size:var(--t2);">${off? 'القسم مخفي من صفحة اليوم.' : 'القسم يظهر بصفحة اليوم.'}</span>
@@ -3491,7 +3529,7 @@ function renderDailyQuestionsManager(){
   <details class="card" data-sec="dqs" ${openSections.dqs?'open':''} style="margin-bottom:14px;">
     <summary><h3>❓ تساؤلات اليوم <span class="chev">▾</span></h3></summary>
     <div class="details-body">
-      <p class="muted" style="margin-bottom:10px;">الأسئلة اللي تجاوبين عليها كل يوم بصفحة اليوم. غيّري عنوان القسم، وعدّلي الأسئلة أو رتّبيها كيف ما يناسبك.</p>
+      ${helpNote('dqs','الأسئلة اللي تجاوبين عليها كل يوم بصفحة اليوم. غيّري عنوان القسم، وعدّلي الأسئلة أو رتّبيها كيف ما يناسبك.')}
       <div class="field" style="margin-bottom:12px;">
         <label>اسم القسم</label>
         <input type="text" id="dqTitle" value="${escapeHtml(state.questionsTitle || DEFAULT_QUESTIONS_TITLE)}" placeholder="${escapeHtml(DEFAULT_QUESTIONS_TITLE)}"/>
@@ -3522,7 +3560,7 @@ function renderActionTypeManager(){
   <details class="card" data-sec="atypes" ${openSections.atypes?'open':''} style="margin-bottom:14px;">
     <summary><h3>🔸 أنواع الفعل <span class="chev">▾</span></h3></summary>
     <div class="details-body">
-      <p class="muted" style="margin-bottom:10px;">نوع الفعل اللي تتطلبه المهمة (اتصال، حركة، قرار...) — يظهر كخيار وقت إضافة مهمة، عشان تعرفين بنظرة أي جهد تحتاجه.</p>
+      ${helpNote('acts','نوع الفعل اللي تتطلبه المهمة (اتصال، حركة، قرار…) — يظهر كخيار وقت إضافة مهمة، عشان تعرفين بنظرة أي جهد تحتاجه.')}
       ${types.map((a,i)=>`
         <div class="tcat-row" data-atype="${i}">
           <input type="text" data-atype-text="${i}" value="${escapeHtml(a)}" placeholder="اسم النوع" style="flex:1;"/>
@@ -3541,7 +3579,7 @@ function renderTaskCategoryManager(){
   <details class="card" data-sec="tcats" ${openSections.tcats?'open':''} style="margin-bottom:14px;">
     <summary><h3>🗂️ التصنيفات الرئيسية <span class="chev">▾</span></h3></summary>
     <div class="details-body">
-      <p class="muted" style="margin-bottom:10px;"><b style="color:var(--petrol-dark);">وسم مساعد للفرز، مو جزءًا من التسلسل.</b> يفيد بربط صناديق الزمن وبتجميع المهام اللي ما لها هدف بعد. غيّري اسم أو أيقونة أي تصنيف، أو ضيفي وحذفي حسب ما يناسبك.</p>
+      ${helpNote('cats','<b>وسم مساعد للفرز، مو جزءًا من التسلسل.</b> يفيد بربط صناديق الزمن وبتجميع المهام اللي ما لها هدف بعد.')}
       ${state.taskCategories.map(c=>`
         <div class="tcat-row" data-tcat="${c.id}">
           <input type="text" data-tcat-icon="${c.id}" value="${escapeHtml(c.icon)}" placeholder="🏷️" style="width:52px;text-align:center;flex-shrink:0;"/>
@@ -4154,7 +4192,7 @@ function renderGoals(){
   </details>
 
   <div class="card" style="text-align:center;">
-    <p class="muted" style="margin-bottom:10px;">القوائم اللي تُبنى عليها صفحاتك — بنود الهوية، صناديق الزمن، التصنيفات، أنواع الفعل، التساؤلات، والمشاعر — انتقلت للإعدادات، عشان هالصفحة تضل لرؤيتك وأهدافك.</p>
+      ${helpNote('listsMoved','القوائم اللي تُبنى عليها صفحاتك — بنود الهوية، صناديق الزمن، التصنيفات، أنواع الفعل، التساؤلات، والمشاعر — انتقلت للإعدادات، عشان هالصفحة تضل لرؤيتك وأهدافك.')}
     <button class="btn ghost sm" id="goToLists">⚙️ افتحي قوائمك</button>
   </div>`;
 }
@@ -4168,7 +4206,7 @@ function renderHomeCardsManager(){
   <details class="card" data-sec="homeCards" ${openSections.homeCards?'open':''} style="margin-bottom:14px;">
     <summary><h3>🗓️ وش يظهر بصفحة اليوم <span class="muted" style="font-size:var(--t2);font-weight:400;">(${on} من ${HOME_CARDS.length})</span> <span class="chev">▾</span></h3></summary>
     <div class="details-body">
-      <p class="muted" style="margin-bottom:10px;">أوقفي أي بطاقة ما تستخدمينها فتختفي من يومك. بياناتها تضل محفوظة، وترجع متى ما فعّلتيها.</p>
+      ${helpNote('homeCards','أوقفي أي بطاقة ما تستخدمينها فتختفي من يومك. بياناتها تضل محفوظة، وترجع متى ما فعّلتيها.')}
       ${HOME_CARDS.map(c=>{
         const off = !homeCardOn(c.id);
         return `
@@ -4856,7 +4894,7 @@ function renderFinancePathsCard(fg){
     <summary><h3>💵 مصادر دخلي <span class="chev">▾</span></h3></summary>
     <div class="details-body">
       ${selected.length===0 && fg.customPaths.length===0? `
-        <p class="muted" style="margin-bottom:12px;">ما حددتي مصادر دخلك بعد. اختاري مصدرًا من الأسفل أو أضيفي واحدًا من عندك، وأعطيك خطوة عملية كل مرة.</p>
+      ${helpNote('sources','ما حددتي مصادر دخلك بعد. اختاري مصدرًا من الأسفل أو أضيفي واحدًا من عندك، وأعطيك خطوة عملية كل مرة.')}
       `:''}
 
       ${selected.map(pid=>{
