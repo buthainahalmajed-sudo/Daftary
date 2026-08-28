@@ -184,7 +184,9 @@ details.path-block > summary::-webkit-details-marker{display:none;}
 .goal-body{padding:0 16px 16px;}
 
 .fg-headline{
-  font-family:'Amiri',serif;font-size:40px;font-weight:700;line-height:1.15;
+  /* Amiri's digits are decorative — wrong for a figure meant to be read at a
+     glance. The prose keeps the serif; the number does not. */
+  font-family:'IBM Plex Sans Arabic',sans-serif;font-size:38px;font-weight:800;line-height:1.1;letter-spacing:-.01em;
   color:var(--petrol-dark);font-variant-numeric:tabular-nums;
 }
 .fg-headline span{
@@ -1379,7 +1381,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 67';
+const APP_BUILD = '2026-08-17 · 68';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -3761,7 +3763,9 @@ function renderJournalEntryRow(j){
   const c = j.cat? catOf(j.cat) : null;
   return `<div class="inbox-row" data-journal-row="${j.id}">
     <span class="dot"></span>
-    <div style="flex:1;">
+    ${/* min-width:0 or the single-line preview inside refuses to shrink and
+          shoves the ✎ ✕ buttons off the side of the card */''}
+    <div style="flex:1;min-width:0;">
       <span class="muted" style="font-size:var(--t1);">${j.date}</span>
       ${c? `<span class="tag" style="margin-inline-start:6px;">${c.icon} ${escapeHtml(c.label)}</span>`:''}
       ${(()=>{
@@ -5002,7 +5006,7 @@ function renderFinancePathsCard(fg){
           <summary>
             <div class="path-head">
               <span class="path-icon">${p.icon}</span>
-              <span class="path-name">${escapeHtml(p.label)}</span>
+              <span class="path-name">${escapeHtml(pathLabel(p))}</span>
               <span class="path-count">${idx} / ${seq.length}</span>
               <span class="chev">▾</span>
             </div>
@@ -5045,6 +5049,7 @@ function renderFinancePathsCard(fg){
               <p class="muted" style="margin-bottom:4px;font-size:var(--t2);">✎ تعديل نص المقترح</p>
               <textarea data-tip-edit="${pid}|${idx}" style="width:100%;padding:9px 11px;border:1.5px solid var(--line);border-radius:8px;background:var(--paper);font-size:var(--tf);margin-bottom:10px;min-height:44px;resize:vertical;">${escapeHtml(tip)}</textarea>
             `:''}
+            <div style="margin-bottom:10px;"><label>اسم المصدر</label><input type="text" data-path-rename="${pid}" value="${escapeHtml(pathLabel(p))}" placeholder="${escapeHtml(p.label)}"/></div>
             <button class="btn ghost sm" data-path-remove="${pid}">✕ احذفي هذا المصدر</button>
           </div>`:''}
           </div>
@@ -5508,12 +5513,18 @@ function plCreateSource(row){
   plNewSourceFor = null; plNewSourceDraft = '';
   saveState(); render();
 }
+/* A built-in source arrives with the app's name for it, which is rarely the name
+   she calls it. Her rename is kept as an override so the underlying source — and
+   its steps and tips — stay the same thing. */
+function pathLabel(p){
+  const over = ((state.financialGoal||{}).pathLabels||{})[p.id];
+  return (over && over.trim()) || p.label;
+}
 function plPathOptions(){
-
   const fg = state.financialGoal || {};
   const built = (fg.paths||[]).map(id=>{
     const p = FINANCE_PATHS.find(x=>x.id===id);
-    return p? {id:p.id, label:p.label, icon:p.icon} : null;
+    return p? {id:p.id, label:pathLabel(p), icon:p.icon} : null;
   }).filter(Boolean);
   const own = (fg.customPaths||[]).map(c=>({id:c.id, label:c.label, icon:c.icon||'✏️'}));
   return built.concat(own);
@@ -5841,6 +5852,18 @@ function attachFinanceEvents(){
     });
   };
   cpField('data-cp-label','label');
+  document.querySelectorAll('[data-path-rename]').forEach(inp=>{
+    inp.onchange = ()=>{
+      const fg = state.financialGoal; if(!fg) return;
+      if(!fg.pathLabels) fg.pathLabels = {};
+      const v = inp.value.trim();
+      /* clearing it puts the app's own name back rather than leaving it blank */
+      if(v) fg.pathLabels[inp.dataset.pathRename] = v;
+      else delete fg.pathLabels[inp.dataset.pathRename];
+      saveState(); render();
+    };
+  });
+
   cpField('data-cp-icon','icon');
   cpField('data-cp-success','successCriteria');
   cpField('data-cp-note','note');
