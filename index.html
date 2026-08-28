@@ -1346,7 +1346,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 61';
+const APP_BUILD = '2026-08-17 · 62';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -3039,7 +3039,10 @@ function renderTopbar(){
         <button type="button" id="sizeDown" title="تصغير الخط">A-</button>
         <button type="button" id="sizeUp" title="تكبير الخط">A+</button>
       </div>
-      <div class="date-chip">${todayMoodEmojis? todayMoodEmojis+' ':''}${DOW_NAMES[d.getDay()]}، ${d.getDate()} ${MONTHS[d.getMonth()]}</div>
+      ${/* the day view carries a full date bar of its own directly below this,
+            so the chip would be the same date printed twice, one line apart */''}
+      ${(view==='home' && !settingsOpen)? '' : `<div class="date-chip">${todayMoodEmojis? todayMoodEmojis+' ':''}${DOW_NAMES[d.getDay()]}، ${d.getDate()} ${MONTHS[d.getMonth()]}</div>`}
+
     </div>
   </div>`;
 }
