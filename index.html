@@ -183,22 +183,15 @@ details.path-block > summary::-webkit-details-marker{display:none;}
 .goal-head .gh-bar i{display:block;height:100%;background:var(--sage);}
 .goal-body{padding:0 16px 16px;}
 
-  display:inline-block;max-width:100%;box-sizing:border-box;
-  background:var(--parchment);border:1px solid var(--line);border-radius:14px;
-  padding:9px 14px;margin:0 auto 14px;text-align:right;
-}
-  font-size:var(--t1);color:var(--petrol-dark);background:#fff;
-  border:1px solid var(--line);border-radius:20px;padding:2px 9px;
-}
-  font-size:var(--t2);color:var(--ink);line-height:1.6;margin-top:4px;
-  border-right:2px solid var(--gold);padding-right:8px;
-}
-  background:none;border:none;padding:2px 4px;cursor:pointer;
-  font-family:inherit;font-size:var(--t2);color:var(--muted);flex-shrink:0;
-}
 .fg-headline{
-font-size:30px;font-weight:800;color:var(--petrol-dark);font-family:'IBM Plex Sans Arabic',sans-serif;line-height:1.15;font-variant-numeric:tabular-nums;}
-.fg-headline span{font-size:var(--t3);font-weight:700;color:var(--muted);}
+  font-family:'Amiri',serif;font-size:40px;font-weight:700;line-height:1.15;
+  color:var(--petrol-dark);font-variant-numeric:tabular-nums;
+}
+.fg-headline span{
+  display:block;font-family:'IBM Plex Sans Arabic',sans-serif;
+  font-size:var(--t2);font-weight:700;letter-spacing:.07em;color:var(--gold);margin-top:1px;
+}
+
 .fg-bar{position:relative;height:12px;background:var(--line);border-radius:8px;margin:12px 0 8px;}
 .fg-bar .fill{height:100%;background:var(--sage);border-radius:8px;}
 /* where she is in the time, so the bar answers "ahead or behind" not just "how much" */
@@ -559,12 +552,15 @@ font-size:var(--t1);color:#a9c9bb;margin-top:8px;line-height:1.6;}
 }
 .focus-strip .task-row:last-of-type{border-bottom:none;}
 /* the rest of the day folds away on its own, so the three that matter stay put */
-.day-rest{margin-top:4px;}
+.day-rest{margin-top:16px;}
+/* the same head as ⭐ أهم ٣ مهام above it: a quiet label on a firm rule. It was
+   a dashed line and a coloured link, which made two halves of one card look
+   like they belonged to different pages. */
 .day-rest > summary{
   cursor:pointer;list-style:none;user-select:none;
   display:flex;align-items:center;gap:7px;
-  font-size:var(--t2);font-weight:700;color:var(--petrol);
-  padding:7px 0;border-top:1px dashed var(--line);
+  font-size:var(--t1);font-weight:700;letter-spacing:.08em;color:var(--petrol-dark);
+  padding-bottom:5px;border-bottom:1.5px solid var(--petrol-dark);
 }
 .day-rest > summary::-webkit-details-marker{display:none;}
 .day-rest > summary .grow{flex:1;min-width:0;}
@@ -727,16 +723,6 @@ table.htable td.habit-label-cell{text-align:right;font-size:var(--t2);padding-ri
 .card{padding:14px;margin-bottom:12px;}
 .card-title{margin-bottom:8px;}
 
-  display:block;max-width:100%;box-sizing:border-box;
-  background:var(--parchment);border:1px solid var(--line);border-radius:12px;
-  padding:8px 12px;margin:0 auto 12px;text-align:right;
-}
-  background:none;border:none;padding:2px 4px;cursor:pointer;
-  font-family:inherit;font-size:var(--t2);color:var(--muted);flex-shrink:0;
-}
-  font-weight:700;color:var(--petrol-dark);font-size:var(--t2);line-height:1.65;
-  border-right:2px solid var(--gold);padding-right:9px;
-}
 
 /* the day's three: a labelled list, not a box inside a box */
 .focus-strip{border:none;background:none;box-shadow:none;padding:0;margin-bottom:14px;}
@@ -835,6 +821,49 @@ details.card::before{display:none;}
 .goal-card::before,.money-entry::before{display:none;}
 .goal-head{padding:14px 12px;}
 .goal-body{padding:0 12px 14px;}
+/* a ؟ that keeps an explanation one tap away instead of in the way */
+.help-btn{
+  width:20px;height:20px;border-radius:50%;flex-shrink:0;
+  border:1px solid var(--line);background:var(--paper);
+  color:var(--muted);font-family:inherit;font-size:12px;font-weight:700;
+  line-height:1;padding:0;cursor:pointer;vertical-align:middle;
+  display:inline-flex;align-items:center;justify-content:center;
+  margin:0 0 14px 6px;
+}
+.help-btn.on{background:var(--petrol);border-color:var(--petrol);color:#fff;}
+.help-text{
+  font-size:var(--t2);color:var(--muted);line-height:1.7;
+  margin:0 0 14px;padding:9px 11px;
+  background:var(--parchment);border-radius:10px;border-right:2px solid var(--gold);
+}
+.help-text b{color:var(--petrol-dark);}
+
+/* the month's income: two numbers and their sum, on one line */
+.income-strip{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.income-strip .is-fields{display:flex;gap:10px;flex:1;min-width:0;}
+.income-strip label{
+  display:flex;align-items:center;gap:6px;flex:1;min-width:0;
+  font-size:var(--t1);color:var(--muted);font-weight:600;
+}
+.income-strip input{
+  width:100%;min-width:0;padding:7px 8px;font-size:var(--tf);
+  border:1px solid var(--line);border-radius:9px;background:var(--parchment);
+  font-variant-numeric:tabular-nums;
+}
+.income-strip .is-total{text-align:center;flex-shrink:0;}
+.income-strip .is-total span{
+  display:block;font-size:var(--t4);font-weight:800;color:var(--petrol-dark);
+  font-variant-numeric:tabular-nums;
+}
+.income-strip .is-total small{font-size:var(--t1);color:var(--muted);}
+
+/* a journal entry leads with its date; long writing opens underneath */
+.jrn-peek{
+  display:flex;align-items:center;gap:8px;width:100%;text-align:right;
+  background:none;border:none;padding:4px 0 0;cursor:pointer;
+  font-family:inherit;font-size:var(--t3);color:var(--ink);
+}
+.jrn-peek .grow{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 </style>
 </head>
 <body>
@@ -1042,7 +1071,20 @@ const HOME_CARDS = [
   {id:'suggestions', label:'مقترحات ذكية',         hint:'اقتراحات مبنية على أهدافك'},
   {id:'calm',        label:'رسالة يوم هادئ',       hint:'تظهر حين ما فيه شي عاجل'},
 ];
+/* Explanations of how a section works are read once and then in the way for
+   good. They live behind a ؟ next to the heading: still one tap away, never
+   sitting between her and her own content. */
+function helpNote(key, text){
+  const k = 'help:'+key;
+  /* the shared toggle reads an unset key as open, so a note that starts hidden
+     has to say so or the first tap does nothing */
+  if(state.collapsed[k] === undefined) state.collapsed[k] = true;
+  const open = !state.collapsed[k];
+  return `<button type="button" class="help-btn ${open?'on':''}" data-toggle-collapse="${k}" title="وش هذا؟" aria-label="وش هذا؟">؟</button>`
+    + (open? `<p class="help-text">${text}</p>` : '');
+}
 function homeCardOn(id){
+
   const m = state.homeCards || {};
   return m[id] !== false;
 }
@@ -1277,7 +1319,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 57';
+const APP_BUILD = '2026-08-17 · 58';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -3125,8 +3167,6 @@ function renderHabitsCard(tpl, log, dow){
   <div class="card">
     <div class="card-title">
       <h3 style="cursor:pointer;flex:1;display:flex;align-items:center;gap:7px;" data-toggle-collapse="habits"><span style="flex:1;">عادات ${tpl.name}${dayHabits.length? ` <span class="muted" style="font-size:var(--t2);font-weight:400;">(${finished.length}/${dayHabits.length})</span>`:''}</span><span class="chev ${collapsed?"":"open"}">▾</span></h3>
-      <button class="icon-btn sm" data-edit-template="${dow}" title="شعار اليوم، وقته، وتعلّمه">✎ الروتين</button>
-      <button class="icon-btn sm" data-goto-habits="1">إدارة العادات</button>
     </div>
     ${collapsed? '' : `
     ${dayHabits.length===0? `<div class="empty tight">ما فيه عادات لهذا اليوم<span class="hint">أضيفيها أو فعّليها من صفحة «العادات»</span></div>`:''}
@@ -3348,8 +3388,10 @@ function renderScheduleCard(){
         return `<button type="button" class="period-tab ${period===b.id?'active':''}" data-period="${b.id}" ${period===b.id?`style="background:${b.color};border-color:${b.color};color:#fff;"`:''}>${escapeHtml(b.label)}${n? ` <span class="ptab-count">${n}</span>`:''}</button>`;
       }).join('')}
     </div>
-    ${activeBox? `<p class="muted" style="margin-bottom:10px;">⏰ ${activeBox.start} – ${activeBox.end}${(activeBox.categoryIds&&activeBox.categoryIds.length)? ' · '+activeBox.categoryIds.map(id=>tcatOf(id)?.label).filter(Boolean).join('، ') : ''}</p>`:''}
-    ${items.length===0? `<div class="empty tight">ما فيه مهام في هالصندوق${focus.length? '' : ''}<span class="hint">وزّعي مهامك من صفحة المهام</span></div>` : items.map(t=>taskRowHtml(t, {date:dateStr, assign:true})).join('')}
+    ${/* the box also listed every category assigned to it, which ran to a line
+          and a half of names she never acts on from here */''}
+    ${activeBox? `<p class="muted" style="margin:6px 0 8px;font-size:var(--t1);">⏰ ${activeBox.start} – ${activeBox.end}</p>`:''}
+    ${items.length===0? `<div class="empty tight">ما فيه مهام في هالصندوق</div>` : items.map(t=>taskRowHtml(t, {date:dateStr, assign:true})).join('')}
     <button class="btn ghost btn-block" style="margin-top:8px;" id="goAddTaskPeriod" data-add-period="${period}">+ إضافة مهمة ${activeBox?'لـ'+escapeHtml(activeBox.label):''}</button>
       </div>
     </details>
@@ -3602,7 +3644,22 @@ function renderJournalEntryRow(j){
     <div style="flex:1;">
       <span class="muted" style="font-size:var(--t1);">${j.date}</span>
       ${c? `<span class="tag" style="margin-inline-start:6px;">${c.icon} ${escapeHtml(c.label)}</span>`:''}
-      <div class="txt">${escapeHtml(j.text)}</div>
+      ${(()=>{
+        /* a long entry took the whole screen and buried the ones under it, so
+           the date leads and the writing opens on request. Short ones have
+           nothing to hide and stay out. */
+        const long = (j.text||'').length > 90;
+        if(!long) return `<div class="txt">${escapeHtml(j.text)}</div>`;
+        const k = 'jrn:'+j.id;
+        if(state.collapsed[k] === undefined) state.collapsed[k] = true;
+        const closed = !!state.collapsed[k];
+        return `
+        <button type="button" class="jrn-peek" data-toggle-collapse="${k}">
+          <span class="grow">${escapeHtml(j.text.slice(0,58))}…</span>
+          <span class="chev ${closed?'':'open'}">▾</span>
+        </button>
+        ${closed? '' : `<div class="txt">${escapeHtml(j.text)}</div>`}`;
+      })()}
     </div>
     <button class="icon-btn" data-journal-edit="${j.id}">✎</button>
     <button class="icon-btn" data-journal-del="${j.id}">✕</button>
@@ -3647,7 +3704,7 @@ function renderJournalPage(){
   const usedCats = state.taskCategories.filter(c=> state.journal.some(j=> inYear(j) && j.cat===c.id));
   return `
   <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:4px;">📖 يومياتي</h2>
-  <p class="muted" style="margin-bottom:16px;">سجّلي إنجازاتك بحرية، عدّليها متى ما بغيتِ، واستخلصيها بنهاية السنة بضغطة وحدة.</p>
+  ${helpNote('journal','سجّلي إنجازاتك بحرية، عدّليها متى ما بغيتِ، واستخلصيها بنهاية السنة بضغطة وحدة.')}
 
   <div class="card">
     <div class="card-title"><h3>💼 إنجاز عمل جديد</h3></div>
@@ -4084,7 +4141,7 @@ function renderGoals(){
     + goalGroupHtml('pillarGroup:__none__', '🗂️', 'بدون بند', noPillar);
   return `
   <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:4px;">الأساس</h2>
-  <p class="muted" style="margin-bottom:16px;">رؤيتك ← <b>بنود هويتك</b> ← أهداف كل بند ← مهام كل هدف. البند هو مَن تكونين، والهدف خطوتك نحوه، والمهام شغلك اليومي عليه — نفس التسلسل بصفحة المهام.</p>
+  ${helpNote('goalsChain','رؤيتك ← <b>بنود هويتك</b> ← أهداف كل بند ← مهام كل هدف. البند هو مَن تكونين، والهدف خطوتك نحوه، والمهام شغلك اليومي عليه — نفس التسلسل بصفحة المهام.')}
 
   ${renderLifeVisionSection()}
 
@@ -5023,6 +5080,21 @@ function plRowHtml(r, opts){
     </div>`;
   }
   const cats = isIncome? PL_INCOME_CATS : PL_EXPENSE_CATS;
+  /* A blank row used to open with every field at once — type, description,
+     amount, date, category, source — so the first decision was buried among
+     five others. It asks one question first; the rest of the form is about the
+     answer, and the category list depends on it anyway. */
+  if(!r.type) return `
+  <div class="item-card fin-ledger-card is-asking" data-id="${r.id}">
+    <div class="card-top">
+      <p class="ask-q">دخل ولا مصروف؟</p>
+      <button type="button" class="del-row" aria-label="إلغاء">✕</button>
+    </div>
+    <div class="ask-pick">
+      <button type="button" class="pick-in" data-pl-type="income">🟢 دخل</button>
+      <button type="button" class="pick-out" data-pl-type="expense">🔴 مصروف</button>
+    </div>
+  </div>`;
   return `
   <div class="item-card fin-ledger-card" data-id="${r.id}">
     <div class="card-top">
@@ -5116,7 +5188,7 @@ function plRenderRows(){
     let g = paths.find(x=>x.id===pid);
     if(!g){
       const p = pid? plPathOf(pid) : null;
-      g = {id:pid, label:p? p.label : (pid? 'مصدر ما عاد بقائمتك' : 'بدون مصدر محدد — حدّديه'),
+      g = {id:pid, label:p? p.label : (pid? 'مصدر ما عاد بقائمتك' : 'بدون مصدر محدد'),
            icon:p? p.icon : (pid? '❓' : '🗂️'), items:[], income:0, expense:0};
       paths.push(g);
     }
@@ -5244,7 +5316,7 @@ function plWire(container){
   });
   container.querySelectorAll('[data-pl-add-to]').forEach(b=> b.onclick=()=>{
 
-    const row = {id:uid(), type:'income', desc:'', category:PL_INCOME_CATS[0], amount:'',
+    const row = {id:uid(), type:null, desc:'', category:'', amount:'',
                  date:todayStr(), pathId:b.dataset.plAddTo || null};
     state.projectLedger.push(row);
     plEditingId = row.id;
@@ -5260,6 +5332,7 @@ function plWire(container){
     row.type = b.dataset.plType;
     const cats = row.type==='expense'? PL_EXPENSE_CATS : PL_INCOME_CATS;
     if(!cats.includes(row.category)) row.category = cats[0];
+    plEditingId = row.id;   /* stay in the form she just answered the first question of */
     saveState(); plRenderRows(); plUpdateStats();
   });
   container.querySelectorAll('[data-id]').forEach(rowEl=>{
@@ -5563,7 +5636,7 @@ function attachFinanceEvents(){
   plRenderRows(); plUpdateStats();
   const plAddRowBtn = document.getElementById('plAddRowBtn');
   if(plAddRowBtn) plAddRowBtn.onclick = ()=>{
-    const newRow = {id:uid(), type:'income', desc:'', category:PL_INCOME_CATS[0], amount:'', date:todayStr()};
+    const newRow = {id:uid(), type:null, desc:'', category:'', amount:'', date:todayStr()};
     state.projectLedger.push(newRow);
     saveState(); plRenderRows();
   };
@@ -6028,7 +6101,7 @@ function renderSafetyPage(){
   return `
   <div class="safety-calc">
     <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:4px;">🛡️ نقطة الأمان المالي</h2>
-    <p class="muted" style="margin-bottom:16px;">المبلغ اللي إذا وصلتيه، تكون احتياجاتك الأساسية مغطاة بدون الحاجة للعمل</p>
+    ${helpNote('safety','المبلغ اللي إذا وصلتيه، تكون احتياجاتك الأساسية مغطاة بدون الحاجة للعمل.')}
 
     <div class="card">
       <div class="card-title"><h3>نقطة الأمان المالي</h3></div>
@@ -6082,7 +6155,7 @@ function renderSafetyPage(){
 
     <details class="card" data-sec="scIncome" ${sec('scIncome')}>
       <summary><h3>مصادر الدخل الشهري <span class="chev">▾</span></h3></summary><div class="details-body">
-      <p class="muted" style="margin-bottom:10px;">راتب شهري، إيجار عقار (لو سنوي، اقسميه ÷12)، عائد برنامج استثماري، مكافآت مالية... قيمة الأسهم والودائع ورأس مال أي برنامج استثماري تُكتب في "الأصول" أعلاه، مو هنا. استثناء: "أرباح الودائع السنوية" اكتبيها كمبلغ سنوي مباشرة، وبنقسمها ÷12 تلقائيًا.</p>
+      ${helpNote('scIncome','راتب شهري، إيجار عقار (لو سنوي، اقسميه ÷12)، عائد برنامج استثماري، مكافآت مالية… قيمة الأسهم والودائع ورأس مال أي برنامج استثماري تُكتب في «الأصول» أعلاه، مو هنا. استثناء: «أرباح الودائع السنوية» اكتبيها كمبلغ سنوي مباشرة، وبنقسمها ÷12 تلقائيًا.')}
       <div id="scIncomeRows"></div>
       <button class="btn ghost btn-block" id="scAddIncomeBtn" style="margin-top:10px;">+ إضافة مصدر دخل</button>
       <div class="total-line"><span class="lbl">إجمالي الدخل الشهري</span><span class="val" id="scIncomeTotal">0 ريال</span></div>
@@ -6090,7 +6163,7 @@ function renderSafetyPage(){
 
     <details class="card" data-sec="scExpenses" ${sec('scExpenses')}>
       <summary><h3>بنود الصرف الشهرية <span class="chev">▾</span></h3></summary><div class="details-body">
-      <p class="muted" style="margin-bottom:10px;">نفس بنود صفحة "المصاريف" بالضبط — كل بند يحمل تصنيفه (🟢 ضروري، 🟡 قابل للتقليل، 🔴 كمالي، 🟠 دين، 🔵 ادخار)، ومنه يُعرف تلقائيًا إن كان أساسيًا. رقم الأمان يعتمد على الأساسي فقط.</p>
+      ${helpNote('scExpenses','نفس بنود صفحة «المصاريف» بالضبط — كل بند يحمل تصنيفه (🟢 ضروري، 🟡 قابل للتقليل، 🔴 كمالي، 🟠 دين، 🔵 ادخار)، ومنه يُعرف تلقائيًا إن كان أساسيًا. رقم الأمان يعتمد على الأساسي فقط.')}
       <div id="scExpenseRows"></div>
       <button class="btn ghost btn-block" id="scAddExpenseBtn" style="margin-top:10px;">+ إضافة بند صرف</button>
       <div class="total-line"><span class="lbl">إجمالي المصاريف الشهرية</span><span class="val" id="scExpenseTotal">0 ريال</span></div>
@@ -6605,7 +6678,7 @@ function renderExpensesPage(){
   return `
   <div class="expense-diag">
     <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:4px;">🩺 تشخيص المصاريف الشهرية</h2>
-    <p class="muted" style="margin-bottom:6px;">مو بس تسجيل أرقام — تعرفين وين يروح راتبك ووين تقدرين توفرين</p>
+    ${helpNote('expenses','مو بس تسجيل أرقام — تعرفين وين يروح راتبك ووين تقدرين توفرين.')}
     <span class="month-badge">${edCurrentMonthLabel()}</span>
 
     <div class="card">
@@ -6629,13 +6702,14 @@ function renderExpensesPage(){
     </div>
 
 
-    <div class="card" style="margin-top:14px;">
-      <div class="card-title"><h3>الدخل الشهري</h3></div>
-      <div class="row2">
-        <div class="field"><label>الراتب الأساسي</label><input id="edSalaryInput" type="number" min="0" step="1" placeholder="0" value="${escapeHtml(state.sharedIncome||'')}"/></div>
-        <div class="field"><label>دخل إضافي</label><input id="edExtraInput" type="number" min="0" step="1" placeholder="0" value="${escapeHtml(m.extra||'')}"/></div>
+    ${/* a heading, two labelled fields and a total line, for two numbers she
+          changes once a month — it is one row now, with the sum beside it */''}
+    <div class="card income-strip" style="margin-top:14px;">
+      <div class="is-fields">
+        <label>راتب <input id="edSalaryInput" type="number" min="0" step="1" placeholder="0" value="${escapeHtml(state.sharedIncome||'')}"/></label>
+        <label>إضافي <input id="edExtraInput" type="number" min="0" step="1" placeholder="0" value="${escapeHtml(m.extra||'')}"/></label>
       </div>
-      <div class="total-line"><span class="lbl">إجمالي الدخل</span><span class="val" id="edIncomeTotal">0 ريال</span></div>
+      <div class="is-total"><span id="edIncomeTotal">0 ريال</span><small>دخل الشهر</small></div>
     </div>
 
     <details class="card" data-sec="edRows" ${sec('edRows')}>
