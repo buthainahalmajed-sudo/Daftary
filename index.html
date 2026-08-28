@@ -918,6 +918,17 @@ details.card::before{display:none;}
   width:100%;background:none;border:none;border-bottom:1.5px solid var(--petrol-dark);
   font-family:inherit;cursor:pointer;text-align:right;
 }
+/* the day's two marks, together in the corner and out of the reading line */
+.day-frame .df-marks{
+  position:absolute;top:0;left:0;display:flex;gap:4px;
+}
+.day-frame .df-toggle{
+  position:static;width:24px;height:24px;border-radius:8px;padding:0;
+  border:1px solid var(--line);background:var(--paper);
+  color:var(--muted);font-size:12px;line-height:1;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.day-frame .df-rest{margin-top:7px;}
 </style>
 </head>
 <body>
@@ -1373,7 +1384,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 64';
+const APP_BUILD = '2026-08-17 · 65';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -3144,12 +3155,23 @@ function renderDayFrame(dow){
   <div class="day-frame is-bare">
     <button type="button" class="df-add" data-edit-template="${dow}">⚙ اكتبي هدف اليوم</button>
   </div>`;
+  /* The day's purpose is the one line worth reading every morning. Its learning
+     and its note are reference — they fold, until she settles on a shorter way
+     to say them. Two marks, because they do different things: ▾ shows the rest,
+     ⚙ opens the routine to change it. */
+  const extras = [];
+  if(learning) extras.push(`<p class="df-learn">📖 ${learning}${tpl.learningLink? ` <a href="${escapeHtml(tpl.learningLink)}" target="_blank" rel="noopener">رابط</a>`:''}</p>`);
+  if(tpl.note) extras.push(`<p class="df-learn">📝 ${escapeHtml(tpl.note)}</p>`);
+  if(state.collapsed.dayFrame === undefined) state.collapsed.dayFrame = true;
+  const closed = !!state.collapsed.dayFrame;
   return `
   <div class="day-frame">
     ${tpl.motto? `<p class="df-goal">${escapeHtml(tpl.motto)}</p>`:''}
-    ${learning? `<p class="df-learn">📖 ${learning}${tpl.learningLink? ` <a href="${escapeHtml(tpl.learningLink)}" target="_blank" rel="noopener">رابط</a>`:''}</p>`:''}
-    ${tpl.note? `<p class="df-learn">📝 ${escapeHtml(tpl.note)}</p>`:''}
-    <button type="button" class="df-toggle" data-edit-template="${dow}" title="تعديل روتين اليوم" aria-label="تعديل روتين اليوم">⚙</button>
+    ${(extras.length && !closed)? `<div class="df-rest">${extras.join('')}</div>`:''}
+    <div class="df-marks">
+      ${extras.length? `<button type="button" class="df-toggle" data-toggle-collapse="dayFrame" title="${closed?'بقية الروتين':'إخفاء'}" aria-label="بقية الروتين"><span class="chev ${closed?'':'open'}">▾</span></button>`:''}
+      <button type="button" class="df-toggle" data-edit-template="${dow}" title="تعديل روتين اليوم" aria-label="تعديل روتين اليوم">⚙</button>
+    </div>
   </div>`;
 }
 
