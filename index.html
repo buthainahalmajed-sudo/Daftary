@@ -1346,7 +1346,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 60';
+const APP_BUILD = '2026-08-17 · 61';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -2304,9 +2304,11 @@ function renderGoalWizard(){
       </div>
       <div class="field">
         <label>بند الهوية — مَن تكونين لما تحققينه؟</label><p class="muted" style="margin:-2px 0 8px;font-size:var(--t2);">البند هو مكان الهدف في التسلسل — يجمع الهدف بصفحة الأساس، ويجمع مهامه بصفحة المهام. بند واحد لكل هدف.</p>
-        <div class="chip-row" id="gwPillars">
-          ${state.goalPillars.map(p=>`<button type="button" class="chip ${goalWizard.pillarId===p.id?'selected':''}" data-pillar="${p.id}">${p.icon} ${p.label}</button>`).join('')}
-        </div>
+        ${/* one aspect out of a growing list — a dropdown, not a wall of chips */''}
+        <select id="gwPillarSel">
+          <option value="">— بدون بند —</option>
+          ${state.goalPillars.map(p=>`<option value="${p.id}" ${goalWizard.pillarId===p.id?'selected':''}>${p.icon} ${escapeHtml(p.label)}</option>`).join('')}
+        </select>
         ${(goalWizard.customPillars||[]).length? `
         <div class="chip-row" style="margin-top:8px;">
           ${goalWizard.customPillars.map((c,i)=>`<span class="chip selected" style="display:inline-flex;align-items:center;gap:6px;">${escapeHtml(c)}<button type="button" data-custompillar-del="${i}" style="background:none;border:none;color:inherit;padding:0;cursor:pointer;font-size:var(--t3);">✕</button></span>`).join('')}
@@ -2318,9 +2320,9 @@ function renderGoalWizard(){
       </div>
       <div class="field">
         <label>مجال الهدف — أي نوع شغل هو؟</label><p class="muted" style="margin:-2px 0 8px;font-size:var(--t2);">يجمع مهام هذا الهدف بصفحة المهام، وهو نفس تصنيف المهام.</p>
-        <div class="chip-row" id="gwCats">
-          ${state.taskCategories.map(c=>`<button type="button" class="chip cat ${goalWizard.cat===c.id?'selected':''}" data-cat="${c.id}">${c.icon} ${c.label}</button>`).join('')}
-        </div>
+        <select id="gwCatSel">
+          ${state.taskCategories.map(c=>`<option value="${c.id}" ${goalWizard.cat===c.id?'selected':''}>${c.icon} ${escapeHtml(c.label)}</option>`).join('')}
+        </select>
       </div>
       <hr style="border:none;border-top:1px dashed var(--line);margin:16px 0;">
       <span class="eyebrow">عشان أساعدك أبني مهامك اليومية</span>
@@ -2357,24 +2359,19 @@ function renderGoalWizard(){
   </div>`;
 }
 function attachGoalWizardEvents(){
-  document.querySelectorAll('#gwCats .chip').forEach(b=>{
-    b.onclick = ()=>{
-      goalWizard.title = document.getElementById('gwTitle').value;
-      goalWizard.cat = b.dataset.cat;
-      goalWizard.answers = ['',''];
-      render();
-    };
-  });
-  document.querySelectorAll('#gwPillars .chip').forEach(b=>{
-    b.onclick = ()=>{
-      goalWizard.title = document.getElementById('gwTitle').value;
-      /* one parent per goal — tapping another aspect moves it rather than
-         adding a second place for the same goal to appear */
-      const id = b.dataset.pillar;
-      goalWizard.pillarId = (goalWizard.pillarId===id)? null : id;
-      render();
-    };
-  });
+  const gwCatSel = document.getElementById('gwCatSel');
+  if(gwCatSel) gwCatSel.onchange = ()=>{
+    goalWizard.title = document.getElementById('gwTitle').value;
+    goalWizard.cat = gwCatSel.value;
+    goalWizard.answers = ['',''];   /* the questions below depend on the domain */
+    render();
+  };
+  const gwPillarSel = document.getElementById('gwPillarSel');
+  if(gwPillarSel) gwPillarSel.onchange = ()=>{
+    goalWizard.title = document.getElementById('gwTitle').value;
+    goalWizard.pillarId = gwPillarSel.value || null;
+    render();
+  };
   const gwCustomPillarAdd = document.getElementById('gwCustomPillarAdd');
   if(gwCustomPillarAdd) gwCustomPillarAdd.onclick = ()=>{
     goalWizard.title = document.getElementById('gwTitle').value;
@@ -3130,7 +3127,12 @@ function renderHome(){
 
   return `
   ${renderDateNav()}
-  <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:10px;">${isToday? `صباحك أهداف، ${escapeHtml(state.name)} 🌿` : `روتين يوم ${tpl.name}`}</h2>
+  ${/* a greeting that says "صباحك" all evening stops meaning anything, so it
+        keeps to the morning and the day stands on its own after that */''}
+  ${(isToday && new Date().getHours() < 12)
+    ? `<h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:10px;">صباحك أهداف، ${escapeHtml(state.name)} 🌿</h2>`
+    : (isToday? '' : `<h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:10px;">روتين يوم ${tpl.name}</h2>`)}
+
   ${isToday? '' : `<p class="muted" style="margin-bottom:10px;">تقدرين تراجعين أو تخططين لهذا اليوم من هنا</p>`}
 
 
@@ -7395,9 +7397,10 @@ function renderTaskDraft(){
       </div>
       <div class="field">
         <label>فترة اليوم</label>
-        <div class="chip-row">
-          ${state.timeBoxes.map(p=>`<button type="button" class="chip ${d.period===p.id?'selected':''}" data-per="${p.id}" ${d.period===p.id?`style="background:${p.color};border-color:${p.color};"`:''}>${escapeHtml(p.label)}</button>`).join('')}
-        </div>
+        <select id="tdPeriodSel">
+          <option value="">— أي وقت —</option>
+          ${state.timeBoxes.map(p=>`<option value="${p.id}" ${d.period===p.id?'selected':''}>${escapeHtml(p.label)}</option>`).join('')}
+        </select>
       </div>
       <div class="field">
         <label>على أي جهاز؟</label>
@@ -7499,7 +7502,9 @@ function attachTaskDraftEvents(){
     render();
   };
   document.querySelectorAll('[data-pri]').forEach(b=> b.onclick=()=>{ syncDraft(); taskDraft.priority=b.dataset.pri; render(); });
-  document.querySelectorAll('[data-per]').forEach(b=> b.onclick=()=>{ syncDraft(); taskDraft.period = (taskDraft.period===b.dataset.per? null : b.dataset.per); render(); });
+  const tdPeriodSel = document.getElementById('tdPeriodSel');
+  if(tdPeriodSel) tdPeriodSel.onchange = ()=>{ syncDraft(); taskDraft.period = tdPeriodSel.value || null; render(); };
+
   document.querySelectorAll('[data-dev]').forEach(b=> b.onclick=()=>{ syncDraft(); taskDraft.device = (taskDraft.device===b.dataset.dev? null : b.dataset.dev); render(); });
   const recurDetails = document.getElementById('tdRecurDetails');
   if(recurDetails) recurDetails.ontoggle = ()=>{ taskDraftRecurOpen = recurDetails.open; };
