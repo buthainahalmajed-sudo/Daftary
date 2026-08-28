@@ -891,6 +891,23 @@ details.card::before{display:none;}
   font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;
 }
 .icon-tile:active{background:var(--sage);}
+/* the three things she can do with the link: one row of marks, one panel open */
+.sync-tiles{display:flex;gap:8px;margin-bottom:2px;}
+.sync-tile{
+  flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:4px;
+  padding:11px 6px;border:1px solid var(--line);border-radius:12px;
+  background:var(--parchment);font-family:inherit;cursor:pointer;
+}
+.sync-tile .st-icon{font-size:19px;line-height:1;}
+.sync-tile .st-lbl{font-size:var(--t1);font-weight:700;color:var(--muted);text-align:center;}
+.sync-tile.on{
+  background:var(--petrol);border-color:var(--petrol);
+  box-shadow:0 2px 6px rgba(31,58,61,.20);
+}
+.sync-tile.on .st-lbl{color:#fff;}
+.sync-pane{
+  margin-top:10px;padding-top:12px;border-top:1px dashed var(--line);
+}
 </style>
 </head>
 <body>
@@ -1289,7 +1306,7 @@ let edEditingId = null; /* same idea, for one transaction row on the تشخيص 
 let plEditingId = null; /* same idea, for one row in the project financial ledger */
 let visionWizard = null; /* {step:'questions'|'review', answers:[], draftText:''} while building/redoing the life vision */
 let visionEditing = false; /* whether the confirmed life-vision text is currently shown as an editable textarea */
-let showLinkInfo = false; /* whether the Gist ID/Token of the already-linked device are revealed, for copying to a new device */
+let syncPane = null;  /* which of the three link tools is open: 'revisions' | 'link' | 'unlink' — one at a time, so the card shows one thing */
 let cloudRevisions = null; /* the Gist's revision list once fetched, so a bad sync or a bad migration can be undone */
 let revLoading = false;
 let revError = null;
@@ -1346,7 +1363,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 62';
+const APP_BUILD = '2026-08-17 · 63';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -2583,10 +2600,25 @@ function renderSettings(){
         <p class="muted" style="margin-bottom:8px;">مرتبط بنجاح ✓ ${cloudLastSync? 'آخر تزامن: '+cloudLastSync.toLocaleTimeString('ar'):''}</p>
         ${statusLabel? `<p class="muted" style="margin-bottom:10px;">${statusLabel}</p>`:''}
         ${cloudStatus==='error'&&cloudStatusMsg? `<p class="muted" style="color:var(--rose-dark);margin-bottom:10px;">${escapeHtml(cloudStatusMsg)}</p>`:''}
-        <p class="muted" style="margin-bottom:10px;font-size:var(--t1);">يتزامن وحده: عند فتح التطبيق، وكل ما ترجعين له، وكل دقيقة وهو مفتوح — وأي تعديل يُرفع فورًا.</p>
-        <button class="btn ghost btn-block" id="unlinkCloud">إلغاء الربط</button>
-        <div style="margin-top:14px;border-top:1px dashed var(--line);padding-top:12px;">
-          <p style="font-weight:700;color:var(--petrol-dark);margin-bottom:4px;">🕘 استعادة نسخة سابقة</p>
+        <p class="muted" style="margin-bottom:12px;font-size:var(--t1);">يتزامن وحده: عند فتح التطبيق، وكل ما ترجعين له، وكل دقيقة وهو مفتوح — وأي تعديل يُرفع فورًا.</p>
+
+        ${/* three things she can do with the link, each a tile with its own mark.
+              They were three full-width buttons and two paragraphs stacked down
+              the card; only the one she opens shows its detail now. */''}
+        <div class="sync-tiles">
+          <button type="button" class="sync-tile ${syncPane==='revisions'?'on':''}" data-sync-pane="revisions">
+            <span class="st-icon">🕘</span><span class="st-lbl">نسخ سابقة</span>
+          </button>
+          <button type="button" class="sync-tile ${syncPane==='link'?'on':''}" data-sync-pane="link">
+            <span class="st-icon">🔑</span><span class="st-lbl">بيانات الربط</span>
+          </button>
+          <button type="button" class="sync-tile ${syncPane==='unlink'?'on':''}" data-sync-pane="unlink">
+            <span class="st-icon">⛓️‍💥</span><span class="st-lbl">إلغاء الربط</span>
+          </button>
+        </div>
+
+        ${syncPane==='revisions'? `
+        <div class="sync-pane">
           <p class="muted" style="margin-bottom:8px;font-size:var(--t2);">السحاب يحفظ نسخة كاملة عند كل مزامنة. اعرضي القائمة، شوفي محتوى أي نسخة قبل ما تقرري، وارجعي لها لو ضاع منك شي.</p>
           <button class="btn ghost btn-block" id="loadRevisions" ${cloudStatus==='syncing'?'disabled':''}>${revLoading? '⏳ يجيب القائمة…' : '📜 اعرضي النسخ السابقة'}</button>
           ${revError? `<p class="muted" style="color:var(--rose-dark);margin-top:8px;">⚠️ ${escapeHtml(revError)}</p>`:''}
@@ -2610,10 +2642,10 @@ function renderSettings(){
                   <button type="button" class="icon-btn" data-rev-peek="${r.version}">👁️</button>
                 </div>`).join('')}
             </div>` : `<div class="empty tight">ما فيه نسخ سابقة محفوظة</div>`) : ''}
-        </div>
-        <button class="btn ghost btn-block" id="toggleLinkInfo" style="margin-top:10px;">${showLinkInfo? '🙈 إخفاء بيانات الربط':'👁️ إظهار بيانات الربط (لجهاز ثالث)'}</button>
-        ${showLinkInfo? `
-        <div style="margin-top:10px;">
+        </div>`:''}
+
+        ${syncPane==='link'? `
+        <div class="sync-pane">
           <div class="field">
             <label>Gist ID</label>
             <div style="display:flex;gap:8px;">
@@ -2628,7 +2660,13 @@ function renderSettings(){
               <button type="button" class="icon-btn" data-copy-link="token">نسخ</button>
             </div>
           </div>
-          <p class="muted">انسخي الاثنين وحطيهم بنفس الحقول بأي جهاز ثاني، واضغطي فيه "اسحبي بيانات موجودة من جهاز مرتبط فعليًا".</p>
+          <p class="muted" style="font-size:var(--t2);">انسخي الاثنين وحطيهم بنفس الحقول بأي جهاز ثاني، واضغطي فيه «اسحبي بيانات موجودة من جهاز مرتبط فعليًا».</p>
+        </div>`:''}
+
+        ${syncPane==='unlink'? `
+        <div class="sync-pane">
+          <p class="muted" style="margin-bottom:10px;font-size:var(--t2);">بيوقف التزامن على هذا الجهاز. بياناتك تضل بالسحاب وبهذا الجهاز، وتقدرين تربطين من جديد بنفس الـGist ID والToken.</p>
+          <button class="btn ghost btn-block" id="unlinkCloud">إلغاء الربط</button>
         </div>`:''}
       `}
     </div>
@@ -2904,7 +2942,13 @@ function attachManagerEvents(){
 }
 
 function attachSettingsEvents(){
-  document.getElementById('closeSettings').onclick = ()=>{ settingsOpen=false; showLinkInfo=false; render(); };
+  document.getElementById('closeSettings').onclick = ()=>{ settingsOpen=false; syncPane=null; render(); };
+  document.querySelectorAll('[data-sync-pane]').forEach(b=> b.onclick=()=>{
+    /* tapping the open one closes it, so the card can rest showing nothing */
+    syncPane = (syncPane===b.dataset.syncPane)? null : b.dataset.syncPane;
+    render();
+  });
+
 
   attachManagerEvents();
 
@@ -2985,8 +3029,7 @@ function attachSettingsEvents(){
     cloudStatus='idle'; cloudStatusMsg='';
     render();
   };
-  const toggleLinkInfo = document.getElementById('toggleLinkInfo');
-  if(toggleLinkInfo) toggleLinkInfo.onclick = ()=>{ showLinkInfo = !showLinkInfo; render(); };
+
 
   const loadRevisions = document.getElementById('loadRevisions');
   if(loadRevisions) loadRevisions.onclick = async ()=>{
