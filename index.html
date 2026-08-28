@@ -753,12 +753,15 @@ table.htable td.habit-label-cell{text-align:right;font-size:var(--t2);padding-ri
 }
 .day-frame .df-learn{font-size:var(--t1);color:var(--muted);margin:5px 0 0;}
 .day-frame .df-learn a{color:var(--petrol);}
+.day-frame.is-bare{position:static;margin-bottom:12px;}
+.day-frame .df-add{
+  background:none;border:1px dashed var(--line);border-radius:10px;
+  padding:6px 14px;font-family:inherit;font-size:var(--t1);color:var(--muted);cursor:pointer;
+}
 .day-frame .df-toggle{
   background:none;border:none;padding:4px;margin-top:2px;cursor:pointer;
   font-family:inherit;font-size:var(--t1);color:var(--muted);
 }
-.day-frame .df-rest{display:inline-flex;flex-direction:column;gap:3px;margin-top:2px;text-align:right;}
-.day-frame .df-row{display:flex;gap:6px;font-size:var(--t1);color:var(--muted);}
 /* ---------- «دفتر»: the chosen direction ----------
    Boxes inside boxes were what read as scribble. Rows are ruled instead of
    framed, section heads sit on a firm rule, and a gold margin line runs down
@@ -873,7 +876,6 @@ details.card::before{display:none;}
   color:var(--muted);font-size:12px;line-height:1;
   display:flex;align-items:center;justify-content:center;
 }
-.day-frame .df-rest{margin-top:8px;}
 
 /* version and its one action, side by side instead of stacked with a paragraph */
 .update-row{display:flex;align-items:center;gap:10px;}
@@ -1344,7 +1346,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 59';
+const APP_BUILD = '2026-08-17 · 60';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -3075,23 +3077,21 @@ function renderDayFrame(dow){
     ? (state.goals.find(g=>g.id===(tpl.learningDomain||'').slice(5))||null) : null;
   const domLabel = learnGoal? learnGoal.title : (tpl.learningDomain||'');
   const learning = [domLabel, tpl.learningMode, tpl.learning].filter(Boolean).map(escapeHtml).join(' · ');
-  const rest = [];
-  if(tpl.note) rest.push(`<div class="df-row"><span class="k">📝</span><span>${escapeHtml(tpl.note)}</span></div>`);
-
-  if(!tpl.motto && !learning && !rest.length) return '';
-  const key = 'dayFrame';
-  if(state.collapsed[key] === undefined) state.collapsed[key] = true;
-  const closed = !!state.collapsed[key];
+  /* The gear used to open a fold holding one line — she read it as "edit the
+     routine", which is the only thing a gear beside the day's framing should
+     mean. It opens the editor, and the note it was hiding just shows. */
+  /* with nothing written for the day the frame has no height, and an absolutely
+     positioned gear inside it would float over the greeting below */
+  if(!tpl.motto && !learning && !tpl.note) return `
+  <div class="day-frame is-bare">
+    <button type="button" class="df-add" data-edit-template="${dow}">⚙ اكتبي هدف اليوم</button>
+  </div>`;
   return `
   <div class="day-frame">
     ${tpl.motto? `<p class="df-goal">${escapeHtml(tpl.motto)}</p>`:''}
     ${learning? `<p class="df-learn">📖 ${learning}${tpl.learningLink? ` <a href="${escapeHtml(tpl.learningLink)}" target="_blank" rel="noopener">رابط</a>`:''}</p>`:''}
-    ${/* a labelled toggle sat centred under the day's purpose and broke the line
-          of it. It is a tool icon off to the side now, out of the reading path. */''}
-    ${rest.length? `
-      <button type="button" class="df-toggle" data-toggle-collapse="${key}" title="${closed?'تفاصيل الروتين':'إخفاء التفاصيل'}" aria-label="تفاصيل الروتين">⚙</button>
-      ${closed? '' : `<div class="df-rest">${rest.join('')}</div>`}
-    `:''}
+    ${tpl.note? `<p class="df-learn">📝 ${escapeHtml(tpl.note)}</p>`:''}
+    <button type="button" class="df-toggle" data-edit-template="${dow}" title="تعديل روتين اليوم" aria-label="تعديل روتين اليوم">⚙</button>
   </div>`;
 }
 
