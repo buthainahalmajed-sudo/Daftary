@@ -1057,13 +1057,34 @@ function goalPillarId(g){
   const ids = g.pillarIds || [];
   return ids.length? ids[0] : null;
 }
-function taskGoal(t){ return t && t.goalId? (state.goals.find(g=>g.id===t.goalId) || null) : null; }
+/* The detailed financial goal lives in its own object rather than in state.goals,
+   so it used to reach the chain only by guesswork — "whichever yearly goal has
+   the finance domain" — which picked the wrong one when there were two and
+   silently linked nothing when there were none. It now names its own identity
+   aspect and answers to a reserved id, so a task can hang off it directly and
+   read as "الحرية المالية › الهدف المالي" like any other. */
+const FIN_GOAL_ID = '__fin__';
+function finGoalAsGoal(){
+  const fg = state.financialGoal;
+  if(!fg || !fg.configured) return null;
+  return {id:FIN_GOAL_ID, title:fg.title, cat:'finance', pillarId:fg.pillarId||null, isFinancial:true};
+}
+function taskGoal(t){
+  if(!t || !t.goalId) return null;
+  if(t.goalId === FIN_GOAL_ID) return finGoalAsGoal();
+  return state.goals.find(g=>g.id===t.goalId) || null;
+}
+/* every goal a task can be filed under: her yearly ones, plus the financial one */
+function allGoals(){ const f = finGoalAsGoal(); return f? state.goals.concat([f]) : state.goals.slice(); }
+
 function taskPillar(t){ return pillarOf(goalPillarId(taskGoal(t))); }
 /* The detailed financial goal is the breakdown of her yearly finance goal — the
    app already says so in words — so the tasks it generates belong to that goal
    instead of to nothing, which is how most goal-linked work used to lose its
    place in the chain. */
 function financeParentGoalId(){
+  /* the financial goal itself, when it exists — no more guessing at a yearly one */
+  if(state.financialGoal && state.financialGoal.configured) return FIN_GOAL_ID;
   const g = state.goals.find(x=> x.cat==='finance');
   return g? g.id : null;
 }
@@ -1381,7 +1402,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 68';
+const APP_BUILD = '2026-08-17 · 69';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -2530,7 +2551,7 @@ function renderTemplateDraft(){
                 of hers — and shows up on the day framed that way. */''}
           <select id="tdLearnDomain">
             <option value="">— بدون —</option>
-            ${state.goals.map(g=>{ const p = pillarOf(goalPillarId(g));
+            ${allGoals().map(g=>{ const p = pillarOf(goalPillarId(g));
               return `<option value="goal:${g.id}" ${d.learningDomain==='goal:'+g.id?'selected':''}>${p? p.icon+' ' : ''}${escapeHtml(g.title)}</option>`;}).join('')}
             ${(d.learningDomain && !/^goal:/.test(d.learningDomain))? `<option value="${escapeHtml(d.learningDomain)}" selected>${escapeHtml(d.learningDomain)}</option>`:''}
           </select>
@@ -3383,7 +3404,7 @@ function deviceIconSvg(kind, size){
 }
 function taskRowHtml(t, opts){
   opts = opts || {};
-  const g = t.goalId? state.goals.find(x=>x.id===t.goalId): null;
+  const g = taskGoal(t);
   /* a recurring task is done *for a given day*, so when this row is shown under
      another date the tick has to reflect that date, not today */
   const done = taskDoneOnDate(t, opts.date || todayStr());
@@ -3414,7 +3435,7 @@ function taskRowHtml(t, opts){
 
     ${(opts.assign && !g && state.goals.length)? `<div class="tr-assign"><select class="row-goal" data-quick-goal="${t.id}">
       <option value="">↳ اربطيها بهدف…</option>
-      ${state.goals.map(x=>{ const p = pillarOf(goalPillarId(x));
+      ${allGoals().map(x=>{ const p = pillarOf(goalPillarId(x));
         return `<option value="${x.id}">${p? p.icon+' '+p.label+' › ' : ''}${escapeHtml(x.title)}</option>`;}).join('')}
     </select></div>`:''}
     ${/* anything overdue has to speak up whether the details are open or not */''}
@@ -4196,7 +4217,25 @@ function renderLifeVisionSection(){
 
 /* ============ GOALS page ============ */
 function renderGoalCard(g){
+  /* the financial goal has its own page with stages, sources and a ledger — this
+     card states where it stands and takes her there, rather than half-editing it */
+  if(g.isFinancial){
+    const fg = state.financialGoal;
+    const pct = fg.targetAmount? Math.min(100, Math.round(fg.currentAmount/fg.targetAmount*100)) : 0;
+    return `
+    <div class="card goal-card">
+      <button type="button" class="goal-head" data-goto-money="1">
+        <span class="grow">
+          <span class="gh-title">💰 ${escapeHtml(fg.title)}</span>
+          <span class="gh-sub">${fgFmt(fg.currentAmount)} من ${fgFmt(fg.targetAmount)} ريال · ${pct}%</span>
+        </span>
+        <span class="gh-bar"><i style="width:${pct}%;"></i></span>
+        <span class="chev">‹</span>
+      </button>
+    </div>`;
+  }
   const i = state.goals.indexOf(g);
+
   const customTags = (g.customPillars||[]).map(c=>`<span class="tag">${escapeHtml(c)}</span>`).join('');
   /* Every goal used to print its identity tag, its domain tag, its answers, its
      notes and its attachments at once, so the yearly-goals card ran to 683px.
@@ -4247,7 +4286,9 @@ function renderGoalCard(g){
 function renderGoals(){
   const byPillar = {};
   const noPillar = [];
-  state.goals.forEach(g=>{
+  /* the financial goal is grouped here with the yearly ones, under the aspect it
+     named for itself — so الأساس shows the whole tree, not the tree minus one */
+  allGoals().forEach(g=>{
     const pid = goalPillarId(g);
     if(pid && pillarOf(pid)) (byPillar[pid] = byPillar[pid]||[]).push(g);
     else noPillar.push(g);
@@ -5143,7 +5184,7 @@ function renderFinancePathsCard(fg){
 function renderFinanceSetup(){
   const fg = state.financialGoal;
   const yr = new Date().getFullYear();
-  const d = financeSetupDraft || (fg? {title:fg.title, targetAmount:fg.targetAmount||'', currentAmount:fg.currentAmount||0, deadline:fg.deadline||`${yr}-12-31`} : {title:`الهدف المالي ${yr}`, targetAmount:'', currentAmount:0, deadline:`${yr}-12-31`});
+  const d = financeSetupDraft || (fg? {title:fg.title, targetAmount:fg.targetAmount||'', currentAmount:fg.currentAmount||0, pillarId:fg.pillarId||'', deadline:fg.deadline||`${yr}-12-31`} : {title:`الهدف المالي ${yr}`, targetAmount:'', currentAmount:0, pillarId:'', deadline:`${yr}-12-31`});
   return `
   <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:14px;">🎯 الهدف المالي</h2>
   <div class="card">
@@ -5165,6 +5206,16 @@ function renderFinanceSetup(){
       <label>موعد تحققه</label>
       <input type="date" id="fsDeadline" value="${d.deadline}"/>
     </div>
+    ${/* naming its aspect is what puts it in the chain instead of beside it */
+      state.goalPillars.length? `
+    <div class="field">
+      <label>تحت أي بند هوية؟</label>
+      <select id="fsPillar">
+        <option value="">— بدون بند —</option>
+        ${state.goalPillars.map(p=>`<option value="${p.id}" ${d.pillarId===p.id?"selected":""}>${p.icon} ${escapeHtml(p.label)}</option>`).join("")}
+      </select>
+      <p class="muted" style="margin:4px 0 0;font-size:var(--t1);">مهام مراحله ومصادر دخله بتظهر تحت هذا البند بصفحتَي المهام واليوم.</p>
+    </div>`:""}
     ${helpNote('auto27','بعد الحفظ، بقترح عليك مراحل أولية بمبالغ ومهام لكل مرحلة — تقدرين تعدّلين عليها، تحذفين، أو تضيفين مراحل من عندك بالكامل.')}
     <div style="display:flex;gap:10px;">
       <button class="btn btn-block" id="fsSave">${fg&&fg.configured?'حفظ التعديلات':'ابدئي واقترحي المراحل'}</button>
@@ -5782,6 +5833,7 @@ function attachFinanceEvents(){
     const keepStages = existing && existing.configured && existing.targetAmount===target;
     state.financialGoal = {
       title, targetAmount: target, currentAmount: current, deadline, configured:true, startedAt: (fg&&fg.startedAt)||todayStr(),
+      pillarId: (document.getElementById('fsPillar')||{}).value || (existing&&existing.pillarId) || null,
       stages: keepStages? existing.stages : generateFinanceStages(target, current),
       paths: existing? (existing.paths||[]) : [],
       customPaths: existing? (existing.customPaths||[]) : [],
@@ -7460,10 +7512,10 @@ function renderTaskDraft(){
         <label>تحت أي هدف؟</label>
         <select id="tdGoal">
           <option value="">بدون هدف</option>
-          ${state.goals.map(g=>{ const p = pillarOf(goalPillarId(g));
+          ${allGoals().map(g=>{ const p = pillarOf(goalPillarId(g));
             return `<option value="${g.id}" ${d.goalId===g.id?'selected':''}>${p? p.icon+' '+p.label+' › ' : ''}${escapeHtml(g.title)}</option>`;}).join('')}
         </select>
-        ${(()=>{ const g = d.goalId? state.goals.find(x=>x.id===d.goalId) : null;
+        ${(()=>{ const g = taskGoal(d);
                  const p = g? pillarOf(goalPillarId(g)) : null;
                  if(g && p) return `<p class="muted" style="margin:4px 0 0;font-size:var(--t1);">بتظهر تحت <b>${p.icon} ${escapeHtml(p.label)}</b> في مهامك.</p>`;
                  if(g) return `<p class="muted" style="margin:4px 0 0;font-size:var(--t1);">هذا الهدف بلا بند هوية — حدّدي له بند من صفحة الأساس عشان ياخذ مكانه بالتسلسل.</p>`;
@@ -7596,7 +7648,7 @@ function attachTaskDraftEvents(){
     syncDraft();
     /* the goal carries a domain already — asking her for it again was the last
        place the two axes were still being filled in separately */
-    const g = taskDraft.goalId? state.goals.find(x=>x.id===taskDraft.goalId) : null;
+    const g = taskGoal(taskDraft);
     if(g && g.cat){
       taskDraft.category = g.cat;
       const box = timeBoxForCategory(taskDraft.category);
@@ -8046,7 +8098,7 @@ document.querySelectorAll('[data-qnote]').forEach(ta=>{
     if(!t || !sel.value) return;
     t.goalId = sel.value;
     /* take the goal's domain too when the task has none, same as the editor does */
-    const g = state.goals.find(x=>x.id===sel.value);
+    const g = taskGoal({goalId:sel.value});
     if(g && g.cat && !t.category) t.category = g.cat;
     saveState(); render();
   });
@@ -8252,7 +8304,7 @@ document.querySelectorAll('[data-qnote]').forEach(ta=>{
        so it is the cheapest place to give each one its goal — otherwise every
        pasted task lands in "مهام بلا هدف" and the chain quietly stops meaning
        anything */
-    const g = state.goals.find(x=>x.id===sel.value);
+    const g = taskGoal({goalId:sel.value});
     if(g && g.cat && !aiPlan[i].category){ aiPlan[i].category = g.cat; render(); }
   });
   document.querySelectorAll('[data-plan-cat]').forEach(sel=> sel.onchange=()=>{
