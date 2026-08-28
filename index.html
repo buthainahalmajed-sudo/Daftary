@@ -1379,7 +1379,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 66';
+const APP_BUILD = '2026-08-17 · 67';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -2294,7 +2294,7 @@ function renderOnboarding(){
         <div class="seal">د</div>
       </div>
       <h1 style="font-size:26px;color:var(--petrol-dark);">دفتري للأمان المالي</h1>
-      <p class="muted" style="font-size:var(--t3);margin-top:6px;">مساحتك اليومية للتنظيم، الأهداف، والإنجاز</p>
+      ${helpNote('auto1','مساحتك اليومية للتنظيم، الأهداف، والإنجاز')}
     </div>
     <div class="card">
       <div class="card-title"><h3>هلا فيك 🌿</h3></div>
@@ -2336,7 +2336,7 @@ function renderGoalWizard(){
         <input type="text" id="gwTitle" placeholder="مثال: تحسين صحة شعري" value="${escapeHtml(goalWizard.title)}"/>
       </div>
       <div class="field">
-        <label>بند الهوية — مَن تكونين لما تحققينه؟</label><p class="muted" style="margin:-2px 0 8px;font-size:var(--t2);">البند هو مكان الهدف في التسلسل — يجمع الهدف بصفحة الأساس، ويجمع مهامه بصفحة المهام. بند واحد لكل هدف.</p>
+        <label>بند الهوية — مَن تكونين لما تحققينه؟</label>${helpNote('auto2','البند هو مكان الهدف في التسلسل — يجمع الهدف بصفحة الأساس، ويجمع مهامه بصفحة المهام. بند واحد لكل هدف.')}
         ${/* one aspect out of a growing list — a dropdown, not a wall of chips */''}
         <select id="gwPillarSel">
           <option value="">— بدون بند —</option>
@@ -2352,7 +2352,7 @@ function renderGoalWizard(){
         </div>
       </div>
       <div class="field">
-        <label>مجال الهدف — أي نوع شغل هو؟</label><p class="muted" style="margin:-2px 0 8px;font-size:var(--t2);">يجمع مهام هذا الهدف بصفحة المهام، وهو نفس تصنيف المهام.</p>
+        <label>مجال الهدف — أي نوع شغل هو؟</label>${helpNote('auto3','يجمع مهام هذا الهدف بصفحة المهام، وهو نفس تصنيف المهام.')}
         <select id="gwCatSel">
           ${state.taskCategories.map(c=>`<option value="${c.id}" ${goalWizard.cat===c.id?'selected':''}>${c.icon} ${escapeHtml(c.label)}</option>`).join('')}
         </select>
@@ -2382,7 +2382,7 @@ function renderGoalWizard(){
         </div>`:''}
         <input type="file" id="gwAttachInput" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.heic,.txt" style="width:100%;padding:10px;border:1.5px dashed var(--line);border-radius:10px;background:var(--parchment);font-size:var(--t3);"/>
         ${attachError? `<p class="muted" style="color:var(--rose-dark);margin-top:6px;">${escapeHtml(attachError)}</p>`:''}
-        <p class="muted" style="margin-top:6px;">حجم أقصى ٨٠٠ كيلوبايت لكل ملف (تخزين محلي بالجهاز).</p>
+        ${helpNote('auto4','حجم أقصى ٨٠٠ كيلوبايت لكل ملف (تخزين محلي بالجهاز).')}
       </div>
       <div style="display:flex;gap:10px;margin-top:8px;">
         <button class="btn btn-block" id="gwSave">${isEdit? 'حفظ التعديلات' : 'حفظ الهدف'}</button>
@@ -2552,7 +2552,7 @@ function renderTemplateDraft(){
       </div>
         </div>
       </details>
-      <p class="muted" style="margin-bottom:16px;">📌 إدارة عادات هذا اليوم (إضافة، تفعيل، تعطيل) صارت من صفحة "العادات".</p>
+      ${helpNote('auto5','📌 إدارة عادات هذا اليوم (إضافة، تفعيل، تعطيل) صارت من صفحة "العادات".')}
       <div style="display:flex;gap:10px;margin-top:8px;">
         <button class="btn btn-block" id="tdSaveTemplate">حفظ الروتين</button>
         <button class="btn ghost" id="tdCancelTemplate">إلغاء</button>
@@ -2610,13 +2610,13 @@ function renderSettings(){
         ${statusLabel? `<p class="muted" style="margin-bottom:10px;">${statusLabel}</p>`:''}
         ${cloudStatus==='error'&&cloudStatusMsg? `<p class="muted" style="color:var(--rose-dark);margin-bottom:10px;">⚠️ ${escapeHtml(cloudStatusMsg)}</p>`:''}
         <button class="btn btn-block" id="linkPull" ${cloudStatus==='syncing'?'disabled':''}>${cloudStatus==='syncing'?'⏳ يسحب…':'🔽 اسحبي بيانات موجودة من جهاز مرتبط فعليًا'}</button>
-        <p class="muted" style="margin:8px 0 4px;">هذا هو الزر المناسب لأي جهاز ثاني أو ثالث — يجيب البيانات الموجودة بالسحاب بدل ما يمسحها.</p>
+        ${helpNote('auto6','هذا هو الزر المناسب لأي جهاز ثاني أو ثالث — يجيب البيانات الموجودة بالسحاب بدل ما يمسحها.')}
         <button class="btn ghost btn-block" id="linkPush" style="margin-top:6px;" ${cloudStatus==='syncing'?'disabled':''}>🔼 ارفعي بيانات هذا الجهاز (بس لو هذا أول جهاز على الإطلاق)</button>
       `:`
         <p class="muted" style="margin-bottom:8px;">مرتبط بنجاح ✓ ${cloudLastSync? 'آخر تزامن: '+cloudLastSync.toLocaleTimeString('ar'):''}</p>
         ${statusLabel? `<p class="muted" style="margin-bottom:10px;">${statusLabel}</p>`:''}
         ${cloudStatus==='error'&&cloudStatusMsg? `<p class="muted" style="color:var(--rose-dark);margin-bottom:10px;">${escapeHtml(cloudStatusMsg)}</p>`:''}
-        <p class="muted" style="margin-bottom:12px;font-size:var(--t1);">يتزامن وحده: عند فتح التطبيق، وكل ما ترجعين له، وكل دقيقة وهو مفتوح — وأي تعديل يُرفع فورًا.</p>
+        ${helpNote('auto7','يتزامن وحده: عند فتح التطبيق، وكل ما ترجعين له، وكل دقيقة وهو مفتوح — وأي تعديل يُرفع فورًا.')}
 
         ${/* three things she can do with the link, each a tile with its own mark.
               They were three full-width buttons and two paragraphs stacked down
@@ -2635,7 +2635,7 @@ function renderSettings(){
 
         ${syncPane==='revisions'? `
         <div class="sync-pane">
-          <p class="muted" style="margin-bottom:8px;font-size:var(--t2);">السحاب يحفظ نسخة كاملة عند كل مزامنة. اعرضي القائمة، شوفي محتوى أي نسخة قبل ما تقرري، وارجعي لها لو ضاع منك شي.</p>
+          ${helpNote('auto8','السحاب يحفظ نسخة كاملة عند كل مزامنة. اعرضي القائمة، شوفي محتوى أي نسخة قبل ما تقرري، وارجعي لها لو ضاع منك شي.')}
           <button class="btn ghost btn-block" id="loadRevisions" ${cloudStatus==='syncing'?'disabled':''}>${revLoading? '⏳ يجيب القائمة…' : '📜 اعرضي النسخ السابقة'}</button>
           ${revError? `<p class="muted" style="color:var(--rose-dark);margin-top:8px;">⚠️ ${escapeHtml(revError)}</p>`:''}
           ${cloudRevisions? (cloudRevisions.length? `
@@ -2676,19 +2676,19 @@ function renderSettings(){
               <button type="button" class="icon-btn" data-copy-link="token">نسخ</button>
             </div>
           </div>
-          <p class="muted" style="font-size:var(--t2);">انسخي الاثنين وحطيهم بنفس الحقول بأي جهاز ثاني، واضغطي فيه «اسحبي بيانات موجودة من جهاز مرتبط فعليًا».</p>
+          ${helpNote('auto9','انسخي الاثنين وحطيهم بنفس الحقول بأي جهاز ثاني، واضغطي فيه «اسحبي بيانات موجودة من جهاز مرتبط فعليًا».')}
         </div>`:''}
 
         ${syncPane==='unlink'? `
         <div class="sync-pane">
-          <p class="muted" style="margin-bottom:10px;font-size:var(--t2);">بيوقف التزامن على هذا الجهاز. بياناتك تضل بالسحاب وبهذا الجهاز، وتقدرين تربطين من جديد بنفس الـGist ID والToken.</p>
+          ${helpNote('auto10','بيوقف التزامن على هذا الجهاز. بياناتك تضل بالسحاب وبهذا الجهاز، وتقدرين تربطين من جديد بنفس الـGist ID والToken.')}
           <button class="btn ghost btn-block" id="unlinkCloud">إلغاء الربط</button>
         </div>`:''}
       `}
     </div>
 
     <h3 style="font-size:var(--t5);color:var(--petrol-dark);margin:26px 0 10px;">📋 قوائمك</h3>
-    <p class="muted" style="margin-bottom:12px;font-size:var(--t2);">القوائم اللي تُبنى عليها صفحاتك. عدّليها متى ما احتجتِ — وما راح تزحم صفحاتك اليومية.</p>
+    ${helpNote('auto11','القوائم اللي تُبنى عليها صفحاتك. عدّليها متى ما احتجتِ — وما راح تزحم صفحاتك اليومية.')}
     ${renderListManagers()}
 
     <div class="card">
@@ -3211,7 +3211,7 @@ function renderHome(){
     ? `<h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:10px;">صباحك أهداف، ${escapeHtml(state.name)} 🌿</h2>`
     : (isToday? '' : `<h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:10px;">روتين يوم ${tpl.name}</h2>`)}
 
-  ${isToday? '' : `<p class="muted" style="margin-bottom:10px;">تقدرين تراجعين أو تخططين لهذا اليوم من هنا</p>`}
+  ${isToday? '' : `${helpNote('auto12','تقدرين تراجعين أو تخططين لهذا اليوم من هنا')}`}
 
 
   ${isToday && homeCardOn('voice')? renderVoiceQuickAddCard() : ''}
@@ -3533,7 +3533,7 @@ function renderTimeBoxManager(){
             <span class="muted">إلى</span>
             <input type="time" data-tbox-end="${b.id}" value="${b.end}"/>
           </div>
-          <p class="muted" style="font-size:var(--t2);margin-bottom:2px;">أي تصنيفات تناسب هالصندوق؟ (المهمة بهالتصنيف تنتقل له تلقائيًا)</p>
+          ${helpNote('auto13','أي تصنيفات تناسب هالصندوق؟ (المهمة بهالتصنيف تنتقل له تلقائيًا)')}
           <div class="chip-row">
             ${state.taskCategories.map(c=>`<button type="button" class="chip ${(b.categoryIds||[]).includes(c.id)?'selected':''}" data-tbox-cat="${b.id}" data-cat="${c.id}">${c.icon} ${c.label}</button>`).join('')}
           </div>
@@ -3601,7 +3601,7 @@ function renderMoodManager(){
         <input type="text" id="moodNewLabel" placeholder="شعور جديد…" style="flex:1;"/>
         <button type="button" class="btn sm" id="moodAdd">إضافة</button>
       </div>
-      <p class="muted" style="margin-top:8px;font-size:var(--t2);">💡 أيامك السابقة تحتفظ بالشعور اللي اخترتيه فيها حتى لو غيّرتِ اسمه أو أوقفتيه — الرمز يظل يظهر بشريط التاريخ.</p>
+      ${helpNote('auto14','💡 أيامك السابقة تحتفظ بالشعور اللي اخترتيه فيها حتى لو غيّرتِ اسمه أو أوقفتيه — الرمز يظل يظهر بشريط التاريخ.')}
     </div>
   </details>`;
 }
@@ -3631,8 +3631,8 @@ function renderDailyQuestionsManager(){
       }).join('')}
       ${qs.length===0? `<div class="empty tight">ما فيه أسئلة<span class="hint">أضيفي أول سؤال من الأسفل</span></div>`:''}
       <button type="button" class="btn ghost btn-block" style="margin-top:10px;" id="dqAddNew">+ إضافة سؤال</button>
-      <p class="muted" style="margin-top:8px;font-size:var(--t2);">✅ نشط يظهر بصفحة اليوم · ⭕ موقوف يختفي ويحتفظ بما كتبتيه. تحت كل سؤال مساحة تعليق مطوية تكتبين فيها.</p>
-      <p class="muted" style="margin-top:4px;font-size:var(--t2);">💡 اللي تكتبينه محفوظ لكل سؤال على حدة، فتعديل الترتيب أو النص ما يخلط كتابات الأيام السابقة. حذف سؤال يخفي كتاباته من العرض فقط.</p>
+      ${helpNote('auto15','✅ نشط يظهر بصفحة اليوم · ⭕ موقوف يختفي ويحتفظ بما كتبتيه. تحت كل سؤال مساحة تعليق مطوية تكتبين فيها.')}
+      ${helpNote('auto16','💡 اللي تكتبينه محفوظ لكل سؤال على حدة، فتعديل الترتيب أو النص ما يخلط كتابات الأيام السابقة. حذف سؤال يخفي كتاباته من العرض فقط.')}
     </div>
   </details>`;
 }
@@ -3988,7 +3988,7 @@ function renderGroupedTaskBlocks(taskList, rowRenderer, emptyMsg){
     body += `
     <div class="card" style="margin-bottom:12px;">
       <div class="card-title"><h3 style="cursor:pointer;flex:1;font-size:var(--t4);display:flex;align-items:center;gap:7px;" data-toggle-collapse="${key}"><span style="flex:1;">🗂️ مهام بلا هدف <span class="muted" style="font-size:var(--t2);font-weight:400;">(${count})</span></span><span class="chev ${closed?"":"open"}">▾</span></h3></div>
-      ${closed? '' : `<p class="muted" style="font-size:var(--t1);margin:-4px 0 8px;">اربطيها بهدف عشان تاخذ مكانها في التسلسل.</p>${state.goals.length? '' : `<p class="muted" style="font-size:var(--t1);margin:0 0 8px;color:var(--rose-dark);">ما عندك أهداف بعد — أضيفي هدفًا من صفحة الأساس أول.</p>`}${rows}`}
+      ${closed? '' : `${helpNote('auto17','اربطيها بهدف عشان تاخذ مكانها في التسلسل.')}${state.goals.length? '' : `<p class="muted" style="font-size:var(--t1);margin:0 0 8px;color:var(--rose-dark);">ما عندك أهداف بعد — أضيفي هدفًا من صفحة الأساس أول.</p>`}${rows}`}
     </div>`;
   }
   if(!body) body = `<div class="empty">${emptyMsg}</div>`;
@@ -4120,7 +4120,7 @@ function renderLifeVisionSection(){
     return `
     <div class="card" style="margin-bottom:14px;border-color:var(--gold);">
       <div class="card-title"><h3>🧭 رؤيتي — أسئلة توجهك</h3></div>
-      <p class="muted" style="margin-bottom:14px;">جاوبي بكلمة أو جملة قصيرة لكل سؤال — أستخدمها أعبّي بها فراغات جملة رؤيتك، وتقدرين تعدلين عليها بعدين.</p>
+      ${helpNote('auto18','جاوبي بكلمة أو جملة قصيرة لكل سؤال — أستخدمها أعبّي بها فراغات جملة رؤيتك، وتقدرين تعدلين عليها بعدين.')}
       ${VISION_QUESTIONS.map((item,i)=>`
         <div class="field">
           <label>${item.q}</label>
@@ -4136,7 +4136,7 @@ function renderLifeVisionSection(){
     return `
     <div class="card" style="margin-bottom:14px;border-color:var(--gold);">
       <div class="card-title"><h3>🧭 هذي رؤيتك — وش رأيك؟</h3></div>
-      <p class="muted" style="margin-bottom:10px;">جمعتها من إجاباتك، عدّلي فيها لين توصل لصيغة تريحك.</p>
+      ${helpNote('auto19','جمعتها من إجاباتك، عدّلي فيها لين توصل لصيغة تريحك.')}
       <div class="field">
         <textarea id="visionDraftText" style="min-height:220px;">${escapeHtml(visionWizard.draftText)}</textarea>
       </div>
@@ -4152,7 +4152,7 @@ function renderLifeVisionSection(){
     return `
     <div class="card" style="margin-bottom:14px;border-color:var(--gold);">
       <div class="card-title"><h3>🌱 وهذي جوانب هويتك</h3></div>
-      <p class="muted" style="margin-bottom:12px;">من إجاباتك. الجوانب هي اللي تتعلق فيها أهدافك، وكل هدف تحته مهامه — اختاري اللي يمثلك، وتقدرين تعدّلينها بعدين.</p>
+      ${helpNote('auto20','من إجاباتك. الجوانب هي اللي تتعلق فيها أهدافك، وكل هدف تحته مهامه — اختاري اللي يمثلك، وتقدرين تعدّلينها بعدين.')}
       ${sugg.length? sugg.map((p,i)=>`
         <button type="button" class="chip ${picked[i]!==false?'selected':''}" data-vision-pillar="${i}" style="display:block;width:100%;text-align:right;margin-bottom:8px;">${p.icon} ${escapeHtml(p.label)}</button>
       `).join('') : `<p class="muted" style="margin-bottom:12px;">ما قدرت أستخرج جوانب من إجاباتك — تقدرين تضيفينها بنفسك من قائمة بنود الهوية.</p>`}
@@ -4185,7 +4185,7 @@ function renderLifeVisionSection(){
   return `
   <div class="card" style="margin-bottom:14px;text-align:center;border-color:var(--gold);">
     <div class="card-title" style="justify-content:center;"><h3>🧭 رؤيتي</h3></div>
-    <p class="muted" style="margin-bottom:14px;">قبل الأهداف التفصيلية، خلينا نحدد الصورة الكبيرة — وين تبين توصلين بحياتك عمومًا. أسألك كم سؤال بسيط وأساعدك تصيغين رؤيتك.</p>
+    ${helpNote('auto21','قبل الأهداف التفصيلية، خلينا نحدد الصورة الكبيرة — وين تبين توصلين بحياتك عمومًا. أسألك كم سؤال بسيط وأساعدك تصيغين رؤيتك.')}
     <button class="btn btn-block" id="visionStart">✨ ابدئي رحلة صياغة رؤيتك</button>
   </div>`;
 }
@@ -4324,7 +4324,7 @@ function renderFinanceGoalLink(){
     </div>`;
   }
   return `<div class="quote-box" style="margin-top:10px;">
-    <p class="muted" style="margin-bottom:8px;">فيه أداة مخصصة لأهدافك المالية بتفاصيل أكثر (مراحل، مصادر دخل، متابعة تلقائية) بتبويب "المالية".</p>
+    ${helpNote('auto22','فيه أداة مخصصة لأهدافك المالية بتفاصيل أكثر (مراحل، مصادر دخل، متابعة تلقائية) بتبويب "المالية".')}
     <button type="button" class="btn ghost sm" data-goto-money="1">افتحي الهدف المالي التفصيلي</button>
   </div>`;
 }
@@ -5021,7 +5021,7 @@ function renderFinancePathsCard(fg){
                 <button type="button" class="chip ${(pendingTipAdd.due||addDays(todayStr(),defaultSpacing))===addDays(todayStr(),3)?'selected':''}" data-tip-due="3">بعد 3 أيام</button>
                 <button type="button" class="chip ${(pendingTipAdd.due||addDays(todayStr(),defaultSpacing))===addDays(todayStr(),7)?'selected':''}" data-tip-due="7">بعد أسبوع</button>
               </div>
-              <p class="muted" style="margin-bottom:6px;">وأي فترة من اليوم؟ (اختياري)</p>
+              ${helpNote('auto23','وأي فترة من اليوم؟ (اختياري)')}
               <div class="period-tabs" style="margin-bottom:10px;">
                 ${state.timeBoxes.map(p=>`<button type="button" class="period-tab ${pendingTipAdd.period===p.id?'active':''}" data-tip-period="${p.id}" ${pendingTipAdd.period===p.id?`style="background:${p.color};border-color:${p.color};color:#fff;"`:''}>${escapeHtml(p.label)}</button>`).join('')}
               </div>
@@ -5035,7 +5035,7 @@ function renderFinancePathsCard(fg){
                 <button class="btn ghost sm" data-tip-skip="${pid}">➡️ غيرها</button>
               </div>
             `}
-          `:`<p class="muted" style="margin:6px 0 10px;">خلّصتي كل مقترحات هذا المصدر 🎉</p>`}
+          `:`${helpNote('auto24','خلّصتي كل مقترحات هذا المصدر 🎉')}`}
 
           ${(setup.successCriteria || (p.tools&&p.tools.length) || tip)? `
           <div class="path-facts">
@@ -5118,7 +5118,7 @@ function renderFinancePathsCard(fg){
       <details class="path-add" data-sec="finAddPath" ${(openSections.finAddPath || selected.length===0)?'open':''}>
         <summary><span class="grow">+ إضافة مصدر دخل</span><span class="chev">▾</span></summary>
         <div class="details-body">
-          <p class="muted" style="margin-bottom:8px;font-size:var(--t2);">اختاري مصدر دخل وأعطيك خطوة عملية كل مرة — توافقين عليها أو تطلبين غيرها.</p>
+          ${helpNote('auto25','اختاري مصدر دخل وأعطيك خطوة عملية كل مرة — توافقين عليها أو تطلبين غيرها.')}
           <div class="field" style="margin-bottom:8px;">
             <select id="methodSelect">
               ${available.length? available.map(p=>`<option value="${p.id}">${p.icon} ${p.label}</option>`).join('') : '<option value="">-- كل المصادر المدرجة مختارة --</option>'}
@@ -5129,7 +5129,7 @@ function renderFinancePathsCard(fg){
             <input type="text" id="customPathInput" placeholder="مصدر دخل من عندك…" style="flex:1;"/>
             <button class="btn sm" id="customPathAdd">إضافة</button>
           </div>
-          <p class="muted" style="margin-top:10px;font-size:var(--t2);">💡 اطلبي مني بالمحادثة رابط تعلم يناسب أي مصدر، وأضيفيه بنفسك لمهامك.</p>
+          ${helpNote('auto26','💡 اطلبي مني بالمحادثة رابط تعلم يناسب أي مصدر، وأضيفيه بنفسك لمهامك.')}
         </div>
       </details>
     </div>
@@ -5160,7 +5160,7 @@ function renderFinanceSetup(){
       <label>موعد تحققه</label>
       <input type="date" id="fsDeadline" value="${d.deadline}"/>
     </div>
-    <p class="muted" style="margin-bottom:14px;">بعد الحفظ، بقترح عليك مراحل أولية بمبالغ ومهام لكل مرحلة — تقدرين تعدّلين عليها، تحذفين، أو تضيفين مراحل من عندك بالكامل.</p>
+    ${helpNote('auto27','بعد الحفظ، بقترح عليك مراحل أولية بمبالغ ومهام لكل مرحلة — تقدرين تعدّلين عليها، تحذفين، أو تضيفين مراحل من عندك بالكامل.')}
     <div style="display:flex;gap:10px;">
       <button class="btn btn-block" id="fsSave">${fg&&fg.configured?'حفظ التعديلات':'ابدئي واقترحي المراحل'}</button>
       ${fg&&fg.configured? `<button class="btn ghost" id="fsCancel">إلغاء</button>`:''}
@@ -5564,7 +5564,7 @@ function renderProjectLedgerCard(){
   return `
   <div class="card fin-ledger">
     <div class="card-title"><h3>📒 الإجمالي من كل المصادر</h3></div>
-    <p class="muted" style="margin-bottom:12px;font-size:var(--t2);">مجموع كل مصادر دخلك. تفاصيل كل مصدر تلقينها تحت اسمه في "💵 مصادر دخلي".</p>
+    ${helpNote('auto28','مجموع كل مصادر دخلك. تفاصيل كل مصدر تلقينها تحت اسمه في "💵 مصادر دخلي".')}
     <div class="stats-grid" style="margin-bottom:14px;">
       <div class="stat-box" style="background:#e7f7ef;"><div class="p" style="color:#2f9e6e;" id="plIncomeVal">0 ريال</div><div class="l" style="color:#2f9e6e;">إجمالي العائدات</div></div>
       <div class="stat-box" style="background:rgba(178,76,99,.13);"><div class="p" style="color:var(--rose-dark);" id="plExpenseVal">0 ريال</div><div class="l" style="color:var(--rose-dark);">إجمالي المصروفات</div></div>
@@ -5594,7 +5594,7 @@ function renderFinanceDashboard(){
   ${(()=>{ /* the other direction of the link the yearly-goal card already offers,
               so the two "goals" read as one thing seen at two zoom levels */
     const yearly = state.goals.filter(g=>g.cat==='finance');
-    if(!yearly.length) return `<p class="muted" style="margin-bottom:14px;font-size:var(--t2);">هذا هدفك المالي التفصيلي — بمراحل ومصادر دخل. أهدافك السنوية العامة بتبويب "الأساس".</p>`;
+    if(!yearly.length) return `${helpNote('auto29','هذا هدفك المالي التفصيلي — بمراحل ومصادر دخل. أهدافك السنوية العامة بتبويب "الأساس".')}`;
     return `<p class="muted" style="margin-bottom:14px;font-size:var(--t2);">التفصيل المالي لـ ${yearly.map(g=>`<b style="color:var(--petrol-dark);">${escapeHtml(g.title)}</b>`).join(' و ')} — <button type="button" class="linkish" data-goto-goals="1">افتحي الهدف السنوي</button></p>`;
   })()}
 
@@ -5706,7 +5706,7 @@ function renderFinanceDashboard(){
             <button type="button" class="chip ${pendingStageTaskAdd.due===addDays(todayStr(),3)?'selected':''}" data-stagetask-due="3">بعد 3 أيام</button>
             <button type="button" class="chip ${pendingStageTaskAdd.due===addDays(todayStr(),7)?'selected':''}" data-stagetask-due="7">بعد أسبوع</button>
           </div>
-          <p class="muted" style="margin-bottom:6px;">وأي فترة من اليوم؟ (اختياري)</p>
+          ${helpNote('auto30','وأي فترة من اليوم؟ (اختياري)')}
           <div class="period-tabs" style="margin-bottom:10px;">
             ${state.timeBoxes.map(p=>`<button type="button" class="period-tab ${pendingStageTaskAdd.period===p.id?'active':''}" data-stagetask-period="${p.id}" ${pendingStageTaskAdd.period===p.id?`style="background:${p.color};border-color:${p.color};color:#fff;"`:''}>${escapeHtml(p.label)}</button>`).join('')}
           </div>
@@ -6266,7 +6266,7 @@ function renderSafetyPage(){
 
     <details class="card" data-sec="scAssets" ${sec('scAssets')}>
       <summary><h3>الأصول <span class="chev">▾</span></h3></summary><div class="details-body">
-      <p class="muted" style="margin-bottom:10px;">عقار، ذهب، فضة، حساب توفير، أسهم، ودائع، برنامج استثماري، منزلك... اكتبي القيمة الإجمالية الحالية لكل بند. حددي لكل بند: ⚡ سيولة سريعة، 🐢 سيولة طويلة المدى (تُحسب الاثنتان)، أو 🏠 أصل ثابت لا يُحسب (كالمسكن الأساسي)</p>
+      ${helpNote('auto31','عقار، ذهب، فضة، حساب توفير، أسهم، ودائع، برنامج استثماري، منزلك... اكتبي القيمة الإجمالية الحالية لكل بند. حددي لكل بند: ⚡ سيولة سريعة، 🐢 سيولة طويلة المدى (تُحسب الاثنتان)، أو 🏠 أصل ثابت لا يُحسب (كالمسكن الأساسي)')}
       <div id="scAssetRows"></div>
       <button class="btn ghost btn-block" id="scAddAssetBtn" style="margin-top:10px;">+ إضافة أصل</button>
       <div class="total-line"><span class="lbl">إجمالي الأملاك</span><span class="val" id="scAssetsTotal">0 ريال</span></div>
@@ -6294,7 +6294,7 @@ function renderSafetyPage(){
 
     <details class="card" data-sec="scWishes" ${openSections.scWishes!==false?'open':''}>
       <summary><h3>الرغبات طويلة المدى (هدف منفصل) <span class="chev">▾</span></h3></summary><div class="details-body">
-      <p class="muted" style="margin-bottom:10px;">منزل، سيارة، هدف محدد — لا تؤثر على رقم الأمان الأساسي أعلاه</p>
+      ${helpNote('auto32','منزل، سيارة، هدف محدد — لا تؤثر على رقم الأمان الأساسي أعلاه')}
       <div id="scGoalRows"></div>
       <button class="btn ghost btn-block" id="scAddGoalBtn" style="margin-top:10px;">+ إضافة رغبة/هدف</button>
       <div class="field" style="margin-top:12px;">
@@ -6834,7 +6834,7 @@ function renderExpensesPage(){
 
     <details class="card" data-sec="edRows" ${sec('edRows')}>
       <summary><h3>بنود المصروفات <span class="chev">▾</span></h3></summary><div class="details-body">
-      <p class="muted" style="margin-bottom:10px;">كل ما صار عندك مصروف، اضغطي "+ إضافة" وسجليه — كل عملية شراء تدخل مستقلة، وأنا أجمعها لك تلقائيًا تحت كل بند.</p>
+      ${helpNote('auto33','كل ما صار عندك مصروف، اضغطي "+ إضافة" وسجليه — كل عملية شراء تدخل مستقلة، وأنا أجمعها لك تلقائيًا تحت كل بند.')}
       <div id="edExpenseRows"></div>
       <button class="btn ghost btn-block" id="edAddRowBtn" style="margin-top:10px;">+ إضافة مصروف جديد</button>
       <div class="total-line"><span class="lbl">إجمالي المصروفات</span><span class="val" id="edExpenseTotal">0 ريال</span></div>
@@ -6845,7 +6845,7 @@ function renderExpensesPage(){
 
     <div class="card" id="edPlanVsActualCard" style="display:none;">
       <div class="card-title"><h3>خطتك مقابل الفعلي</h3></div>
-      <p class="muted" style="margin-bottom:10px;">البنود اللي خططتيها في حاسبة الأمان، مقارنة بالمسجّل فعليًا هالشهر.</p>
+      ${helpNote('auto34','البنود اللي خططتيها في حاسبة الأمان، مقارنة بالمسجّل فعليًا هالشهر.')}
       <div id="edPlanVsActualBox"></div>
     </div>
 
@@ -7293,7 +7293,7 @@ function renderHabitsPage(){
           </tbody>
         </table>
       </div>
-      <p class="muted" style="margin-top:10px;">العلامة "–" تعني إن هالعادة مو ضمن روتين ذاك اليوم.</p>
+      ${helpNote('auto35','العلامة "–" تعني إن هالعادة مو ضمن روتين ذاك اليوم.')}
     </div>
   </details>
 
@@ -7328,7 +7328,7 @@ function renderHabitsPage(){
         <input type="text" id="habitSearchInput" placeholder="🔍 ابحثي عن عادة…" value="${escapeHtml(habitSearchQuery)}"/>
       </div>
       <div id="habitEditList">${renderHabitEditList()}</div>
-      <p class="muted" style="margin-top:8px;">💡 ما عندي بحث تلقائي بالنسخة المستضافة، بس اطلبي مني رابط فيديو يساعدك بعادة معينة بالمحادثة، وألصقيه بخانة الرابط جنبها.</p>
+      ${helpNote('auto36','💡 ما عندي بحث تلقائي بالنسخة المستضافة، بس اطلبي مني رابط فيديو يساعدك بعادة معينة بالمحادثة، وألصقيه بخانة الرابط جنبها.')}
     </div>
   </details>
 
@@ -7372,7 +7372,7 @@ function renderInboxBox(){
   <details class="card" data-sec="taskInbox" ${openSections.taskInbox?'open':''} style="border-color:var(--sage);margin-bottom:16px;">
     <summary><h3>📝 صندوق المهام <span class="chev">▾</span></h3></summary>
     <div class="details-body">
-      <p class="muted" style="margin-bottom:8px;">الصقي أو اكتبي أي نص فيه مهمة أو أكثر — جملة عادية أو فقرة كاملة، ما تحتاجين تنسيق معيّن — وراح أفصلها وأستخرج منها الموعد والفترة والتصنيف تلقائيًا، بدون اتصال إنترنت. هذي الطريقة تشتغل دايم.</p>
+      ${helpNote('auto37','الصقي أو اكتبي أي نص فيه مهمة أو أكثر — جملة عادية أو فقرة كاملة، ما تحتاجين تنسيق معيّن — وراح أفصلها وأستخرج منها الموعد والفترة والتصنيف تلقائيًا، بدون اتصال إنترنت. هذي الطريقة تشتغل دايم.')}
       <div class="field" style="margin-bottom:8px;">
         <textarea id="importPaste" placeholder="مثال: اتصلي بالبنك بكرة الساعة 5، وجهزي فاتورة الكهرباء الأسبوع الجاي" style="min-height:90px;">${escapeHtml(importPasteText)}</textarea>
       </div>
@@ -7389,7 +7389,7 @@ function renderAiPlanReview(){
   return `
   <div class="card">
     <div class="card-title"><h3>المهام المستخلصة</h3></div>
-    <p class="muted" style="margin-bottom:12px;">راجعي المقترحات، ألغي أي وحدة ما تبينها الحين، وبعدين اعتمدي القائمة عشان تنضاف لمهامك.</p>
+    ${helpNote('auto38','راجعي المقترحات، ألغي أي وحدة ما تبينها الحين، وبعدين اعتمدي القائمة عشان تنضاف لمهامك.')}
     ${aiPlan.map((p,i)=>`
       <div class="plan-item ${p.include?'':'excluded'}">
         <div class="plan-head">
@@ -7444,7 +7444,7 @@ function renderTaskDraft(){
                  const p = g? pillarOf(goalPillarId(g)) : null;
                  if(g && p) return `<p class="muted" style="margin:4px 0 0;font-size:var(--t1);">بتظهر تحت <b>${p.icon} ${escapeHtml(p.label)}</b> في مهامك.</p>`;
                  if(g) return `<p class="muted" style="margin:4px 0 0;font-size:var(--t1);">هذا الهدف بلا بند هوية — حدّدي له بند من صفحة الأساس عشان ياخذ مكانه بالتسلسل.</p>`;
-                 return `<p class="muted" style="margin:4px 0 0;font-size:var(--t1);">بدون هدف بتوقع في «مهام بلا هدف».</p>`;})()}
+                 return `${helpNote('auto39','بدون هدف بتوقع في «مهام بلا هدف».')}`;})()}
       </div>
       <div class="field">
         <label>الأولوية</label>
@@ -7520,7 +7520,7 @@ function renderTaskDraft(){
                 <input type="date" id="tdRecurEnd" value="${d.recurEnd||''}"/>
               </div>
             </div>
-            <p class="muted" style="margin-top:6px;">المهمة ترجع تظهر تلقائيًا حسب التكرار المحدد، بعد ما تنجزينها.</p>
+            ${helpNote('auto40','المهمة ترجع تظهر تلقائيًا حسب التكرار المحدد، بعد ما تنجزينها.')}
             `:''}
           </div>
         </details>
@@ -7528,7 +7528,7 @@ function renderTaskDraft(){
       <div class="field">
         <label>🔗 رابط مساعد</label>
         <input type="text" id="tdLink" value="${escapeHtml(d.link||'')}" placeholder="مثال: رابط فيديو يوتيوب يساعدك تسوين المهمة" style="direction:ltr;text-align:left;"/>
-        <p class="muted" style="margin-top:6px;">ما عندي بحث تلقائي بالنسخة المستضافة، بس اطلبي مني رابط فيديو بالمحادثة وأنا أدورلك عليه وأعطيك إياه جاهز تلصقينه هنا.</p>
+        ${helpNote('auto41','ما عندي بحث تلقائي بالنسخة المستضافة، بس اطلبي مني رابط فيديو بالمحادثة وأنا أدورلك عليه وأعطيك إياه جاهز تلصقينه هنا.')}
       </div>
       <div class="field">
         <label>ملاحظة طويلة</label>
@@ -7553,7 +7553,7 @@ function renderTaskDraft(){
         </div>`:''}
         <input type="file" id="tdAttachInput" style="width:100%;padding:10px;border:1.5px dashed var(--line);border-radius:10px;background:var(--parchment);font-size:var(--t3);"/>
         ${attachError? `<p class="muted" style="color:var(--rose-dark);margin-top:6px;">${escapeHtml(attachError)}</p>`:''}
-        <p class="muted" style="margin-top:6px;">حجم أقصى ٨٠٠ كيلوبايت لكل ملف (تخزين محلي بالجهاز).</p>
+        ${helpNote('auto42','حجم أقصى ٨٠٠ كيلوبايت لكل ملف (تخزين محلي بالجهاز).')}
       </div>
         </div>
       </details>
@@ -8435,7 +8435,7 @@ function renderVoiceQuickAddCard(){
     <div class="card-title"><h3 style="flex:1;">🎤 أضيفي مهمة بصوتك أو اكتبيها</h3>
       <button type="button" class="icon-btn" id="voiceToggleClose" title="طي">➖</button>
     </div>
-    <p class="muted" style="margin-bottom:10px;">اضغطي زر المايك بلوحة مفاتيح جوالك للإملاء الصوتي (أو اكتبي عادي)، وأنا أحوّلها لمهام منظمة تلقائيًا — حتى لو أكثر من مهمة بمرة وحدة.</p>
+    ${helpNote('auto43','اضغطي زر المايك بلوحة مفاتيح جوالك للإملاء الصوتي (أو اكتبي عادي)، وأنا أحوّلها لمهام منظمة تلقائيًا — حتى لو أكثر من مهمة بمرة وحدة.')}
     <div class="field" style="margin-bottom:10px;">
       <textarea id="voiceDraftInput" placeholder="مثال: اتصلي بالبنك بكرة الساعة 5، وجهزي فاتورة الكهرباء">${escapeHtml(voiceDraftText)}</textarea>
     </div>
