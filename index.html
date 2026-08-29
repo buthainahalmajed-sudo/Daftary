@@ -926,6 +926,14 @@ details.card::before{display:none;}
   display:flex;align-items:center;justify-content:center;flex-shrink:0;
 }
 .day-frame .df-rest{margin-top:7px;}
+/* a ready palette of marks for the day's feeling */
+.emoji-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(42px,1fr));gap:6px;}
+.emoji-pick{
+  aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+  font-size:21px;line-height:1;border:1px solid var(--line);border-radius:10px;
+  background:var(--paper);cursor:pointer;padding:0;
+}
+.emoji-pick:active{background:var(--sage);}
 </style>
 </head>
 <body>
@@ -1191,7 +1199,18 @@ const MOODS = [
   {id:'متحمسة',label:'متحمسة',icon:'✨'},
   {id:'ممتنة', label:'ممتنة', icon:'🌸'},
 ];
-const DEFAULT_MOOD_TITLE = 'شلون تبين تحسين هالليوم؟';
+/* A ready set for "how was today", grouped the way she would look for one, so
+   picking a mark never means leaving the app for the system emoji keyboard. */
+const MOOD_EMOJI = [
+  {label:'مرتاحة وسعيدة', list:['😊','😄','🥰','😌','🤗','😇','🌿','🌸','☀️','✨','💛','🕊️']},
+  {label:'نشيطة ومركّزة', list:['💪','⚡','🎯','🔥','🚀','🧠','📈','⏰','✅','🏆','🌟','☕']},
+  {label:'هادئة ومتأملة', list:['🧘‍♀️','🌙','🫖','📖','🎧','🌊','🍃','🤍','💭','🕯️','🌾','🪷']},
+  {label:'متعبة أو مثقلة', list:['😴','🥱','😮‍💨','🫠','😐','🌧️','🥀','⏳','🪫','😶‍🌫️','🧩','🌫️']},
+  {label:'مضغوطة أو منزعجة', list:['😣','😞','😥','😤','😰','🥲','💔','⚠️','🌀','🫥','😔','🙃']},
+  {label:'شكر وامتنان', list:['🤲','🕌','📿','💐','🙏','💗','🌻','🫶','🎁','🌈','⭐','💫']},
+];
+const DEFAULT_MOOD_TITLE = 
+'شلون تبين تحسين هالليوم؟';
 /* which cards the day page is built from. Every one of them was always present,
    so a ritual she doesn't keep still cost her a scroll past it every morning. */
 const HOME_CARDS = [
@@ -1453,7 +1472,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 70';
+const APP_BUILD = '2026-08-17 · 71';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -2953,7 +2972,21 @@ function attachManagerEvents(){
   };
   document.querySelectorAll('[data-mood-up]').forEach(b=> b.onclick=()=> moveMood(b.dataset.moodUp, -1));
   document.querySelectorAll('[data-mood-down]').forEach(b=> b.onclick=()=> moveMood(b.dataset.moodDown, 1));
+  document.querySelectorAll('[data-mood-emoji]').forEach(b=> b.onclick=()=>{
+    const e = b.dataset.moodEmoji;
+    /* if she is standing in one of the existing icon fields, fill that one;
+       otherwise it goes to the "new feeling" box she is most likely heading for */
+    const a = document.activeElement;
+    const target = (a && a.dataset && a.dataset.moodIcon)? a : document.getElementById('moodNewIcon');
+    if(!target) return;
+    target.value = e;
+    if(target.dataset && target.dataset.moodIcon){
+      const m = moodOf(target.dataset.moodIcon);
+      if(m){ m.icon = e; saveState(); render(); }
+    }
+  });
   const moodAdd = document.getElementById('moodAdd');
+
   if(moodAdd) moodAdd.onclick = ()=>{
     const label = (document.getElementById('moodNewLabel').value||'').trim();
     const icon = (document.getElementById('moodNewIcon').value||'').trim() || '🌿';
@@ -3392,6 +3425,9 @@ function renderQuestionsCard(log){
         <details class="q-note" data-sec="qc:${q.id}" ${open?'open':''}>
           <summary><span class="grow">💬 تعليق${note? " ●":""}</span><span class="chev">▾</span></summary>
           <textarea data-qnote="${q.id}" placeholder="اكتبي هنا…">${escapeHtml(note)}</textarea>
+          ${/* a comment is often where a task first shows up — she should not have
+                to retype it somewhere else to act on it */''}
+          ${note.trim()? `<button type="button" class="btn ghost sm" data-qnote-task="${q.id}" style="margin-top:6px;">📌 حوّليها لمهمة</button>`:''}
         </details>
       </div>`;
     }).join('') : `<div class="empty tight">ما فيه أسئلة نشطة<span class="hint">فعّليها أو أضيفيها من تبويب «الأساس»</span></div>`)}
@@ -3676,6 +3712,19 @@ function renderMoodManager(){
         <input type="text" id="moodNewLabel" placeholder="شعور جديد…" style="flex:1;"/>
         <button type="button" class="btn sm" id="moodAdd">إضافة</button>
       </div>
+      ${/* typing an emoji on a phone means leaving the app for the keyboard's
+            picker and hunting; the ones that actually describe a day are here */''}
+      <details class="card sub-card" data-sec="moodPalette" ${openSections.moodPalette?'open':''}>
+        <summary><h3>😀 اختاري رمزًا <span class="chev">▾</span></h3></summary>
+        <div class="details-body">
+          <p class="muted" style="margin:0 0 8px;font-size:var(--t1);">اضغطي رمزًا فينحط بخانة الرمز فوق — أو بالشعور اللي تعدّلينه لو كنتِ واقفة عليه.</p>
+          ${MOOD_EMOJI.map(g=>`
+            <p class="form-group-label" style="margin:10px 0 6px;">${g.label}</p>
+            <div class="emoji-grid">
+              ${g.list.map(e=>`<button type="button" class="emoji-pick" data-mood-emoji="${e}">${e}</button>`).join('')}
+            </div>`).join('')}
+        </div>
+      </details>
       ${helpNote('auto14','💡 أيامك السابقة تحتفظ بالشعور اللي اخترتيه فيها حتى لو غيّرتِ اسمه أو أوقفتيه — الرمز يظل يظهر بشريط التاريخ.')}
     </div>
   </details>`;
@@ -7965,12 +8014,29 @@ function attachGlobalEvents(){
     saveState(); render();
   });
 
-document.querySelectorAll('[data-qnote]').forEach(ta=>{
-    ta.onchange = ()=>{
+  document.querySelectorAll('[data-qnote]').forEach(ta=>{
+    /* it saved on change only, so anything she typed was lost the moment the app
+       redrew for another reason — ticking a task, the minute cloud pull — without
+       the field having lost focus first. It saves as she writes now. */
+    const save = ()=>{
       const log = getLog(selectedDate);
       log.commentsById[ta.dataset.qnote] = ta.value;
       saveState();
     };
+    ta.oninput = save;
+    ta.onchange = ()=>{ save(); render(); };  /* so the 📌 appears once there is text */
+  });
+  document.querySelectorAll('[data-qnote-task]').forEach(b=> b.onclick=()=>{
+    const qid = b.dataset.qnoteTask;
+    const text = (getLog(selectedDate).commentsById[qid]||'').trim();
+    if(!text) return;
+    state.tasks.push({
+      id:uid(), title:text.split('\n')[0].slice(0,120), goalId:null, category:null,
+      priority:'متوسطة', period:null, due:selectedDate, link:null,
+      longNote: text.includes('\n')? text : '',
+      done:false, createdAt:todayStr(),
+    });
+    saveState(); popStamp('صارت مهمة','بالتوفيق'); render();
   });
 
   document.querySelectorAll('[data-mood]').forEach(b=> b.onclick=()=>{
