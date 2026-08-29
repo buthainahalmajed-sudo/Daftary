@@ -1082,7 +1082,58 @@ function taskPillar(t){ return pillarOf(goalPillarId(taskGoal(t))); }
    app already says so in words — so the tasks it generates belong to that goal
    instead of to nothing, which is how most goal-linked work used to lose its
    place in the chain. */
+/* A stage's steps were a private little checklist inside the money page: she had
+   to press 📌 on each one to get it into her actual day, and until she did, the
+   work her financial goal depended on existed nowhere she would look. The steps
+   of the stage she is *on* become real tasks by themselves, filed under the
+   financial goal, so they show up in المهام and اليوم under her identity aspect
+   like any other work. Later stages stay quiet until she reaches them.
+
+   One list, not two: the step keeps a pointer to the task it became, and the
+   money page reads that task's state rather than a second copy of it. A step
+   whose task she deleted is marked dropped and is not resurrected. */
+/* Ticking a task means different things for a one-off and a recurring one, and
+   two screens now offer that tick — so the rule lives here rather than being
+   written out twice and drifting. */
+function toggleTaskDone(t){
+  if(!t) return;
+  if(t.recurType){
+    const day = selectedDate || todayStr();
+    const wasDone = t.lastDoneDate === day;
+    t.lastDoneDate = wasDone? null : day;
+    if(!wasDone) popStamp('أنجزتها','ماشاءالله');
+  }else{
+    t.done = !t.done;
+    t.doneAt = t.done? selectedDate : null;
+    if(t.done) popStamp('أنجزتها','ماشاءالله');
+  }
+}
+function syncStageTasks(){
+
+  const fg = state.financialGoal;
+  if(!fg || !fg.configured || !fg.stages) return;
+  const current = fg.stages.find(s=>!s.done);
+  if(!current || !current.tasks) return;
+  let changed = false;
+  current.tasks.forEach(st=>{
+    if(st.dropped) return;
+    if(st.taskId){
+      if(!state.tasks.some(t=>t.id===st.taskId)){ st.dropped = true; changed = true; }
+      return;
+    }
+    const t = {
+      id:uid(), title:st.text, goalId:FIN_GOAL_ID, stageId:current.id, stageTaskId:st.id,
+      category:'business', priority:'متوسطة', period:null, due:null, link:null,
+      done:false, createdAt:todayStr(),
+    };
+    state.tasks.push(t);
+    st.taskId = t.id;
+    changed = true;
+  });
+  if(changed) saveState();
+}
 function financeParentGoalId(){
+
   /* the financial goal itself, when it exists — no more guessing at a yearly one */
   if(state.financialGoal && state.financialGoal.configured) return FIN_GOAL_ID;
   const g = state.goals.find(x=> x.cat==='finance');
@@ -1402,7 +1453,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 69';
+const APP_BUILD = '2026-08-17 · 70';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -2189,6 +2240,7 @@ function moveHabitInDow(dow, habitId, dir){
 function render(){
   const app = document.getElementById('app');
   if(!storageReady){ app.innerHTML = '<div class="empty">جارٍ فتح دفترك…</div>'; return; }
+  syncStageTasks();
   if(settingsOpen){ app.innerHTML = renderSettings(); attachSettingsEvents(); return; }
   if(!state.onboarded){ app.innerHTML = renderOnboarding(); attachOnboardingEvents(); return; }
   if(goalWizard){ app.innerHTML = renderGoalWizard(); attachGoalWizardEvents(); return; }
@@ -5751,14 +5803,23 @@ function renderFinanceDashboard(){
     <div class="details-body">
     <p style="font-size:16px;font-weight:700;color:var(--petrol-dark);margin-bottom:4px;">${escapeHtml(nextStage.title)}</p>
     <p class="muted" style="margin-bottom:10px;">هدف المرحلة: ${fgFmt(nextStage.targetAmount)} ريال</p>
-    ${nextStage.tasks.map(t=>`
+    ${/* these are now the same objects her tasks page shows, so the tick here is
+          the task's own tick — never a second one that can disagree with it */''}
+    ${nextStage.tasks.filter(t=>!t.dropped).map(t=>{
+      const real = t.taskId? state.tasks.find(x=>x.id===t.taskId) : null;
+      const done = real? taskDoneToday(real) : !!t.done;
+      return `
       <div class="habit-item">
-        <button type="button" class="hbox ${t.done?'done':''}" data-stagetask-toggle="${nextStage.id}|${t.id}">${t.done?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
-        <input type="text" class="stagetask-edit" data-stagetask-edit="${nextStage.id}|${t.id}" value="${escapeHtml(t.text)}" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--paper);font-size:var(--tf);font-weight:700;${t.done?'text-decoration:line-through;color:#9aa6a4;':''}"/>
-        <button type="button" class="icon-btn" title="أضيفيها لمهامي" data-stagetask-addtotasks="${nextStage.id}|${t.id}">📌</button>
+        <button type="button" class="hbox ${done?'done':''}" data-stagetask-toggle="${nextStage.id}|${t.id}">${done?'<svg viewBox="0 0 24 24"><polyline points="5 13 10 18 19 7"/></svg>':''}</button>
+        <input type="text" class="stagetask-edit" data-stagetask-edit="${nextStage.id}|${t.id}" value="${escapeHtml(real? real.title : t.text)}" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--paper);font-size:var(--tf);font-weight:700;${done?'text-decoration:line-through;color:#9aa6a4;':''}"/>
+        ${real? `<button type="button" class="icon-btn" title="حددي لها موعدًا وفترة" data-stagetask-addtotasks="${nextStage.id}|${t.id}">🗓️</button>`
+              : `<button type="button" class="icon-btn" title="أضيفيها لمهامي" data-stagetask-addtotasks="${nextStage.id}|${t.id}">📌</button>`}
         <button type="button" class="icon-btn" data-stagetask-del="${nextStage.id}|${t.id}">✕</button>
-      </div>
-      ${pendingStageTaskAdd && pendingStageTaskAdd.stageId===nextStage.id && pendingStageTaskAdd.taskId===t.id? `
+      </div>`;}).join('')}
+    ${/* scheduling panel — it used to be printed inside the loop over the steps
+          and only shown for the matching one; it stands on its own now, since
+          only ever one step is being scheduled at a time */''}
+    ${(pendingStageTaskAdd && pendingStageTaskAdd.stageId===nextStage.id)? `
         <div class="card" style="margin:6px 0 10px;background:var(--paper);">
           <p class="muted" style="margin-bottom:6px;">اليوم المناسب؟</p>
           <div class="chip-row" style="margin-bottom:8px;">
@@ -5773,11 +5834,10 @@ function renderFinanceDashboard(){
             ${state.timeBoxes.map(p=>`<button type="button" class="period-tab ${pendingStageTaskAdd.period===p.id?'active':''}" data-stagetask-period="${p.id}" ${pendingStageTaskAdd.period===p.id?`style="background:${p.color};border-color:${p.color};color:#fff;"`:''}>${escapeHtml(p.label)}</button>`).join('')}
           </div>
           <div style="display:flex;gap:8px;">
-            <button class="btn sm" id="stageTaskAddConfirm">✅ أضيفيها لمهامي</button>
+            <button class="btn sm" id="stageTaskAddConfirm">✅ حفظ الموعد</button>
             <button class="btn ghost sm" id="stageTaskAddCancel">إلغاء</button>
           </div>
         </div>`:''}
-      `).join('')}
     <div style="display:flex;gap:8px;margin-top:10px;">
       <input type="text" id="stageTaskInput" placeholder="أضيفي مهمة لهالمرحلة…" style="flex:1;"/>
       <button class="btn sm" id="stageTaskAdd" data-stage="${nextStage.id}">إضافة</button>
@@ -6066,7 +6126,10 @@ function attachFinanceEvents(){
     const fg = state.financialGoal;
     const stage = fg.stages.find(s=>s.id===stageId);
     const t = stage.tasks.find(x=>x.id===taskId);
-    if(t) t.done = !t.done;
+    if(!t) return;
+    /* the step is the task now — tick the task, not a second copy of its state */
+    const real = t.taskId? state.tasks.find(x=>x.id===t.taskId) : null;
+    if(real) toggleTaskDone(real); else t.done = !t.done;
     saveState(); render();
   });
   document.querySelectorAll('[data-stagetask-edit]').forEach(inp=>{
@@ -6074,7 +6137,13 @@ function attachFinanceEvents(){
       const [stageId, taskId] = inp.dataset.stagetaskEdit.split('|');
       const stage = state.financialGoal.stages.find(s=>s.id===stageId);
       const t = stage.tasks.find(x=>x.id===taskId);
-      if(t){ t.text = inp.value.trim() || t.text; saveState(); }
+      if(t){
+        t.text = inp.value.trim() || t.text;
+        const real = t.taskId? state.tasks.find(x=>x.id===t.taskId) : null;
+        if(real) real.title = t.text;   /* the same thing, named once */
+        saveState();
+      }
+
     };
   });
   document.querySelectorAll('[data-stagetask-addtotasks]').forEach(b=> b.onclick=()=>{
@@ -6101,7 +6170,10 @@ function attachFinanceEvents(){
     const t = stage && stage.tasks.find(x=>x.id===pendingStageTaskAdd.taskId);
     if(t){
       const due = pendingStageTaskAdd.due || todayStr();
-      state.tasks.push({id:uid(), title:t.text, goalId:financeParentGoalId(), category:'business', priority:'متوسطة', period:pendingStageTaskAdd.period||null, due, link:null, done:false, createdAt:todayStr()});
+      const real = t.taskId? state.tasks.find(x=>x.id===t.taskId) : null;
+      /* it is already in her tasks; this sets when, rather than adding a twin */
+      if(real){ real.due = due; real.period = pendingStageTaskAdd.period||null; }
+      else state.tasks.push({id:uid(), title:t.text, goalId:financeParentGoalId(), stageId:stage&&stage.id, stageTaskId:t.id, category:'business', priority:'متوسطة', period:pendingStageTaskAdd.period||null, due, link:null, done:false, createdAt:todayStr()});
     }
     pendingStageTaskAdd = null;
     saveState(); render();
@@ -6111,6 +6183,8 @@ function attachFinanceEvents(){
     const stage = state.financialGoal.stages.find(s=>s.id===stageId);
     const t = stage.tasks.find(x=>x.id===taskId);
     if(!confirm(`تحذفين مهمة "${t? t.text : ''}"؟`)) return;
+    /* it exists once, so deleting it here deletes it everywhere */
+    if(t && t.taskId) state.tasks = state.tasks.filter(x=>x.id!==t.taskId);
     stage.tasks = stage.tasks.filter(x=>x.id!==taskId);
     saveState(); render();
   });
@@ -7914,21 +7988,8 @@ document.querySelectorAll('[data-qnote]').forEach(ta=>{
        have no weekdays, so checking t.recur sent them down the one-off path and
        flagged them permanently done. taskDoneToday() only ever reads
        lastDoneDate for a recurring task, so they never hid and never came back. */
-    if(t.recurType){
-      /* record against the day being viewed, matching how a one-off task's doneAt
-         already works — ticking an occurrence while browsing another date should
-         mark that date, not today */
-      const day = selectedDate || todayStr();
-      const wasDone = t.lastDoneDate === day;
-      t.lastDoneDate = wasDone? null : day;
-      saveState();
-      if(!wasDone){ popStamp('أنجزتها','ماشاءالله'); }
-    }else{
-      t.done = !t.done;
-      t.doneAt = t.done? selectedDate: null;
-      saveState();
-      if(t.done){ popStamp('أنجزتها','ماشاءالله'); }
-    }
+    toggleTaskDone(t);
+    saveState();
     render();
   });
 
