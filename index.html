@@ -1500,7 +1500,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 73';
+const APP_BUILD = '2026-08-17 · 74';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -3628,16 +3628,21 @@ function renderScheduleCard(){
   const focus = isToday? topTasks() : [];
   const focusIds = new Set(focus.map(t=>t.id));
   const rest = pool.filter(t=> !focusIds.has(t.id));
-  const countIn = id => rest.filter(t=>t.period===id).length;
-  /* the schedule is strictly the day laid out by time box. A task with no period
-     (or one pointing at a box she deleted) has no place on that map, so it stays
-     out of here entirely — it is still reachable on the tasks page, under its
-     category or under "غير مصنّفة". */
-  const items = rest.filter(t=>t.period===period);
+  /* A task with no time box, or one pointing at a box she has since deleted, used
+     to be left off this map entirely — while the counter above still counted it.
+     So the day said "5 tasks" and only four could be found anywhere, which reads
+     exactly like the task was never saved. Scheduling a task for a day is the
+     decision that matters; naming an hour for it is optional, so anything
+     unplaced lands in "أي وقت". */
+  const ANYTIME = '__any__';
+  const inBox = t => state.timeBoxes.some(b=>b.id===t.period);
+  const boxOfTask = t => inBox(t)? t.period : ANYTIME;
+  const countIn = id => rest.filter(t=> boxOfTask(t)===id).length;
+  const items = rest.filter(t=> boxOfTask(t)===period);
   const collapsed = state.collapsed.schedule;
   const activeBox = timeBoxOf(period);
   const pinned = isToday && getLog(todayStr()).pinnedTop3;
-  const restCount = rest.filter(t=> state.timeBoxes.some(b=>b.id===t.period)).length;
+  const restCount = rest.length;   /* everything left, including what has no hour */
   return `
   <div class="card">
     <div class="card-title"><h3>${isToday? 'يومك' : 'جدول هذا اليوم'}</h3>${isToday && homeCardOn('progress')? homeProgressChip() : ''}</div>
@@ -3666,11 +3671,14 @@ function renderScheduleCard(){
         const n = countIn(b.id);
         return `<button type="button" class="period-tab ${period===b.id?'active':''}" data-period="${b.id}" ${period===b.id?`style="background:${b.color};border-color:${b.color};color:#fff;"`:''}>${escapeHtml(b.label)}${n? ` <span class="ptab-count">${n}</span>`:''}</button>`;
       }).join('')}
+      ${/* shown whenever something is sitting in it, so nothing scheduled can go
+            missing — and while it is the open tab, so she can get back out */''}
+      ${(countIn(ANYTIME) || period===ANYTIME)? `<button type="button" class="period-tab ${period===ANYTIME?'active':''}" data-period="${ANYTIME}" ${period===ANYTIME?'style="background:var(--sage);border-color:var(--sage);color:#fff;"':''}>أي وقت${countIn(ANYTIME)? ` <span class="ptab-count">${countIn(ANYTIME)}</span>`:''}</button>`:''}
     </div>
     ${/* the box also listed every category assigned to it, which ran to a line
           and a half of names she never acts on from here */''}
     ${activeBox? `<p class="muted" style="margin:6px 0 8px;font-size:var(--t1);">⏰ ${activeBox.start} – ${activeBox.end}</p>`:''}
-    ${items.length===0? `<div class="empty tight">ما فيه مهام في هالصندوق</div>` : items.map(t=>taskRowHtml(t, {date:dateStr, assign:true})).join('')}
+    ${items.length===0? `<div class="empty tight">${period===ANYTIME? 'ما فيه مهام بلا وقت محدد' : 'ما فيه مهام في هالصندوق'}</div>` : items.map(t=>taskRowHtml(t, {date:dateStr, assign:true})).join('')}
     <button class="btn ghost btn-block" style="margin-top:8px;" id="goAddTaskPeriod" data-add-period="${period}">+ إضافة مهمة ${activeBox?'لـ'+escapeHtml(activeBox.label):''}</button>
       </div>
     </details>
@@ -4476,6 +4484,16 @@ function renderGoalCard(g){
         <span class="gh-bar"><i style="width:${pct}%;"></i></span>
         <span class="chev">‹</span>
       </button>
+      ${/* setting its aspect meant opening the money page and its setup form. It
+            is one tap from where the goal already sits, and its stage and source
+            tasks follow the aspect she picks. */''}
+      ${(!goalPillarId(g) && state.goalPillars.length)? `
+      <div class="goal-body" style="padding-top:0;">
+        <select class="row-goal" data-fin-pillar="1" style="width:100%;">
+          <option value="">↳ تحت أي بند هوية؟</option>
+          ${state.goalPillars.map(p=>`<option value="${p.id}">${p.icon} ${escapeHtml(p.label)}</option>`).join('')}
+        </select>
+      </div>`:''}
     </div>`;
   }
   const i = state.goals.indexOf(g);
@@ -4522,6 +4540,11 @@ function renderGoalCard(g){
       <div style="display:flex;flex-direction:column;gap:4px;margin-top:8px;">
         ${g.attachments.map(a=>`<a href="${a.dataUrl}" download="${escapeHtml(a.name)}" style="font-size:var(--t3);color:var(--petrol-dark);text-decoration:none;">📄 ${escapeHtml(a.name)}</a>`).join('')}
       </div>`:''}
+    ${(!goalPillarId(g) && state.goalPillars.length)? `
+    <select class="row-goal" data-goal-pillar="${g.id}" style="width:100%;margin-bottom:8px;">
+      <option value="">↳ تحت أي بند هوية؟</option>
+      ${state.goalPillars.map(p=>`<option value="${p.id}">${p.icon} ${escapeHtml(p.label)}</option>`).join('')}
+    </select>`:''}
     <button class="btn ghost sm" data-addtaskfor="${g.id}" style="margin-top:8px;">+ إضافة مهمة لهالهدف</button>
     ${g.cat==='finance'? renderFinanceGoalLink() : ''}
     </div>`}
@@ -8341,7 +8364,21 @@ function attachGlobalEvents(){
   document.querySelectorAll('[data-goto-money]').forEach(b=> b.onclick=()=>{
     view = 'money'; moneySubView = 'finance'; render();
   });
+  document.querySelectorAll('[data-fin-pillar]').forEach(sel=> sel.onchange=()=>{
+    if(!sel.value || !state.financialGoal) return;
+    state.financialGoal.pillarId = sel.value;
+    saveState(); render();
+  });
+  document.querySelectorAll('[data-goal-pillar]').forEach(sel=> sel.onchange=()=>{
+    const g = state.goals.find(x=>x.id===sel.dataset.goalPillar);
+    if(!g || !sel.value) return;
+    g.pillarId = sel.value;
+    if(!g.pillarIds) g.pillarIds = [];
+    if(!g.pillarIds.includes(sel.value)) g.pillarIds.push(sel.value);
+    saveState(); render();
+  });
   document.querySelectorAll('[data-goto-goals]').forEach(b=> b.onclick=()=>{ view = 'goals'; render(); });
+
   const openUM = document.getElementById('openUnknownMap');
   if(openUM) openUM.onclick = ()=>{ unknownMap = {step:0, notes:{}, acting:false, taskText:''}; render(); };
   const goToLists = document.getElementById('goToLists');
