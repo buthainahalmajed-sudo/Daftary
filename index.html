@@ -1509,7 +1509,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 75';
+const APP_BUILD = '2026-08-17 · 76';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -3643,11 +3643,16 @@ function renderScheduleCard(){
      exactly like the task was never saved. Scheduling a task for a day is the
      decision that matters; naming an hour for it is optional, so anything
      unplaced lands in "أي وقت". */
-  const ANYTIME = '__any__';
   /* Time is one way to carve up a day; where the work has to happen is another,
      and often the more useful one — there is no point reading an "at the work
      computer" task while sitting at home. The same list, cut either way. */
   const byDevice = dayGroupBy === 'device';
+  /* She already keeps a box called "أي وقت", so adding a catch-all of my own put
+     two tabs with that name side by side. Hers wins: anything unplaced goes in
+     it, and the synthetic one only appears when she has no such box. */
+  const bareAlef = s => (s||'').replace(/[أإآ]/g,'ا').replace(/\s+/g,'').trim();
+  const ownAnyBox = byDevice? null : state.timeBoxes.find(b=> bareAlef(b.label)==='ايوقت');
+  const ANYTIME = ownAnyBox? ownAnyBox.id : '__any__';
   const inBox = t => state.timeBoxes.some(b=>b.id===t.period);
   const boxOfTask = t => byDevice
     ? (t.device && DEVICE_LABELS[t.device]? t.device : ANYTIME)
@@ -3697,7 +3702,7 @@ function renderScheduleCard(){
       }).join('')}
       ${/* shown whenever something is sitting in it, so nothing scheduled can go
             missing — and while it is the open tab, so she can get back out */''}
-      ${(countIn(ANYTIME) || period===ANYTIME)? `<button type="button" class="period-tab ${period===ANYTIME?'active':''}" data-period="${ANYTIME}" ${period===ANYTIME?'style="background:var(--sage);border-color:var(--sage);color:#fff;"':''}>${byDevice? 'أي مكان' : 'أي وقت'}${countIn(ANYTIME)? ` <span class="ptab-count">${countIn(ANYTIME)}</span>`:''}</button>`:''}
+      ${((countIn(ANYTIME) || period===ANYTIME) && !ownAnyBox)? `<button type="button" class="period-tab ${period===ANYTIME?'active':''}" data-period="${ANYTIME}" ${period===ANYTIME?'style="background:var(--sage);border-color:var(--sage);color:#fff;"':''}>${byDevice? 'أي مكان' : 'أي وقت'}${countIn(ANYTIME)? ` <span class="ptab-count">${countIn(ANYTIME)}</span>`:''}</button>`:''}
     </div>
     ${/* the box also listed every category assigned to it, which ran to a line
           and a half of names she never acts on from here */''}
@@ -4130,21 +4135,38 @@ function renderJournalPage(){
   </button>
 
   <div class="card">
-    <div class="card-title"><h3>💼 إنجاز عمل جديد</h3></div>
-    <div class="field" style="margin-bottom:8px;">
+    ${/* the page is mostly for reading back what she has done; writing a new one
+          is occasional, so the form waits behind its own heading. It stays open
+          while there is an unfinished draft in it. */''}
+    ${(()=>{ const k='jrnNewWork';
+      if(state.collapsed[k]===undefined) state.collapsed[k]=true;
+      const closed = !!state.collapsed[k] && !journalWorkDraft;
+      return `
+    <button type="button" class="fold-line" data-toggle-collapse="${k}">
+      <span class="grow">💼 إنجاز عمل جديد</span><span class="chev ${closed?'':'open'}">▾</span>
+    </button>
+    ${closed? '' : `
+    <div class="field" style="margin:8px 0;">
       <textarea id="journalWorkInput" placeholder="اكتبي بحرية…">${escapeHtml(journalWorkDraft)}</textarea>
     </div>
     ${journalCatPicker('work', journalWorkCat)}
-    <button class="btn btn-block" id="journalWorkAdd">إضافة</button>
+    <button class="btn btn-block" id="journalWorkAdd">إضافة</button>`}`;})()}
   </div>
 
   <div class="card">
-    <div class="card-title"><h3>🌸 إنجاز شخصي جديد</h3></div>
-    <div class="field" style="margin-bottom:8px;">
+    ${(()=>{ const k='jrnNewPersonal';
+      if(state.collapsed[k]===undefined) state.collapsed[k]=true;
+      const closed = !!state.collapsed[k] && !journalPersonalDraft;
+      return `
+    <button type="button" class="fold-line" data-toggle-collapse="${k}">
+      <span class="grow">🌸 إنجاز شخصي جديد</span><span class="chev ${closed?'':'open'}">▾</span>
+    </button>
+    ${closed? '' : `
+    <div class="field" style="margin:8px 0;">
       <textarea id="journalPersonalInput" placeholder="اكتبي بحرية…">${escapeHtml(journalPersonalDraft)}</textarea>
     </div>
     ${journalCatPicker('personal', journalPersonalCat)}
-    <button class="btn btn-block" id="journalPersonalAdd">إضافة</button>
+    <button class="btn btn-block" id="journalPersonalAdd">إضافة</button>`}`;})()}
   </div>
 
   ${renderReflectionCard(getLog(todayStr()))}
