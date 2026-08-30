@@ -961,6 +961,14 @@ details.card::before{display:none;}
 .umap .um-ask textarea{min-height:80px;}
 .umap .um-nav{display:flex;gap:8px;margin-top:26px;}
 .umap .um-choices{display:flex;flex-direction:column;gap:10px;margin-top:20px;}
+/* the day, cut by hour or by where the work happens */
+.group-switch{display:flex;gap:0;margin-bottom:8px;background:var(--parchment);border:1px solid var(--line);border-radius:9px;padding:3px;}
+.gs-btn{
+  flex:1;padding:5px 4px;border:none;background:none;border-radius:7px;
+  font-family:inherit;font-size:var(--t1);font-weight:700;color:var(--muted);cursor:pointer;
+}
+.gs-btn.on{background:var(--paper);color:var(--petrol-dark);box-shadow:0 1px 2px rgba(31,58,61,.12);}
+.period-tab svg{vertical-align:-2px;}
 </style>
 </head>
 <body>
@@ -1461,6 +1469,7 @@ let journalFilterCat = '';   /* CATS id the year view is filtered to, '' = all *
 let journalViewYear = null; /* selected year on the يومياتي page; defaults to current year */
 let journalExportText = '';
 let journalEditingId = null;
+let dayGroupBy = 'period';  /* 'period' | 'device' — how the rest of the day is cut */
 let unknownMap = null;  /* {step, notes:{}, acting, taskText} while the map is open — deliberately not in state, since she asked for the map and not a log of it */ /* id of the one journal entry currently shown as an editable textarea */
 let journalEditDraft = '';
 let textScale = 1;
@@ -1500,7 +1509,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 74';
+const APP_BUILD = '2026-08-17 · 75';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -3635,8 +3644,18 @@ function renderScheduleCard(){
      decision that matters; naming an hour for it is optional, so anything
      unplaced lands in "أي وقت". */
   const ANYTIME = '__any__';
+  /* Time is one way to carve up a day; where the work has to happen is another,
+     and often the more useful one — there is no point reading an "at the work
+     computer" task while sitting at home. The same list, cut either way. */
+  const byDevice = dayGroupBy === 'device';
   const inBox = t => state.timeBoxes.some(b=>b.id===t.period);
-  const boxOfTask = t => inBox(t)? t.period : ANYTIME;
+  const boxOfTask = t => byDevice
+    ? (t.device && DEVICE_LABELS[t.device]? t.device : ANYTIME)
+    : (inBox(t)? t.period : ANYTIME);
+  const buckets = byDevice
+    ? Object.keys(DEVICE_LABELS).map(k=>({id:k, label:DEVICE_LABELS[k], icon:deviceIconSvg(k,15)}))
+    : state.timeBoxes.map(b=>({id:b.id, label:b.label, color:b.color}));
+  if(!buckets.some(b=>b.id===period) && period!==ANYTIME) period = buckets.length? buckets[0].id : ANYTIME;
   const countIn = id => rest.filter(t=> boxOfTask(t)===id).length;
   const items = rest.filter(t=> boxOfTask(t)===period);
   const collapsed = state.collapsed.schedule;
@@ -3666,20 +3685,27 @@ function renderScheduleCard(){
     <details class="day-rest" data-sec="dayPeriods" ${collapsed?'':'open'}>
       <summary><span class="grow">بقية مهام اليوم${restCount? ` <span class="ptab-count">${restCount}</span>`:''}</span><span class="chev">▾</span></summary>
       <div class="details-body">
+    <div class="group-switch">
+      <button type="button" class="gs-btn ${byDevice?'':'on'}" data-daygroup="period">⏰ حسب الوقت</button>
+      <button type="button" class="gs-btn ${byDevice?'on':''}" data-daygroup="device">💻 حسب الجهاز</button>
+    </div>
     <div class="period-tabs">
-      ${state.timeBoxes.map(b=>{
+      ${buckets.map(b=>{
         const n = countIn(b.id);
-        return `<button type="button" class="period-tab ${period===b.id?'active':''}" data-period="${b.id}" ${period===b.id?`style="background:${b.color};border-color:${b.color};color:#fff;"`:''}>${escapeHtml(b.label)}${n? ` <span class="ptab-count">${n}</span>`:''}</button>`;
+        const on = period===b.id;
+        return `<button type="button" class="period-tab ${on?'active':''}" data-period="${b.id}" ${(on&&b.color)?`style="background:${b.color};border-color:${b.color};color:#fff;"`:''}>${b.icon? b.icon+' ' : ''}${escapeHtml(b.label)}${n? ` <span class="ptab-count">${n}</span>`:''}</button>`;
       }).join('')}
       ${/* shown whenever something is sitting in it, so nothing scheduled can go
             missing — and while it is the open tab, so she can get back out */''}
-      ${(countIn(ANYTIME) || period===ANYTIME)? `<button type="button" class="period-tab ${period===ANYTIME?'active':''}" data-period="${ANYTIME}" ${period===ANYTIME?'style="background:var(--sage);border-color:var(--sage);color:#fff;"':''}>أي وقت${countIn(ANYTIME)? ` <span class="ptab-count">${countIn(ANYTIME)}</span>`:''}</button>`:''}
+      ${(countIn(ANYTIME) || period===ANYTIME)? `<button type="button" class="period-tab ${period===ANYTIME?'active':''}" data-period="${ANYTIME}" ${period===ANYTIME?'style="background:var(--sage);border-color:var(--sage);color:#fff;"':''}>${byDevice? 'أي مكان' : 'أي وقت'}${countIn(ANYTIME)? ` <span class="ptab-count">${countIn(ANYTIME)}</span>`:''}</button>`:''}
     </div>
     ${/* the box also listed every category assigned to it, which ran to a line
           and a half of names she never acts on from here */''}
-    ${activeBox? `<p class="muted" style="margin:6px 0 8px;font-size:var(--t1);">⏰ ${activeBox.start} – ${activeBox.end}</p>`:''}
-    ${items.length===0? `<div class="empty tight">${period===ANYTIME? 'ما فيه مهام بلا وقت محدد' : 'ما فيه مهام في هالصندوق'}</div>` : items.map(t=>taskRowHtml(t, {date:dateStr, assign:true})).join('')}
-    <button class="btn ghost btn-block" style="margin-top:8px;" id="goAddTaskPeriod" data-add-period="${period}">+ إضافة مهمة ${activeBox?'لـ'+escapeHtml(activeBox.label):''}</button>
+    ${(!byDevice && activeBox)? `<p class="muted" style="margin:6px 0 8px;font-size:var(--t1);">⏰ ${activeBox.start} – ${activeBox.end}</p>`:''}
+    ${items.length===0? `<div class="empty tight">${period===ANYTIME? (byDevice? 'ما فيه مهام بلا جهاز محدد' : 'ما فيه مهام بلا وقت محدد') : 'ما فيه مهام هنا'}</div>` : items.map(t=>taskRowHtml(t, {date:dateStr, assign:true})).join('')}
+    ${/* under the device cut this button must preset a device, not stuff a
+          device id into the task's time box — and "أي وقت" presets neither */''}
+    <button class="btn ghost btn-block" style="margin-top:8px;" id="goAddTaskPeriod" data-add-period="${(!byDevice && period!==ANYTIME)? period : ''}" data-add-device="${(byDevice && period!==ANYTIME)? period : ''}">+ إضافة مهمة ${(!byDevice && activeBox)? 'لـ'+escapeHtml(activeBox.label) : (byDevice && period!==ANYTIME? 'لـ'+escapeHtml(DEVICE_LABELS[period]||'') : '')}</button>
       </div>
     </details>
     `}
@@ -8352,7 +8378,13 @@ function attachGlobalEvents(){
   if(addTask) addTask.onclick = ()=>{ taskDraft={title:'',goalId:'',priority:'متوسطة',period:currentTimeBoxId(),due: selectedDate!==todayStr()? selectedDate : '', recur:[]}; taskDraftRecurOpen=false; attachError=null; render(); };
 
   const addTaskPeriod = document.getElementById('goAddTaskPeriod');
-  if(addTaskPeriod) addTaskPeriod.onclick = ()=>{ taskDraft={title:'',goalId:'',priority:'متوسطة',period:addTaskPeriod.dataset.addPeriod,due: selectedDate!==todayStr()? selectedDate : '', recur:[]}; taskDraftRecurOpen=false; attachError=null; render(); };
+  if(addTaskPeriod) addTaskPeriod.onclick = ()=>{
+    taskDraft={title:'', goalId:'', priority:'متوسطة',
+      period: addTaskPeriod.dataset.addPeriod || null,
+      device: addTaskPeriod.dataset.addDevice || null,
+      due: selectedDate!==todayStr()? selectedDate : '', recur:[]};
+    taskDraftRecurOpen=false; attachError=null; render();
+  };
 
   document.querySelectorAll('[data-addtaskfor]').forEach(b=> b.onclick=()=>{
     taskDraft={title:'',goalId:b.dataset.addtaskfor,priority:'متوسطة',period:currentTimeBoxId(),due:'', recur:[]}; taskDraftRecurOpen=false; attachError=null; render();
@@ -8411,6 +8443,12 @@ function attachGlobalEvents(){
     const g = taskGoal({goalId:sel.value});
     if(g && g.cat && !t.category) t.category = g.cat;
     saveState(); render();
+  });
+  document.querySelectorAll('[data-daygroup]').forEach(b=> b.onclick=()=>{
+    dayGroupBy = b.dataset.daygroup;
+    /* the open tab belongs to the cut she just left, so let the new one choose */
+    window.__activePeriodManual = false; window.__schedPeriodOther = null;
+    render();
   });
   document.querySelectorAll('[data-period]').forEach(b=> b.onclick=()=>{
 
