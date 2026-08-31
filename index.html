@@ -1509,7 +1509,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 80';
+const APP_BUILD = '2026-08-17 · 81';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -1796,8 +1796,12 @@ function saveCloudCfg(){
 function ghHeaders(extra){
   return Object.assign({ 'Authorization':'token '+cloud.token, 'Accept':'application/vnd.github+json' }, extra||{});
 }
-async function cloudPull(){
+async function cloudPull(opts){
   if(!cloud.linked) return false;
+  /* `force` is her explicit "take the cloud copy" from the conflict card. Every
+     other caller must respect the unsent-work guard below. */
+  const force = !!(opts && opts.force);
+
   cloudStatus='syncing'; cloudStatusMsg='';
   try{
     const res = await fetch('https://api.github.com/gists/'+cloud.gistId, { headers: ghHeaders() });
@@ -1809,7 +1813,7 @@ async function cloudPull(){
     /* This device is holding work the cloud has not got, so taking the cloud
        copy would erase it. Leave the local state alone and let the push (which
        does check for a diverged cloud, and asks her) carry it up instead. */
-    if(state._pendingSync){
+    if(state._pendingSync && !force){
       cloudStatus='idle';
       scheduleCloudPush();
       return false;
@@ -8545,7 +8549,11 @@ function attachGlobalEvents(){
   const conflictTakeCloud = document.getElementById('conflictTakeCloud');
   if(conflictTakeCloud) conflictTakeCloud.onclick = async ()=>{
     cloudConflict = null;              /* clear first so cloudPull isn't blocked */
-    await cloudPull();                 /* replaces local with the cloud copy */
+    /* she has chosen the cloud over this device's unsent work, so this is the
+       one pull allowed to overwrite it — the losing side stays in the revision
+       list, which is what the card promises her */
+    state._pendingSync = false;
+    await cloudPull({force:true});
     pushedThisSession = false;
     render();
   };
