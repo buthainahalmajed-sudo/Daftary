@@ -1509,7 +1509,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 77';
+const APP_BUILD = '2026-08-17 · 78';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -1956,31 +1956,34 @@ function startAutoCloudSync(){
 }
 async function loadState(){
   loadCloudCfg();
-  let usedCloud = false;
-  if(cloud.linked){ usedCloud = await cloudPull(); }
-  if(!usedCloud){
-    /* IndexedDB is the real store; localStorage is the older location and the
-       fallback copy. Read the richer one — an existing install has its data only
-       in localStorage on this first run, and gets written across below. */
-    let fromIdb = null, fromLocal = null;
-    try{ const raw = await idbGet(); if(raw) fromIdb = JSON.parse(raw); }
-    catch(e){ console.error('تعذر القراءة من IndexedDB', e); }
-    try{ const raw = localStorage.getItem('plannerState'); if(raw) fromLocal = JSON.parse(raw); }
-    catch(e){ console.error('تعذر القراءة من التخزين المحلي', e); }
+  /* The device is read first, always. It used to pull from the cloud before
+     touching local storage, which was harmless while the cloud copy carried
+     attachments — but now that it does not, hydrating it into an empty state
+     would leave keepAttachments nothing to restore, and the persist that
+     follows would write that stripped copy over the files held here. Reading
+     local first also means her data is on screen before the network answers. */
+  let fromIdb = null, fromLocal = null;
+  try{ const raw = await idbGet(); if(raw) fromIdb = JSON.parse(raw); }
+  catch(e){ console.error('تعذر القراءة من IndexedDB', e); }
+  try{ const raw = localStorage.getItem('plannerState'); if(raw) fromLocal = JSON.parse(raw); }
+  catch(e){ console.error('تعذر القراءة من التخزين المحلي', e); }
 
-    /* prefer IndexedDB, except where it holds nothing and localStorage does. Never
-       let an attachment-stripped fallback copy overwrite a full one. */
-    let chosen = fromIdb || fromLocal;
-    if(fromIdb && fromLocal && !fromLocal._slim && !(fromIdb.tasks||[]).length && (fromLocal.tasks||[]).length) chosen = fromLocal;
-    hydrateState(chosen || {});
-    if(chosen && chosen !== fromIdb){
-      try{ await idbPut(JSON.stringify(state)); }catch(e){ console.error('تعذر الترحيل لـ IndexedDB', e); }
-    }
+  /* prefer IndexedDB, except where it holds nothing and localStorage does. Never
+     let an attachment-stripped fallback copy overwrite a full one. */
+  let chosen = fromIdb || fromLocal;
+  if(fromIdb && fromLocal && !fromLocal._slim && !(fromIdb.tasks||[]).length && (fromLocal.tasks||[]).length) chosen = fromLocal;
+  hydrateState(chosen || {});
+  if(chosen && chosen !== fromIdb){
+    try{ await idbPut(JSON.stringify(state)); }catch(e){ console.error('تعذر الترحيل لـ IndexedDB', e); }
   }
+
   storageReady = true;
   selectedDate = todayStr();
   weekRef = todayStr();
   render();
+
+  /* then the cloud, merged onto what is already here rather than replacing it */
+  if(cloud.linked){ await cloudPull(); render(); }
   startAutoCloudSync();
 }
 /* ---- local store ----
