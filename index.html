@@ -1509,7 +1509,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 81';
+const APP_BUILD = '2026-08-17 · 82';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -2967,6 +2967,30 @@ function renderSettings(){
    replaces the whole view and so never runs attachGlobalEvents — both entry
    points call this instead of one of them silently losing its handlers. */
 function attachManagerEvents(){
+  /* Remember which <details> panels are open, so anything clicked inside one —
+     which re-renders — does not snap it shut again.
+
+     This lived in attachGlobalEvents only, and Settings returns early from
+     render() without ever calling that. So in Settings nothing recorded what she
+     had opened: pressing "إضافة" under تساؤلات اليوم re-rendered with an empty
+     openSections and every panel closed, which reads exactly like the page
+     shutting in her face. It belongs here, where both entry points reach it —
+     the same reason this function exists at all. */
+  document.querySelectorAll('details[data-sec]').forEach(d=>{
+    d.ontoggle = ()=>{
+      openSections[d.dataset.sec] = d.open;
+      state.openSections = openSections;
+      saveState();
+    };
+  });
+  /* Same trap, same fix: the ؟ notes and every other fold marker are wired here
+     rather than in attachGlobalEvents, which Settings never reaches. Its eight ؟
+     buttons had no handler at all — pressing one did nothing. */
+  document.querySelectorAll('[data-toggle-collapse]').forEach(el=> el.onclick=()=>{
+    const key = el.dataset.toggleCollapse;
+    state.collapsed[key] = !state.collapsed[key];
+    saveState(); render();
+  });
   document.querySelectorAll('[data-tbox-label]').forEach(inp=>{
     inp.onchange = ()=>{
       const b = timeBoxOf(inp.dataset.tboxLabel);
@@ -8251,15 +8275,6 @@ function attachGlobalEvents(){
   });
 
 
-  /* remember which <details> panels the user opened, so clicking anything inside them
-     (which triggers a render()) doesn't snap the panel shut again */
-  document.querySelectorAll('details[data-sec]').forEach(d=>{
-    d.ontoggle = ()=>{
-      openSections[d.dataset.sec] = d.open;
-      state.openSections = openSections;
-      saveState();
-    };
-  });
 
   /* task search: only refresh the task-list card, never the whole page, so the search
      input itself is never rebuilt and never loses focus while typing */
@@ -8314,12 +8329,6 @@ function attachGlobalEvents(){
   });
 
   document.querySelectorAll('[data-goto-habits]').forEach(b=> b.onclick=()=>{ view='habits'; render(); });
-
-  document.querySelectorAll('[data-toggle-collapse]').forEach(el=> el.onclick=()=>{
-    const key = el.dataset.toggleCollapse;
-    state.collapsed[key] = !state.collapsed[key];
-    saveState(); render();
-  });
 
   document.querySelectorAll('[data-homehabit-up]').forEach(b=> b.onclick=()=>{
     moveHabitInDow(parseInt(b.dataset.homehabitDow,10), b.dataset.homehabitUp, -1);
