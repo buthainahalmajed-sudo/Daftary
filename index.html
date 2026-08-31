@@ -1509,7 +1509,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 79';
+const APP_BUILD = '2026-08-17 · 80';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -1806,6 +1806,14 @@ async function cloudPull(){
     const file = data.files && data.files[CLOUD_FILENAME];
     if(!file) throw new Error('ما لقيت ملف البيانات داخل الـ Gist، تأكدي من اسم الملف.');
     const parsed = JSON.parse(file.content || '{}');
+    /* This device is holding work the cloud has not got, so taking the cloud
+       copy would erase it. Leave the local state alone and let the push (which
+       does check for a diverged cloud, and asks her) carry it up instead. */
+    if(state._pendingSync){
+      cloudStatus='idle';
+      scheduleCloudPush();
+      return false;
+    }
     if(parsed && typeof parsed==='object' && Array.isArray(parsed.tasks)){
       /* the cloud copy carries no files, so a pull must not take this device's
          attachments away with it — they are re-attached by id after hydrating */
@@ -1913,10 +1921,18 @@ async function cloudPush(){
     }catch(e){}
     pushedThisSession = true;
     cloudStatus='synced'; cloudLastSync = new Date();
+    cloudRetryDelay = 0;
+    if(state._pendingSync){
+      state._pendingSync = false;
+      try{ await persistState(); }catch(e){}   /* record that the cloud is level */
+    }
     return true;
   }catch(e){
     console.error('cloud push error', e);
     cloudStatus='error'; cloudStatusMsg = friendlyErr(e);
+    /* a failed upload used to be the end of it: the edit stayed on the device
+       and nothing ever tried again unless she happened to edit something else */
+    scheduleCloudRetry();
     return false;
   }finally{
     cloudPushInFlight--;
@@ -1982,8 +1998,13 @@ async function loadState(){
   weekRef = todayStr();
   render();
 
-  /* then the cloud, merged onto what is already here rather than replacing it */
-  if(cloud.linked){ await cloudPull(); render(); }
+  /* then the cloud — unless this device is still carrying something it never
+     managed to upload, in which case that goes up first and nothing comes down */
+  if(cloud.linked){
+    if(state._pendingSync) await cloudPush();
+    else await cloudPull();
+    render();
+  }
   startAutoCloudSync();
 }
 /* ---- local store ----
@@ -2048,6 +2069,7 @@ function stateWithoutAttachments(){
   const slim = JSON.parse(JSON.stringify(state));
   (slim.tasks||[]).forEach(t=>{ if(t.attachments && t.attachments.length) t.attachments = []; });
   (slim.goals||[]).forEach(g=>{ if(g.attachments && g.attachments.length) g.attachments = []; });
+  delete slim._pendingSync;   /* a local bookkeeping flag, not something the cloud should carry */
   slim._slim = true;
   return slim;
 }
@@ -2077,8 +2099,13 @@ function paintSyncStatus(){
   el.style.display = label? '' : 'none';
 }
 async function saveState(){
-
   lastLocalSaveAt = Date.now();
+  /* Marked before the write, so it survives a crash or a close: it says "this
+     device holds something the cloud has not got". Cleared only by a push that
+     actually succeeded. Without it an edit that never reached the cloud — bad
+     signal, a rate-limited push, the app closed too soon — was silently
+     overwritten by the older cloud copy on the next start. */
+  state._pendingSync = true;
   try{
     await persistState();
     if(storageError){ storageError = null; paintStorageWarning(); }
@@ -2102,6 +2129,28 @@ async function saveState(){
    GitHub and a sentence fired one per letter. They pile up, hit the write rate
    limit, and every one after that reports ⚠️ خطأ بالتزامن — an error about
    syncing that reads as an error saving. The upload waits for her to stop. */
+/* Backs off rather than hammering a cloud that is refusing, and comes back on
+   its own when the network or the app does. */
+let cloudRetryDelay = 0;
+let cloudRetryTimer = null;
+function scheduleCloudRetry(){
+  if(!cloud.linked || cloudConflict) return;
+  if(cloudRetryTimer) return;
+  cloudRetryDelay = cloudRetryDelay? Math.min(cloudRetryDelay*3, 300000) : 8000;
+  cloudRetryTimer = setTimeout(()=>{
+    cloudRetryTimer = null;
+    if(state._pendingSync) cloudPush().then(paintSyncStatus);
+  }, cloudRetryDelay);
+}
+function retryCloudNow(){
+  if(!cloud.linked || !state._pendingSync || cloudConflict) return;
+  if(cloudRetryTimer){ clearTimeout(cloudRetryTimer); cloudRetryTimer = null; }
+  cloudRetryDelay = 0;
+  cloudPush().then(paintSyncStatus);
+}
+window.addEventListener('online', retryCloudNow);
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') retryCloudNow(); });
+
 let cloudPushTimer = null;
 function scheduleCloudPush(){
   if(!cloud.linked) return;
