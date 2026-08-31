@@ -1509,7 +1509,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 78';
+const APP_BUILD = '2026-08-17 · 79';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -2094,8 +2094,31 @@ async function saveState(){
      typing in is replaced mid-word, and every open <details> snaps shut — which
      is exactly the "my edits vanish and the panel closes on me" she reported.
      The sync line is repainted in place instead, touching nothing else. */
-  if(cloud.linked){ cloudPush().then(paintSyncStatus); }
+  scheduleCloudPush();
 }
+/* Saving to the device happens on every keystroke, and it should — nothing typed
+   is ever at risk. Uploading on every keystroke is a different matter: amounts
+   and descriptions save with oninput, so typing "19731" fired five PATCHes at
+   GitHub and a sentence fired one per letter. They pile up, hit the write rate
+   limit, and every one after that reports ⚠️ خطأ بالتزامن — an error about
+   syncing that reads as an error saving. The upload waits for her to stop. */
+let cloudPushTimer = null;
+function scheduleCloudPush(){
+  if(!cloud.linked) return;
+  if(cloudPushTimer) clearTimeout(cloudPushTimer);
+  cloudPushTimer = setTimeout(()=>{
+    cloudPushTimer = null;
+    cloudPush().then(paintSyncStatus);
+  }, 2500);
+}
+/* leaving the app should not lose the last few seconds of edits */
+function flushCloudPush(){
+  if(!cloudPushTimer) return;
+  clearTimeout(cloudPushTimer); cloudPushTimer = null;
+  cloudPush().then(paintSyncStatus);
+}
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') flushCloudPush(); });
+window.addEventListener('pagehide', flushCloudPush);
 /* a second device wrote since this one last synced. Both versions exist, so the
    only wrong move is to pick one automatically — she decides, and either way the
    losing side stays recoverable from the revision list in Settings. */
