@@ -1509,7 +1509,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 76';
+const APP_BUILD = '2026-08-17 · 77';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -1807,6 +1807,9 @@ async function cloudPull(){
     if(!file) throw new Error('ما لقيت ملف البيانات داخل الـ Gist، تأكدي من اسم الملف.');
     const parsed = JSON.parse(file.content || '{}');
     if(parsed && typeof parsed==='object' && Array.isArray(parsed.tasks)){
+      /* the cloud copy carries no files, so a pull must not take this device's
+         attachments away with it — they are re-attached by id after hydrating */
+      keepAttachments(parsed);
       hydrateState(parsed);
       try{ await persistState(); }catch(e){ noteStorageFailure(e); }
     }
@@ -1896,7 +1899,12 @@ async function cloudPush(){
     const res = await fetch('https://api.github.com/gists/'+cloud.gistId, {
       method:'PATCH',
       headers: ghHeaders({'Content-Type':'application/json'}),
-      body: JSON.stringify({ files:{ [CLOUD_FILENAME]:{ content: JSON.stringify(state) } } })
+      /* Attachments are up to 800KB each and were being uploaded on every single
+         save — one file turns a 6KB push into an 806KB PATCH, and a few of them
+         make GitHub reject the request, which is what "an error saving my task
+         changes" actually was. The cloud carries the same slim copy localStorage
+         already gets; the files stay on the device that holds them. */
+      body: JSON.stringify({ files:{ [CLOUD_FILENAME]:{ content: JSON.stringify(stateWithoutAttachments()) } } })
     });
     if(!res.ok) throw new Error('فشل الرفع للسحاب (كود '+res.status+')');
     try{
@@ -2016,7 +2024,24 @@ function idbGet(){
 }
 /* the fallback copy leaves attachments out — they are the only thing big enough to
    overflow, and a backup missing them still beats no backup at all */
+/* The cloud and localStorage both hold a copy without files. Pulling one of
+   those back must not wipe what this device has, so anything the incoming
+   snapshot leaves empty keeps the copy already here. */
+function keepAttachments(incoming){
+  if(!incoming || typeof incoming!=='object') return;
+  const pair = (list, mine)=>{
+    if(!Array.isArray(list) || !Array.isArray(mine)) return;
+    const byId = {};
+    mine.forEach(x=>{ if(x && x.id && x.attachments && x.attachments.length) byId[x.id] = x.attachments; });
+    list.forEach(x=>{
+      if(x && x.id && (!x.attachments || !x.attachments.length) && byId[x.id]) x.attachments = byId[x.id];
+    });
+  };
+  pair(incoming.tasks, state.tasks);
+  pair(incoming.goals, state.goals);
+}
 function stateWithoutAttachments(){
+
   const slim = JSON.parse(JSON.stringify(state));
   (slim.tasks||[]).forEach(t=>{ if(t.attachments && t.attachments.length) t.attachments = []; });
   (slim.goals||[]).forEach(g=>{ if(g.attachments && g.attachments.length) g.attachments = []; });
@@ -3235,6 +3260,9 @@ function attachSettingsEvents(){
       if(!confirm(`استعادة هذي النسخة؟\n\n${s.tasks} مهمة · ${s.goals} هدف · ${s.cats} تصنيف · ${s.pillars} بند هوية · ${s.journal} إنجاز\n\nبيحل محل اللي على هذا الجهاز الآن. وضعك الحالي بيظل محفوظًا كنسخة بالسحاب تقدرين ترجعين لها من نفس القائمة.`)) return;
       /* push the current state first so restoring is itself undoable */
       await cloudPush();
+      /* a stored revision carries no files either, so restoring one must not
+         strip the attachments this device is holding */
+      keepAttachments(snapshot);
       hydrateState(snapshot);
       saveState();
       await cloudPush();
