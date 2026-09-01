@@ -894,10 +894,12 @@ details.card::before{display:none;}
 }
 .icon-tile:active{background:var(--sage);}
 /* the three things she can do with the link: one row of marks, one panel open */
-.sync-tiles{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:2px;}
+/* four tiles now. Wrapping them left a lone stretched tile on its own row on a
+   phone; a grid puts them in an even 2×2 there and a single row when there is
+   room for one. */
+.sync-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:2px;}
 .sync-tile{
-  /* four of these now, and on a phone four across is unreadable — they wrap */
-  flex:1 1 84px;min-width:84px;display:flex;flex-direction:column;align-items:center;gap:4px;
+  min-width:0;display:flex;flex-direction:column;align-items:center;gap:4px;
   padding:11px 6px;border:1px solid var(--line);border-radius:12px;
   background:var(--parchment);font-family:inherit;cursor:pointer;
 }
@@ -1510,7 +1512,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 83';
+const APP_BUILD = '2026-08-17 · 84';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -1934,7 +1936,12 @@ async function cloudPush(){
        error and no trace. */
     {
       const head = await fetch('https://api.github.com/gists/'+cloud.gistId, { headers: ghHeaders() });
-      if(head.ok){
+      /* A check that couldn't run is not a check that passed. This used to fall
+         through to the upload, so a rate-limited or failed read meant the very
+         next PATCH went over the cloud unseen — the same overwrite by another
+         door. The edit stays here, marked unsent, and the retry takes it up. */
+      if(!head.ok) throw new Error('ما قدرت أتأكد من نسخة السحاب قبل الرفع (كود '+head.status+')');
+      {
         const info = await head.json();
         const remote = (info.history && info.history[0] && info.history[0].version) || null;
         const moved = remote && remote !== cloudBaseVersion;
@@ -3424,9 +3431,19 @@ function attachSettingsEvents(){
   if(linkPull) linkPull.onclick = async ()=>{
     syncCfgFields();
     if(!cloud.gistId || !cloud.token){ cloudStatus='error'; cloudStatusMsg='عبي Gist ID وToken أول.'; render(); return; }
+    /* This device may already hold data, and pulling replaces it. It is not in
+       the cloud and not in any revision — so say so, and keep a copy. */
+    const mine = (state.tasks||[]).length + (state.goals||[]).length + (state.journal||[]).length;
+    if(mine && !confirm(`بهذا الجهاز ${mine} عنصر (مهام وأهداف وإنجازات) بينستبدلون ببيانات السحاب.\n\nبينحفظون بـ«نسخ الطوارئ» داخل نفس الصفحة وتقدرين ترجعين لهم. أكملي؟`)) return;
+    if(mine) await stashRescue('قبل سحب بيانات السحاب عند الربط');
     cloudStatus='syncing'; cloudStatusMsg=''; render();
     cloud.linked = true; saveCloudCfg();
-    const ok = await cloudPull();
+    /* forced on purpose: this button IS "take the cloud copy". Without it the
+       unsent-work guard inside cloudPull silently refused — any device that had
+       been used at all was carrying unsent work — the pull returned false, and
+       the line below then quietly un-linked it again. Linking a second device
+       simply did nothing, with no message saying why. */
+    const ok = await cloudPull({force:true});
     if(!ok) cloud.linked = false;
     saveCloudCfg(); render();
   };
