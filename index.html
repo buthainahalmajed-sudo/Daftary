@@ -1519,7 +1519,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 86';
+const APP_BUILD = '2026-08-17 · 87';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -1809,11 +1809,14 @@ function saveCloudCfg(){
 function ghHeaders(extra){
   return Object.assign({ 'Authorization':'token '+cloud.token, 'Accept':'application/vnd.github+json' }, extra||{});
 }
+/* A pull no longer replaces anything. It folds the cloud copy into this one, so
+   there is nothing left for the old unsent-work guard to protect: work this
+   device has not uploaded yet simply survives the merge. `replace` is kept for
+   the one caller that really does mean "throw mine away" — her explicit choice
+   in the conflict card — and that path takes a rescue copy first. */
 async function cloudPull(opts){
   if(!cloud.linked) return false;
-  /* `force` is her explicit "take the cloud copy" from the conflict card. Every
-     other caller must respect the unsent-work guard below. */
-  const force = !!(opts && opts.force);
+  const replace = !!(opts && (opts.replace || opts.force));
 
   cloudStatus='syncing'; cloudStatusMsg='';
   try{
@@ -1823,23 +1826,20 @@ async function cloudPull(opts){
     const file = data.files && data.files[CLOUD_FILENAME];
     if(!file) throw new Error('ما لقيت ملف البيانات داخل الـ Gist، تأكدي من اسم الملف.');
     const parsed = JSON.parse(file.content || '{}');
-    /* This device is holding work the cloud has not got, so taking the cloud
-       copy would erase it. Leave the local state alone and let the push (which
-       does check for a diverged cloud, and asks her) carry it up instead. */
-    if(state._pendingSync && !force){
-      cloudStatus='idle';
-      scheduleCloudPush();
-      return false;
-    }
     if(parsed && typeof parsed==='object' && Array.isArray(parsed.tasks)){
-      /* the cloud copy carries no files, so a pull must not take this device's
-         attachments away with it — they are re-attached by id after hydrating */
+      /* the cloud copy carries no files, so neither path may take this device's
+         attachments away with it — they are re-attached by id */
       keepAttachments(parsed);
-      hydrateState(parsed);
+      if(replace){ hydrateState(parsed); }
+      else {
+        const r = mergeStates(parsed);
+        /* anything the merge brought down still has to go back up, so the other
+           device ends up holding the union too */
+        if(r.added || r.updated || r.removed) state._pendingSync = true;
+      }
       try{ await persistState(); }catch(e){ noteStorageFailure(e); }
     }
-    /* remember which revision this device is now based on, so a later push can
-       tell whether anything else wrote in the meantime */
+    /* remember which revision this device is now based on */
     setCloudBase((data.history && data.history[0] && data.history[0].version) || null);
     cloudConflict = null;
     cloudStatus='synced'; cloudLastSync = new Date();
@@ -1982,75 +1982,41 @@ function setCloudBase(v){
   cloud.baseVersion = cloudBaseVersion;
   saveCloudCfg();
 }
-/* Does the cloud copy hold anything this device hasn't got?
-
-   Two devices can sit on different revisions and still be completely safe to
-   overwrite — the other one may have pushed only what this one already has.
-   Stopping to ask her in that case is noise, and noise is what teaches someone
-   to tap straight through the one card that mattered. */
-function remoteHasWorkWeLack(theirs){
-  if(!theirs || typeof theirs!=='object') return false;
-  const lists = ['tasks','goals','habits','journal','projectLedger','goalPillars',
-                 'taskCategories','timeBoxes','dailyQuestions','moods','inbox'];
-  for(const key of lists){
-    if(!Array.isArray(theirs[key])) continue;
-    const mine = new Set((state[key]||[]).map(x=> x && x.id).filter(Boolean));
-    if(theirs[key].some(x=> x && x.id && !mine.has(x.id))) return true;
-  }
-  /* a day's log is keyed by its date, not by an id */
-  const myLogs = state.dailyLogs || {}, theirLogs = theirs.dailyLogs || {};
-  for(const d in theirLogs){ if(!(d in myLogs)) return true; }
-  /* the single-object pages — a phone that only edited the financial goal and
-     pushed would pass every list test above and lose that edit silently */
-  for(const key of ['financialGoal','safety','sharedIncome','expenseDiag','lifeVision']){
-    if(theirs[key]==null) continue;
-    if(JSON.stringify(theirs[key]) !== JSON.stringify(state[key]==null? null : state[key])) return true;
-  }
-  return false;
-}
-let cloudConflict = null; /* {remoteVersion, when, theirTasks, myTasks} — another device wrote; wait for her call */
+/* Nothing sets this any more. Two devices no longer have to be told apart by a
+   card she has to answer: a sync merges them, so there is no losing side to
+   rescue and no question to put to her. */
+let cloudConflict = null;
 async function cloudPush(){
   if(!cloud.linked) return false;
   if(cloudConflict) return false; /* stay put until she says which side wins */
   cloudStatus='syncing'; cloudStatusMsg='';
   cloudPushInFlight++;
   try{
-    /* Check the cloud is still where this device left it — before EVERY upload.
-       This used to run once per session and only when a base version happened to
-       be in memory, so a device left open in the background pushed blind for the
-       rest of its session, and a device that had just started pushed blind on
-       its very first save. Either way another device's work went under with no
-       error and no trace. */
+    /* Read the cloud before writing to it, always — and fold whatever is up
+       there into this device rather than deciding which copy deserves to live.
+       What gets uploaded a moment later is the union of both. An upload can no
+       longer remove anything the other device had. */
     {
       const head = await fetch('https://api.github.com/gists/'+cloud.gistId, { headers: ghHeaders() });
       /* A check that couldn't run is not a check that passed. This used to fall
          through to the upload, so a rate-limited or failed read meant the very
-         next PATCH went over the cloud unseen — the same overwrite by another
-         door. The edit stays here, marked unsent, and the retry takes it up. */
-      if(!head.ok) throw new Error('ما قدرت أتأكد من نسخة السحاب قبل الرفع (كود '+head.status+')');
-      {
-        const info = await head.json();
-        const remote = (info.history && info.history[0] && info.history[0].version) || null;
-        const moved = remote && remote !== cloudBaseVersion;
-        if(moved){
-          const f = info.files && info.files[CLOUD_FILENAME];
-          let theirs = null;
-          try{ theirs = JSON.parse((f && f.content) || '{}'); }catch(e){}
-          if(remoteHasWorkWeLack(theirs)){
-            cloudConflict = {
-              remoteVersion: remote,
-              when: info.updated_at,
-              theirTasks: (theirs && theirs.tasks || []).length,
-              myTasks: (state.tasks||[]).length,
-            };
-            cloudStatus='error';
-            cloudStatusMsg='جهاز ثاني عدّل بياناتك بعد آخر مزامنة لهذا الجهاز.';
-            return false;
+         next PATCH went over the cloud unseen. The edit stays here, marked
+         unsent, and the retry takes it up. */
+      if(!head.ok) throw new Error('ما قدرت أقرأ نسخة السحاب قبل الرفع (كود '+head.status+')');
+      const info = await head.json();
+      const remote = (info.history && info.history[0] && info.history[0].version) || null;
+      if(remote && remote !== cloudBaseVersion){
+        const f = info.files && info.files[CLOUD_FILENAME];
+        let theirs = null;
+        try{ theirs = JSON.parse((f && f.content) || '{}'); }catch(e){}
+        if(theirs && Array.isArray(theirs.tasks)){
+          keepAttachments(theirs);
+          const r = mergeStates(theirs);
+          if(r.added || r.updated || r.removed){
+            try{ await persistState(); }catch(e){ noteStorageFailure(e); }
           }
-          /* it moved, but there is nothing of hers up there that isn't here —
-             carrying on loses nothing */
-          setCloudBase(remote);
         }
+        setCloudBase(remote);
       }
     }
     const res = await fetch('https://api.github.com/gists/'+cloud.gistId, {
@@ -2248,8 +2214,147 @@ function stateWithoutAttachments(){
   slim._slim = true;
   return slim;
 }
+/* ============ merging, instead of picking a winner ============
+
+   Every fix up to here has been a guard around the same design: the whole state
+   is one blob, a sync replaces it, so one side's day always loses. Guards can be
+   got round — a missed check, a failed request, a flag that didn't survive a
+   crash — and each time the cost is her work.
+
+   So the blob is gone. Each device stamps the items it actually changed, and a
+   sync merges the two sides item by item: everything either side has is kept,
+   and only a genuine edit to the same item on both devices comes down to a
+   choice, resolved by which was edited later. Losing a whole session is no
+   longer something the code is capable of doing.
+
+   The stamps are derived rather than written by hand. Setting updatedAt at the
+   hundreds of places that edit something would mean missing some, and a missed
+   stamp is a silently lost edit — so each save compares every item with how it
+   looked at the previous save and stamps the ones that really changed. Ids that
+   vanished become tombstones, so a merge doesn't resurrect what she deleted, and
+   a deletion on the phone reaches the laptop. */
+const SYNCED_LISTS = ['tasks','goals','habits','journal','projectLedger','goalPillars',
+                      'taskCategories','timeBoxes','dailyQuestions','moods','inbox'];
+const SYNCED_SINGLES = ['financialGoal','safety','sharedIncome','expenseDiag','lifeVision',
+                        'dayTemplates','homeCards','actionTypes','removedCats',
+                        'questionsTitle','moodTitle','name','projectLedgerClaimed'];
+let prevShape = null;   /* "list|id" -> the item as it was at the previous save */
+function itemSig(x){
+  const c = {};
+  for(const k in x){ if(k!=='updatedAt') c[k] = x[k]; }
+  return JSON.stringify(c);
+}
+function stampChanges(){
+  const now = Date.now();
+  if(!state.tombstones || typeof state.tombstones!=='object') state.tombstones = {};
+  if(!state._at || typeof state._at!=='object') state._at = {};
+  const shape = {}, alive = {};
+  const walk = (k, item)=>{
+    const sig = itemSig(item);
+    shape[k] = sig; alive[k] = true;
+    if(!prevShape){ if(!item.updatedAt) item.updatedAt = now; return; }
+    if(prevShape[k] === undefined || prevShape[k] !== sig) item.updatedAt = now;
+    else if(!item.updatedAt) item.updatedAt = now;
+  };
+  SYNCED_LISTS.forEach(key=>{
+    (state[key]||[]).forEach(x=>{ if(x && x.id) walk(key+'|'+x.id, x); });
+  });
+  const logs = state.dailyLogs || {};
+  for(const d in logs){ if(logs[d] && typeof logs[d]==='object') walk('dailyLogs|'+d, logs[d]); }
+  SYNCED_SINGLES.forEach(key=>{
+    const sig = JSON.stringify(state[key]===undefined? null : state[key]);
+    shape['@'+key] = sig;
+    if(!prevShape){ if(!state._at[key]) state._at[key] = now; return; }
+    if(prevShape['@'+key] !== sig) state._at[key] = now;
+    else if(!state._at[key]) state._at[key] = now;
+  });
+  /* anything that was here last save and is gone now was deleted */
+  if(prevShape){
+    for(const k in prevShape){
+      if(k[0]==='@' || alive[k]) continue;
+      state.tombstones[k] = now;
+    }
+  }
+  pruneTombstones();
+  prevShape = shape;
+}
+/* a tombstone only has to outlive the slowest device coming back online */
+function pruneTombstones(){
+  const cutoff = Date.now() - 180*24*3600*1000;
+  const t = state.tombstones;
+  let keys = Object.keys(t);
+  keys.forEach(k=>{ if(t[k] < cutoff) delete t[k]; });
+  keys = Object.keys(t);
+  if(keys.length > 3000){
+    keys.sort((a,b)=> t[a]-t[b]).slice(0, keys.length-3000).forEach(k=> delete t[k]);
+  }
+}
+/* Fold the other device's copy into this one. Nothing is dropped that only one
+   side has; where both have the same item, the later edit wins. */
+function mergeStates(theirs){
+  if(!theirs || typeof theirs!=='object') return {added:0, updated:0, removed:0};
+  let added=0, updated=0, removed=0;
+  const myTombs = state.tombstones || (state.tombstones = {});
+  const theirTombs = (theirs.tombstones && typeof theirs.tombstones==='object')? theirs.tombstones : {};
+  for(const k in theirTombs){
+    if(!myTombs[k] || theirTombs[k] > myTombs[k]) myTombs[k] = theirTombs[k];
+  }
+  const at = (x)=> (x && x.updatedAt) || 0;
+  SYNCED_LISTS.forEach(key=>{
+    if(!Array.isArray(state[key])) state[key] = [];
+    const mine = state[key];
+    const byId = {};
+    mine.forEach(x=>{ if(x && x.id) byId[x.id] = x; });
+    (Array.isArray(theirs[key])? theirs[key] : []).forEach(t=>{
+      if(!t || !t.id) return;
+      const k = key+'|'+t.id, mineOne = byId[t.id];
+      if(!mineOne){
+        /* they have it and we don't: either it is new to us, or we deleted it */
+        if(myTombs[k] && myTombs[k] >= at(t)) return;
+        mine.push(t); byId[t.id] = t; added++;
+        return;
+      }
+      if(at(t) > at(mineOne)){
+        /* their edit is the later one — keep our attachments, they travel
+           with neither the cloud copy nor the local fallback */
+        if(mineOne.attachments && mineOne.attachments.length && !(t.attachments||[]).length) t.attachments = mineOne.attachments;
+        mine[mine.indexOf(mineOne)] = t; byId[t.id] = t; updated++;
+      }
+    });
+    /* a deletion on the other device has to reach this one too */
+    for(let i=mine.length-1;i>=0;i--){
+      const x = mine[i];
+      if(!x || !x.id) continue;
+      const k = key+'|'+x.id;
+      if(myTombs[k] && myTombs[k] > at(x)){ mine.splice(i,1); removed++; }
+    }
+  });
+  /* day logs, keyed by their date */
+  if(theirs.dailyLogs && typeof theirs.dailyLogs==='object'){
+    if(!state.dailyLogs) state.dailyLogs = {};
+    for(const d in theirs.dailyLogs){
+      const t = theirs.dailyLogs[d], mineOne = state.dailyLogs[d];
+      if(!t || typeof t!=='object') continue;
+      if(!mineOne){ state.dailyLogs[d] = t; added++; }
+      else if(at(t) > at(mineOne)){ state.dailyLogs[d] = t; updated++; }
+    }
+  }
+  /* the one-per-app pages */
+  const theirAt = (theirs._at && typeof theirs._at==='object')? theirs._at : {};
+  if(!state._at) state._at = {};
+  SYNCED_SINGLES.forEach(key=>{
+    if(theirs[key]===undefined) return;
+    if((theirAt[key]||0) > (state._at[key]||0)){
+      state[key] = theirs[key];
+      state._at[key] = theirAt[key];
+      updated++;
+    }
+  });
+  return {added, updated, removed};
+}
 /* the single place the state is written to this device */
 async function persistState(){
+  stampChanges();
   const json = JSON.stringify(state);
   await idbPut(json);
   /* best effort only — a full localStorage must not fail a save that IndexedDB accepted */
@@ -2343,30 +2448,9 @@ function flushCloudPush(){
 }
 document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') flushCloudPush(); });
 window.addEventListener('pagehide', flushCloudPush);
-/* a second device wrote since this one last synced. Both versions exist, so the
-   only wrong move is to pick one automatically — she decides, and either way the
-   losing side stays recoverable from the revision list in Settings. */
-function renderCloudConflict(){
-  if(!cloudConflict) return '';
-  const c = cloudConflict;
-  return `
-  <div class="card" style="border:1.5px solid var(--rose);background:rgba(178,76,99,.08);">
-    <p style="font-weight:700;color:var(--rose-dark);margin-bottom:6px;">⚠️ جهاز ثاني عدّل بياناتك</p>
-    <p class="muted" style="margin-bottom:8px;">
-      فيه تعديلات بالسحاب من جهاز آخر${c.when? ' بتاريخ '+new Date(c.when).toLocaleString('ar') : ''}، ما وصلت هذا الجهاز.
-      وقّفت الرفع عشان ما أمحيها. اختاري وش تبين:
-    </p>
-    <div class="quote-box" style="margin-bottom:10px;font-size:var(--t3);">
-      📱 هذا الجهاز: <b>${c.myTasks}</b> مهمة &nbsp;·&nbsp; ☁️ السحاب: <b>${c.theirTasks}</b> مهمة
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      <button class="btn sm" id="conflictTakeCloud">☁️ خذي نسخة السحاب</button>
-      <button class="btn ghost sm" id="conflictKeepMine">📱 اعتمدي هذا الجهاز</button>
-      <button class="btn ghost sm" id="conflictOpenSettings">📜 اعرضي النسخ</button>
-    </div>
-    <p class="muted" style="margin-top:8px;font-size:var(--t2);">أي خيار تختارينه، النسخة الثانية تبقى محفوظة: نسخة السحاب بسجل النسخ، ونسخة هذا الجهاز بـ«نسخ الطوارئ» داخل الإعدادات.</p>
-  </div>`;
-}
+/* The card that asked her to choose between two devices is gone with the design
+   that needed it. A sync merges both sides now, so there is no losing side. */
+function renderCloudConflict(){ return ''; }
 /* painted into its own slot rather than through render(), so a warning that
    arrives mid-typing doesn't yank the cursor out of the field she's in */
 function paintStorageWarning(){
@@ -8829,29 +8913,6 @@ function attachGlobalEvents(){
   const goToLists = document.getElementById('goToLists');
 
   if(goToLists) goToLists.onclick = ()=>{ settingsOpen = true; render(); };
-
-  const conflictTakeCloud = document.getElementById('conflictTakeCloud');
-  if(conflictTakeCloud) conflictTakeCloud.onclick = async ()=>{
-    /* She has chosen the cloud over this device's unsent work, so this is the
-       one pull allowed to overwrite it. That work is in no revision anywhere —
-       it never reached the cloud, that is the whole reason this card exists — so
-       a copy goes to the rescue list first and the card's promise holds. */
-    await stashRescue('قبل أخذ نسخة السحاب');
-    cloudConflict = null;              /* clear first so cloudPull isn't blocked */
-    state._pendingSync = false;
-    await cloudPull({force:true});
-    render();
-  };
-  const conflictKeepMine = document.getElementById('conflictKeepMine');
-  if(conflictKeepMine) conflictKeepMine.onclick = async ()=>{
-    if(!confirm('تعتمدين نسخة هذا الجهاز؟ تعديلات الجهاز الثاني بتنحفظ بسجل النسخ وتقدرين ترجعين لها، بس نسخة هذا الجهاز بتصير هي الأساس.')) return;
-    cloudBaseVersion = cloudConflict.remoteVersion; /* accept their revision as our base, then overwrite */
-    cloudConflict = null;
-    await cloudPush();
-    render();
-  };
-  const conflictOpenSettings = document.getElementById('conflictOpenSettings');
-  if(conflictOpenSettings) conflictOpenSettings.onclick = ()=>{ settingsOpen = true; render(); };
 
   document.querySelectorAll('[data-quick-goal]').forEach(sel=> sel.onchange=()=>{
     const t = state.tasks.find(x=>x.id===sel.dataset.quickGoal);
