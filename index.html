@@ -894,9 +894,10 @@ details.card::before{display:none;}
 }
 .icon-tile:active{background:var(--sage);}
 /* the three things she can do with the link: one row of marks, one panel open */
-.sync-tiles{display:flex;gap:8px;margin-bottom:2px;}
+.sync-tiles{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:2px;}
 .sync-tile{
-  flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:4px;
+  /* four of these now, and on a phone four across is unreadable — they wrap */
+  flex:1 1 84px;min-width:84px;display:flex;flex-direction:column;align-items:center;gap:4px;
   padding:11px 6px;border:1px solid var(--line);border-radius:12px;
   background:var(--parchment);font-family:inherit;cursor:pointer;
 }
@@ -1509,7 +1510,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 82';
+const APP_BUILD = '2026-08-17 · 83';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -1789,6 +1790,9 @@ function loadCloudCfg(){
     const raw = localStorage.getItem('plannerCloudCfg');
     if(raw) cloud = Object.assign(cloud, JSON.parse(raw));
   }catch(e){}
+  /* which gist revision this device's data came from. Kept with the link config
+     because it has to survive the app being closed — see setCloudBase. */
+  cloudBaseVersion = cloud.baseVersion || null;
 }
 function saveCloudCfg(){
   try{ localStorage.setItem('plannerCloudCfg', JSON.stringify(cloud)); }catch(e){}
@@ -1827,7 +1831,7 @@ async function cloudPull(opts){
     }
     /* remember which revision this device is now based on, so a later push can
        tell whether anything else wrote in the meantime */
-    cloudBaseVersion = (data.history && data.history[0] && data.history[0].version) || null;
+    setCloudBase((data.history && data.history[0] && data.history[0].version) || null);
     cloudConflict = null;
     cloudStatus='synced'; cloudLastSync = new Date();
     return true;
@@ -1874,8 +1878,47 @@ function summariseRevision(version, s){
 }
 let cloudPushInFlight = 0;
 let lastLocalSaveAt = 0;
-let cloudBaseVersion = null; /* the gist revision this device's state is based on */
-let pushedThisSession = false;
+/* The gist revision this device's data is based on.
+
+   This was a plain variable that started as null on every single launch, and the
+   check below only ran `if(cloudBaseVersion)`. So the first upload after opening
+   the app skipped the check entirely and PATCHed straight over whatever the gist
+   held — including a full session of work pushed from her phone. Nothing failed,
+   nothing warned: the phone's changes were simply overwritten by whichever
+   device opened next. It is written down with the link config now, so a restart
+   still knows where this device stood. */
+let cloudBaseVersion = null;
+function setCloudBase(v){
+  cloudBaseVersion = v || null;
+  cloud.baseVersion = cloudBaseVersion;
+  saveCloudCfg();
+}
+/* Does the cloud copy hold anything this device hasn't got?
+
+   Two devices can sit on different revisions and still be completely safe to
+   overwrite — the other one may have pushed only what this one already has.
+   Stopping to ask her in that case is noise, and noise is what teaches someone
+   to tap straight through the one card that mattered. */
+function remoteHasWorkWeLack(theirs){
+  if(!theirs || typeof theirs!=='object') return false;
+  const lists = ['tasks','goals','habits','journal','projectLedger','goalPillars',
+                 'taskCategories','timeBoxes','dailyQuestions','moods','inbox'];
+  for(const key of lists){
+    if(!Array.isArray(theirs[key])) continue;
+    const mine = new Set((state[key]||[]).map(x=> x && x.id).filter(Boolean));
+    if(theirs[key].some(x=> x && x.id && !mine.has(x.id))) return true;
+  }
+  /* a day's log is keyed by its date, not by an id */
+  const myLogs = state.dailyLogs || {}, theirLogs = theirs.dailyLogs || {};
+  for(const d in theirLogs){ if(!(d in myLogs)) return true; }
+  /* the single-object pages — a phone that only edited the financial goal and
+     pushed would pass every list test above and lose that edit silently */
+  for(const key of ['financialGoal','safety','sharedIncome','expenseDiag','lifeVision']){
+    if(theirs[key]==null) continue;
+    if(JSON.stringify(theirs[key]) !== JSON.stringify(state[key]==null? null : state[key])) return true;
+  }
+  return false;
+}
 let cloudConflict = null; /* {remoteVersion, when, theirTasks, myTasks} — another device wrote; wait for her call */
 async function cloudPush(){
   if(!cloud.linked) return false;
@@ -1883,28 +1926,36 @@ async function cloudPush(){
   cloudStatus='syncing'; cloudStatusMsg='';
   cloudPushInFlight++;
   try{
-    /* Before the first upload of a session, check the cloud is still where this
-       device left it. Two devices used offline would otherwise both push and the
-       later one would erase the earlier one's work with no trace. Only the first
-       push needs the check — after that this device owns the newest revision. */
-    if(!pushedThisSession && cloudBaseVersion){
+    /* Check the cloud is still where this device left it — before EVERY upload.
+       This used to run once per session and only when a base version happened to
+       be in memory, so a device left open in the background pushed blind for the
+       rest of its session, and a device that had just started pushed blind on
+       its very first save. Either way another device's work went under with no
+       error and no trace. */
+    {
       const head = await fetch('https://api.github.com/gists/'+cloud.gistId, { headers: ghHeaders() });
       if(head.ok){
         const info = await head.json();
         const remote = (info.history && info.history[0] && info.history[0].version) || null;
-        if(remote && remote !== cloudBaseVersion){
+        const moved = remote && remote !== cloudBaseVersion;
+        if(moved){
           const f = info.files && info.files[CLOUD_FILENAME];
           let theirs = null;
           try{ theirs = JSON.parse((f && f.content) || '{}'); }catch(e){}
-          cloudConflict = {
-            remoteVersion: remote,
-            when: info.updated_at,
-            theirTasks: (theirs && theirs.tasks || []).length,
-            myTasks: (state.tasks||[]).length,
-          };
-          cloudStatus='error';
-          cloudStatusMsg='جهاز ثاني عدّل بياناتك بعد آخر مزامنة لهذا الجهاز.';
-          return false;
+          if(remoteHasWorkWeLack(theirs)){
+            cloudConflict = {
+              remoteVersion: remote,
+              when: info.updated_at,
+              theirTasks: (theirs && theirs.tasks || []).length,
+              myTasks: (state.tasks||[]).length,
+            };
+            cloudStatus='error';
+            cloudStatusMsg='جهاز ثاني عدّل بياناتك بعد آخر مزامنة لهذا الجهاز.';
+            return false;
+          }
+          /* it moved, but there is nothing of hers up there that isn't here —
+             carrying on loses nothing */
+          setCloudBase(remote);
         }
       }
     }
@@ -1921,9 +1972,8 @@ async function cloudPush(){
     if(!res.ok) throw new Error('فشل الرفع للسحاب (كود '+res.status+')');
     try{
       const saved = await res.json();
-      cloudBaseVersion = (saved.history && saved.history[0] && saved.history[0].version) || cloudBaseVersion;
+      setCloudBase((saved.history && saved.history[0] && saved.history[0].version) || cloudBaseVersion);
     }catch(e){}
-    pushedThisSession = true;
     cloudStatus='synced'; cloudLastSync = new Date();
     cloudRetryDelay = 0;
     if(state._pendingSync){
@@ -2034,21 +2084,48 @@ function idbOpen(){
   }).catch(e=>{ idbHandle = null; throw e; });
   return idbHandle;
 }
-function idbPut(value){
+function idbPut(value, key){
   return idbOpen().then(db => new Promise((resolve, reject)=>{
     const tx = db.transaction(IDB_STORE, 'readwrite');
-    tx.objectStore(IDB_STORE).put(value, IDB_KEY);
+    tx.objectStore(IDB_STORE).put(value, key || IDB_KEY);
     tx.oncomplete = ()=> resolve();
     tx.onabort = tx.onerror = ()=> reject(tx.error || new Error('فشل الحفظ'));
   }));
 }
-function idbGet(){
+function idbGet(key){
   return idbOpen().then(db => new Promise((resolve, reject)=>{
     const tx = db.transaction(IDB_STORE, 'readonly');
-    const req = tx.objectStore(IDB_STORE).get(IDB_KEY);
+    const req = tx.objectStore(IDB_STORE).get(key || IDB_KEY);
     req.onsuccess = ()=> resolve(req.result || null);
     req.onerror = ()=> reject(req.error || new Error('فشل القراءة'));
   }));
+}
+/* ---- rescue copies ----
+   Everything that replaces this device's data wholesale used to tell her the
+   same thing: "the other version stays in the revision list, you can go back to
+   it". For a cloud revision that is true. For work this device never managed to
+   upload it was a lie — that work existed in one place only, and replacing it
+   was the end of it. Now a copy is put aside first, and the promise is real. */
+const RESCUE_KEY = 'rescueSnapshots';
+let rescueSnaps = null;
+async function loadRescue(){
+  try{ const raw = await idbGet(RESCUE_KEY); rescueSnaps = raw? JSON.parse(raw) : []; }
+  catch(e){ rescueSnaps = []; }
+  return rescueSnaps;
+}
+async function stashRescue(reason){
+  try{
+    const list = rescueSnaps || await loadRescue();
+    list.unshift({
+      at: new Date().toISOString(),
+      reason,
+      tasks:(state.tasks||[]).length, goals:(state.goals||[]).length,
+      journal:(state.journal||[]).length, ledger:(state.projectLedger||[]).length,
+      json: JSON.stringify(stateWithoutAttachments()),
+    });
+    rescueSnaps = list.slice(0,5);
+    await idbPut(JSON.stringify(rescueSnaps), RESCUE_KEY);
+  }catch(e){ console.error('تعذر حفظ نسخة الطوارئ', e); }
 }
 /* the fallback copy leaves attachments out — they are the only thing big enough to
    overflow, and a backup missing them still beats no backup at all */
@@ -2193,7 +2270,7 @@ function renderCloudConflict(){
       <button class="btn ghost sm" id="conflictKeepMine">📱 اعتمدي هذا الجهاز</button>
       <button class="btn ghost sm" id="conflictOpenSettings">📜 اعرضي النسخ</button>
     </div>
-    <p class="muted" style="margin-top:8px;font-size:var(--t2);">أي خيار تختارينه، النسخة الثانية تبقى محفوظة بسجل النسخ وتقدرين ترجعين لها.</p>
+    <p class="muted" style="margin-top:8px;font-size:var(--t2);">أي خيار تختارينه، النسخة الثانية تبقى محفوظة: نسخة السحاب بسجل النسخ، ونسخة هذا الجهاز بـ«نسخ الطوارئ» داخل الإعدادات.</p>
   </div>`;
 }
 /* painted into its own slot rather than through render(), so a warning that
@@ -2883,6 +2960,9 @@ function renderSettings(){
           <button type="button" class="sync-tile ${syncPane==='link'?'on':''}" data-sync-pane="link">
             <span class="st-icon">🔑</span><span class="st-lbl">بيانات الربط</span>
           </button>
+          <button type="button" class="sync-tile ${syncPane==='rescue'?'on':''}" data-sync-pane="rescue">
+            <span class="st-icon">🛟</span><span class="st-lbl">نسخ الطوارئ</span>
+          </button>
           <button type="button" class="sync-tile ${syncPane==='unlink'?'on':''}" data-sync-pane="unlink">
             <span class="st-icon">⛓️‍💥</span><span class="st-lbl">إلغاء الربط</span>
           </button>
@@ -2913,6 +2993,25 @@ function renderSettings(){
                   <button type="button" class="icon-btn" data-rev-peek="${r.version}">👁️</button>
                 </div>`).join('')}
             </div>` : `<div class="empty tight">ما فيه نسخ سابقة محفوظة</div>`) : ''}
+        </div>`:''}
+
+        ${syncPane==='rescue'? `
+        <div class="sync-pane">
+          ${helpNote('auto8b','قبل أي عملية تستبدل بيانات هذا الجهاز — أخذ نسخة السحاب أو استعادة نسخة سابقة — يُحفظ وضعك الحالي هنا. آخر ٥ نسخ، على هذا الجهاز وحده.')}
+          ${(rescueSnaps===null)? `<button class="btn ghost btn-block" id="loadRescue">🛟 اعرضي نسخ الطوارئ</button>`
+            : (rescueSnaps.length? `
+            <div>
+              ${rescueSnaps.map((r,i)=>`
+                <div class="inbox-row" style="align-items:flex-start;">
+                  <span class="dot"></span>
+                  <div style="flex:1;">
+                    <div style="font-size:var(--t3);color:var(--ink);">${escapeHtml(r.reason||'نسخة')}</div>
+                    <div class="muted" style="font-size:var(--t1);">${new Date(r.at).toLocaleString('ar')}</div>
+                    <div class="muted" style="font-size:var(--t2);margin-top:4px;">📋 ${r.tasks||0} مهمة · 🎯 ${r.goals||0} هدف · 📖 ${r.journal||0} إنجاز · 💰 ${r.ledger||0} حركة</div>
+                  </div>
+                  <button type="button" class="btn sm" data-rescue-restore="${i}">↩️ استعيدي</button>
+                </div>`).join('')}
+            </div>` : `<div class="empty tight">ما فيه نسخ طوارئ<span class="hint">تُحفظ تلقائيًا قبل أي استبدال</span></div>`)}
         </div>`:''}
 
         ${syncPane==='link'? `
@@ -3360,8 +3459,11 @@ function attachSettingsEvents(){
     try{
       const snapshot = await fetchRevisionState(version);
       const s = summariseRevision(version, snapshot);
-      if(!confirm(`استعادة هذي النسخة؟\n\n${s.tasks} مهمة · ${s.goals} هدف · ${s.cats} تصنيف · ${s.pillars} بند هوية · ${s.journal} إنجاز\n\nبيحل محل اللي على هذا الجهاز الآن. وضعك الحالي بيظل محفوظًا كنسخة بالسحاب تقدرين ترجعين لها من نفس القائمة.`)) return;
-      /* push the current state first so restoring is itself undoable */
+      if(!confirm(`استعادة هذي النسخة؟\n\n${s.tasks} مهمة · ${s.goals} هدف · ${s.cats} تصنيف · ${s.pillars} بند هوية · ${s.journal} إنجاز\n\nبيحل محل اللي على هذا الجهاز الآن. وضعك الحالي بيظل محفوظًا كنسخة بالسحاب وبنسخ الطوارئ، وتقدرين ترجعين له.`)) return;
+      /* push the current state first so restoring is itself undoable — and keep
+         a copy here too, because that push can fail (offline, rate limit) and
+         then the restore would be the only version left */
+      await stashRescue('قبل استعادة نسخة سابقة');
       await cloudPush();
       /* a stored revision carries no files either, so restoring one must not
          strip the attachments this device is holding */
@@ -3373,6 +3475,21 @@ function attachSettingsEvents(){
       popStamp('رجعت بياناتك','الحمدلله');
       render();
     }catch(e){ revError = friendlyErr(e); render(); }
+  });
+  const loadRescueBtn = document.getElementById('loadRescue');
+  if(loadRescueBtn) loadRescueBtn.onclick = async ()=>{ await loadRescue(); render(); };
+  document.querySelectorAll('[data-rescue-restore]').forEach(b=> b.onclick = async ()=>{
+    const snap = (rescueSnaps||[])[parseInt(b.dataset.rescueRestore,10)];
+    if(!snap) return;
+    let parsed = null;
+    try{ parsed = JSON.parse(snap.json); }catch(e){ alert('نسخة الطوارئ هذي غير صالحة، جربي وحدة ثانية.'); return; }
+    if(!confirm(`استعادة نسخة الطوارئ؟\n\n${snap.tasks||0} مهمة · ${snap.goals||0} هدف · ${snap.journal||0} إنجاز\n\nبتحل محل اللي على هذا الجهاز الآن، ووضعك الحالي بينحفظ كنسخة طوارئ جديدة.`)) return;
+    await stashRescue('قبل استعادة نسخة طوارئ');
+    keepAttachments(parsed);          /* the rescue copy carries no files either */
+    hydrateState(parsed);
+    await saveState();
+    popStamp('رجعت بياناتك','الحمدلله');
+    render();
   });
   document.querySelectorAll('[data-copy-link]').forEach(b=> b.onclick = async ()=>{
     const val = b.dataset.copyLink==='gistId'? cloud.gistId : cloud.token;
@@ -8557,13 +8674,14 @@ function attachGlobalEvents(){
 
   const conflictTakeCloud = document.getElementById('conflictTakeCloud');
   if(conflictTakeCloud) conflictTakeCloud.onclick = async ()=>{
+    /* She has chosen the cloud over this device's unsent work, so this is the
+       one pull allowed to overwrite it. That work is in no revision anywhere —
+       it never reached the cloud, that is the whole reason this card exists — so
+       a copy goes to the rescue list first and the card's promise holds. */
+    await stashRescue('قبل أخذ نسخة السحاب');
     cloudConflict = null;              /* clear first so cloudPull isn't blocked */
-    /* she has chosen the cloud over this device's unsent work, so this is the
-       one pull allowed to overwrite it — the losing side stays in the revision
-       list, which is what the card promises her */
     state._pendingSync = false;
     await cloudPull({force:true});
-    pushedThisSession = false;
     render();
   };
   const conflictKeepMine = document.getElementById('conflictKeepMine');
