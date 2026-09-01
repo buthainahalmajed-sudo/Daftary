@@ -1512,7 +1512,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 84';
+const APP_BUILD = '2026-08-17 · 85';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -1869,6 +1869,16 @@ async function fetchRevisionState(version){
 }
 function summariseRevision(version, s){
   const names = (arr, key)=> (arr||[]).map(x=>x[key]).filter(Boolean).join('، ');
+  /* Counts alone do not answer the question she actually opens this list with:
+     "which one of these has the work I lost?" So each revision also says what is
+     inside it that is NOT on this device right now — those names are the whole
+     reason for scrolling the list. */
+  const missing = (key, field)=>{
+    const mine = new Set((state[key]||[]).map(x=> x && x.id).filter(Boolean));
+    return (s[key]||[]).filter(x=> x && x.id && !mine.has(x.id))
+                       .map(x=> x[field] || x.title || x.text || '').filter(Boolean);
+  };
+  const gone = [...missing('tasks','title'), ...missing('goals','title'), ...missing('journal','text')];
   return {
     version,
     tasks:(s.tasks||[]).length, goals:(s.goals||[]).length,
@@ -1876,6 +1886,8 @@ function summariseRevision(version, s){
     journal:(s.journal||[]).length,
     catLabels: names(s.taskCategories,'label'),
     pillarLabels: names(s.goalPillars,'label'),
+    missingCount: gone.length,
+    missingNames: gone.slice(0,8).join('، ') + (gone.length>8? ' …و'+(gone.length-8)+' غيرها' : ''),
   };
 }
 let cloudPushInFlight = 0;
@@ -2992,6 +3004,12 @@ function renderSettings(){
                       <div class="quote-box" style="margin-top:6px;font-size:var(--t2);">
                         ${revPreview.error? `<span style="color:var(--rose-dark);">${escapeHtml(revPreview.error)}</span>` : `
                         📋 ${revPreview.tasks} مهمة · 🎯 ${revPreview.goals} هدف · 🏷️ ${revPreview.cats} تصنيف · ✨ ${revPreview.pillars} بند هوية · 📖 ${revPreview.journal} إنجاز
+                        ${revPreview.missingCount? `
+                          <div style="margin-top:8px;padding:7px 9px;border-radius:9px;background:rgba(90,124,110,.12);">
+                            <b>فيها ${revPreview.missingCount} شي مو موجود عندك الحين:</b>
+                            <div style="margin-top:3px;">${escapeHtml(revPreview.missingNames)}</div>
+                          </div>`
+                        : `<div style="margin-top:8px;" class="muted">ما فيها شي ناقص عندك — كل اللي فيها موجود على هذا الجهاز.</div>`}
                         <div style="margin-top:6px;">التصنيفات: ${escapeHtml(revPreview.catLabels||'—')}</div>
                         <div>بنود الهوية: ${escapeHtml(revPreview.pillarLabels||'—')}</div>
                         <button type="button" class="btn sm" style="margin-top:8px;" data-rev-restore="${r.version}">↩️ استعيدي هذي النسخة</button>`}
