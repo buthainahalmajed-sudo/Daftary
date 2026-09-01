@@ -894,6 +894,13 @@ details.card::before{display:none;}
 }
 .icon-tile:active{background:var(--sage);}
 /* the three things she can do with the link: one row of marks, one panel open */
+.recover-box{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px;background:var(--parchment);}
+.recover-box .rc-title{font-weight:700;color:var(--petrol-dark);margin-bottom:4px;}
+.rc-group{font-size:var(--t2);font-weight:700;color:var(--petrol-dark);margin:10px 0 4px;}
+.rc-row{display:flex;align-items:flex-start;gap:8px;padding:5px 0;border-bottom:1px solid var(--line);cursor:pointer;}
+.rc-row input{margin-top:3px;flex-shrink:0;width:17px;height:17px;}
+.rc-row .rc-name{flex:1;min-width:0;font-size:var(--t2);color:var(--ink);word-break:break-word;}
+.rc-row .rc-when{flex-shrink:0;font-size:var(--t1);color:#6b7a78;}
 /* four tiles now. Wrapping them left a lone stretched tile on its own row on a
    phone; a grid puts them in an even 2×2 there and a single row when there is
    room for one. */
@@ -1512,7 +1519,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 85';
+const APP_BUILD = '2026-08-17 · 86';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -1889,6 +1896,74 @@ function summariseRevision(version, s){
     missingCount: gone.length,
     missingNames: gone.slice(0,8).join('، ') + (gone.length>8? ' …و'+(gone.length-8)+' غيرها' : ''),
   };
+}
+/* ---- finding work that was lost ----
+   Every push writes a full snapshot, so anything an overwrite erased is still
+   sitting in the gist history. Finding it meant peeking at revisions one at a
+   time and then restoring a whole snapshot — which trades one loss for another,
+   since everything done since would go. This reads every revision instead,
+   keeps whatever is not on this device now, and puts back only what she ticks.
+   Nothing is replaced: recovered items are added alongside what is here. */
+const RECOVER_LISTS = [
+  {key:'tasks',          label:'مهام',        name:x=> x.title},
+  {key:'goals',          label:'أهداف',       name:x=> x.title || x.item},
+  {key:'journal',        label:'إنجازات',     name:x=> x.text},
+  {key:'projectLedger',  label:'حركات مالية', name:x=> [x.desc, x.amount].filter(Boolean).join(' · ')},
+  {key:'habits',         label:'عادات',       name:x=> x.label},
+  {key:'goalPillars',    label:'بنود الهوية', name:x=> x.label},
+  {key:'taskCategories', label:'تصنيفات',     name:x=> x.label},
+  {key:'timeBoxes',      label:'فترات اليوم', name:x=> x.label},
+  {key:'dailyQuestions', label:'تساؤلات',     name:x=> x.text},
+  {key:'moods',          label:'مشاعر',       name:x=> x.label},
+  {key:'inbox',          label:'وارد',        name:x=> x.text || x.title},
+];
+let recoverScan = null; /* {busy, step, total, found:[], picked:{}, error} */
+async function scanLostWork(){
+  recoverScan = {busy:true, step:0, total:0, found:[], picked:{}, error:null};
+  render();
+  try{
+    const revs = await fetchGistRevisions();
+    recoverScan.total = revs.length;
+    /* anything already here is not lost */
+    const seen = {};
+    RECOVER_LISTS.forEach(L=> (state[L.key]||[]).forEach(x=>{ if(x && x.id) seen[L.key+'|'+x.id] = true; }));
+    for(let i=0;i<revs.length;i++){
+      recoverScan.step = i+1; render();
+      let snap = null;
+      try{ snap = await fetchRevisionState(revs[i].version); }catch(e){ continue; }
+      RECOVER_LISTS.forEach(L=>{
+        (snap[L.key]||[]).forEach(x=>{
+          if(!x || !x.id) return;
+          const k = L.key+'|'+x.id;
+          if(seen[k]) return;
+          seen[k] = true;                      /* newest revision holding it wins */
+          const nm = String(L.name(x) || '').trim();
+          if(!nm) return;                      /* a blank draft row is not work */
+          recoverScan.found.push({k, key:L.key, group:L.label, name:nm, item:x, when:revs[i].committed_at});
+          recoverScan.picked[k] = true;
+        });
+      });
+    }
+  }catch(e){ recoverScan.error = friendlyErr(e); }
+  recoverScan.busy = false;
+  render();
+}
+async function restoreLostWork(){
+  if(!recoverScan) return;
+  const picked = recoverScan.found.filter(f=> recoverScan.picked[f.k]);
+  if(!picked.length) return;
+  await stashRescue('قبل استرجاع الشغل الناقص');
+  let added = 0;
+  picked.forEach(f=>{
+    if(!Array.isArray(state[f.key])) state[f.key] = [];
+    if(state[f.key].some(x=> x && x.id===f.item.id)) return;
+    state[f.key].push(f.item);
+    added++;
+  });
+  recoverScan = null;
+  await saveState();
+  popStamp('رجع شغلك', added+' عنصر');
+  render();
 }
 let cloudPushInFlight = 0;
 let lastLocalSaveAt = 0;
@@ -2989,6 +3064,35 @@ function renderSettings(){
 
         ${syncPane==='revisions'? `
         <div class="sync-pane">
+          ${/* the first thing offered here, because it is what she comes for */''}
+          <div class="recover-box">
+            <p class="rc-title">🔎 دوّري على شغل ناقص</p>
+            <p class="muted" style="font-size:var(--t2);margin-bottom:8px;">أقرأ كل النسخ المحفوظة بالسحاب، وأعرض لك أي شي موجود فيها ومو موجود عندك الحين — تختارين وش ترجعينه. ما ينحذف ولا يتغير شي عندك.</p>
+            ${recoverScan && recoverScan.busy? `<p class="muted">⏳ يقرأ النسخة ${recoverScan.step} من ${recoverScan.total}…</p>`
+              : `<button class="btn btn-block" id="scanLost">🔎 دوّري الآن</button>`}
+            ${recoverScan && recoverScan.error? `<p class="muted" style="color:var(--rose-dark);margin-top:8px;">⚠️ ${escapeHtml(recoverScan.error)}</p>`:''}
+            ${recoverScan && !recoverScan.busy && !recoverScan.error? (recoverScan.found.length? `
+              <div style="margin-top:10px;">
+                <p style="font-weight:700;margin-bottom:6px;">لقيت ${recoverScan.found.length} عنصر ناقص:</p>
+                ${RECOVER_LISTS.map(L=>{
+                  const rows = recoverScan.found.filter(f=> f.key===L.key);
+                  if(!rows.length) return '';
+                  return `
+                  <p class="rc-group">${L.label} (${rows.length})</p>
+                  ${rows.map(f=>`
+                    <label class="rc-row">
+                      <input type="checkbox" data-rc-pick="${escapeHtml(f.k)}" ${recoverScan.picked[f.k]?'checked':''}/>
+                      <span class="rc-name">${escapeHtml(f.name.slice(0,110))}</span>
+                      <span class="rc-when">${new Date(f.when).toLocaleDateString('ar')}</span>
+                    </label>`).join('')}`;
+                }).join('')}
+                <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+                  <button class="btn sm" id="restoreLost">↩️ استعيدي المحدد</button>
+                  <button class="btn ghost sm" id="rcNone">إلغاء التحديد</button>
+                  <button class="btn ghost sm" id="rcAll">تحديد الكل</button>
+                </div>
+              </div>` : `<p class="muted" style="margin-top:10px;">✓ ما فيه شي ناقص — كل اللي بالنسخ السابقة موجود عندك.</p>`) : ''}
+          </div>
           ${helpNote('auto8','السحاب يحفظ نسخة كاملة عند كل مزامنة. اعرضي القائمة، شوفي محتوى أي نسخة قبل ما تقرري، وارجعي لها لو ضاع منك شي.')}
           <button class="btn ghost btn-block" id="loadRevisions" ${cloudStatus==='syncing'?'disabled':''}>${revLoading? '⏳ يجيب القائمة…' : '📜 اعرضي النسخ السابقة'}</button>
           ${revError? `<p class="muted" style="color:var(--rose-dark);margin-top:8px;">⚠️ ${escapeHtml(revError)}</p>`:''}
@@ -3511,6 +3615,25 @@ function attachSettingsEvents(){
       render();
     }catch(e){ revError = friendlyErr(e); render(); }
   });
+  const scanLost = document.getElementById('scanLost');
+  if(scanLost) scanLost.onclick = ()=> scanLostWork();
+  const restoreLost = document.getElementById('restoreLost');
+  if(restoreLost) restoreLost.onclick = ()=> restoreLostWork();
+  /* the tick is updated in place — re-rendering a list of a few hundred rows on
+     every tap makes it feel broken, and would scroll her back to the top */
+  document.querySelectorAll('[data-rc-pick]').forEach(cb=> cb.onchange = ()=>{
+    if(recoverScan) recoverScan.picked[cb.dataset.rcPick] = cb.checked;
+  });
+  const rcAll = document.getElementById('rcAll');
+  if(rcAll) rcAll.onclick = ()=>{
+    recoverScan.found.forEach(f=> recoverScan.picked[f.k] = true);
+    document.querySelectorAll('[data-rc-pick]').forEach(cb=> cb.checked = true);
+  };
+  const rcNone = document.getElementById('rcNone');
+  if(rcNone) rcNone.onclick = ()=>{
+    recoverScan.found.forEach(f=> recoverScan.picked[f.k] = false);
+    document.querySelectorAll('[data-rc-pick]').forEach(cb=> cb.checked = false);
+  };
   const loadRescueBtn = document.getElementById('loadRescue');
   if(loadRescueBtn) loadRescueBtn.onclick = async ()=>{ await loadRescue(); render(); };
   document.querySelectorAll('[data-rescue-restore]').forEach(b=> b.onclick = async ()=>{
