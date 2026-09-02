@@ -374,6 +374,19 @@ display:flex;gap:8px;margin:4px 0 10px;}
 .field textarea{resize:vertical;min-height:60px;}
 .field input:focus, .field select:focus, .field textarea:focus{outline:2px solid var(--sage);outline-offset:1px;}
 
+/* the day picker: closed it is the same shape as a select, so a form of
+   dropdowns stays a straight column instead of breaking on a row of chips */
+.dow-picker{width:100%;border:1.5px solid var(--line);border-radius:10px;background:var(--parchment);}
+.dow-picker > summary{
+  list-style:none;cursor:pointer;padding:12px 13px;display:flex;align-items:center;gap:8px;
+  font-size:16px;color:var(--ink);
+}
+.dow-picker > summary::-webkit-details-marker{display:none;}
+.dow-picker > summary .dp-val{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dow-picker[open] > summary{border-bottom:1px solid var(--line);}
+.dow-picker .dp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(76px,1fr));gap:6px;padding:10px;}
+.dow-picker .dp-grid .chip{padding:8px 6px;text-align:center;}
+
 /* ---------- chips ---------- */
 .chip-row{display:flex;flex-wrap:wrap;gap:8px;}
 .chip{
@@ -1519,7 +1532,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 89';
+const APP_BUILD = '2026-08-17 · 90';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -8251,9 +8264,7 @@ function renderHabitsPage(){
     <summary><h3>➕ إضافة عادة جديدة <span class="chev">▾</span></h3></summary>
     <div class="details-body">
       <p class="muted" style="margin-bottom:6px;">لأي أيام تضيفين العادة الجديدة؟ (تقدرين تختارين أكثر من يوم)</p>
-      <div class="chip-row" style="margin-bottom:10px;" id="habitAddDowPicker">
-        ${DOW_NAMES.map((n,i)=>`<button type="button" class="chip ${_habitAddDows.includes(i)?'selected':''}" data-add-dow="${i}">${n}</button>`).join('')}
-      </div>
+      ${dowPicker('habitAdd', _habitAddDows, '')}
       <div style="display:flex;gap:8px;margin-top:4px;">
         <input type="text" id="pageHabitInput" placeholder="اسم عادة جديدة…" style="flex:1;"/>
         <button class="btn sm" id="pageHabitAdd">إضافة</button>
@@ -8342,6 +8353,40 @@ function renderAiPlanReview(){
   </div>`;
 }
 
+/* A day picker that reads like the dropdowns around it.
+
+   Seven chips in a row is the widest thing in the edit form and it wraps
+   differently on every screen, which is what made these windows look untidy. A
+   plain <select multiple> is worse on a phone — it is a scrolling box, and on
+   iOS it barely works — so this is a closed control showing the chosen days as
+   text, opening to the toggles. Same border, radius and height as a real
+   select, so the column of fields lines up. */
+/* repaint one picker in place: the ticks and the summary line, nothing else */
+function paintDowPicker(id, chosen){
+  const box = document.querySelector('[data-dow-picker="'+id+'"]');
+  if(!box) return;
+  box.querySelectorAll('[data-dow-pick]').forEach(b=>{
+    b.classList.toggle('selected', chosen.includes(parseInt(b.dataset.dowIdx,10)));
+  });
+  const picked = DOW_NAMES.map((n,i)=> chosen.includes(i)? n : null).filter(Boolean);
+  const val = box.querySelector('.dp-val');
+  if(val) val.textContent = picked.length===7? 'كل الأيام' : (picked.length? picked.join('، ') : 'ما حددتِ أيام');
+}
+function dowPicker(id, chosen, label){
+  const picked = DOW_NAMES.map((n,i)=> chosen.includes(i)? n : null).filter(Boolean);
+  const summary = picked.length===7? 'كل الأيام' : (picked.length? picked.join('، ') : 'ما حددتِ أيام');
+  return `
+  <div class="field" style="margin-bottom:10px;">
+    ${label? `<label>${label}</label>`:''}
+    <details class="dow-picker" data-dow-picker="${id}">
+      <summary><span class="dp-val">${summary}</span><span class="chev">▾</span></summary>
+      <div class="dp-grid">
+        ${DOW_NAMES.map((name,idx)=>`
+          <button type="button" class="chip ${chosen.includes(idx)?'selected':''}" data-dow-pick="${id}" data-dow-idx="${idx}">${name}</button>`).join('')}
+      </div>
+    </details>
+  </div>`;
+}
 /* ============ task draft (add/edit) ============ */
 function renderTaskDraft(){
   const d = taskDraft;
@@ -8369,9 +8414,9 @@ function renderTaskDraft(){
       </div>
       <div class="field">
         <label>الأولوية</label>
-        <div class="chip-row">
-          ${PRIORITIES.map(p=>`<button type="button" class="chip ${d.priority===p?'selected':''}" data-pri="${p}">${p}</button>`).join('')}
-        </div>
+        <select id="tdPriority">
+          ${PRIORITIES.map(p=>`<option value="${escapeHtml(p)}" ${d.priority===p?'selected':''}>${escapeHtml(p)}</option>`).join('')}
+        </select>
       </div>
       <div class="field">
         <label>موعدها</label>
@@ -8415,16 +8460,15 @@ function renderTaskDraft(){
         <details id="tdRecurDetails" ${taskDraftRecurOpen? 'open':''}>
           <summary style="cursor:pointer;font-weight:600;color:var(--petrol-dark);">🔁 تكرار المهمة (اختياري)</summary>
           <div style="margin-top:10px;">
-            <div class="chip-row" style="margin-bottom:10px;">
-              <button type="button" class="chip ${!d.recurType?'selected':''}" data-recur-type="">بدون تكرار</button>
-              <button type="button" class="chip ${d.recurType==='daily'?'selected':''}" data-recur-type="daily">يومي</button>
-              <button type="button" class="chip ${d.recurType==='weekly'?'selected':''}" data-recur-type="weekly">أسبوعي</button>
-              <button type="button" class="chip ${d.recurType==='monthly'?'selected':''}" data-recur-type="monthly">شهري</button>
+            <div class="field" style="margin-bottom:10px;">
+              <select id="tdRecurType">
+                <option value="" ${!d.recurType?'selected':''}>بدون تكرار</option>
+                <option value="daily" ${d.recurType==='daily'?'selected':''}>يومي</option>
+                <option value="weekly" ${d.recurType==='weekly'?'selected':''}>أسبوعي</option>
+                <option value="monthly" ${d.recurType==='monthly'?'selected':''}>شهري</option>
+              </select>
             </div>
-            ${d.recurType==='weekly'? `
-            <div class="chip-row" style="margin-bottom:10px;">
-              ${DOW_NAMES.map((name,idx)=>`<button type="button" class="chip ${(d.recur||[]).includes(idx)?'selected':''}" data-recur-day="${idx}">${name}</button>`).join('')}
-            </div>`:''}
+            ${d.recurType==='weekly'? dowPicker('tdRecurDays', d.recur||[], 'أيام التكرار') :''}
             ${d.recurType==='monthly'? `
             <div class="field" style="margin-bottom:10px;">
               <label style="font-size:var(--t2);">يوم الشهر (١-٣١)</label>
@@ -8502,26 +8546,38 @@ function attachTaskDraftEvents(){
     }
     render();
   };
-  document.querySelectorAll('[data-pri]').forEach(b=> b.onclick=()=>{ syncDraft(); taskDraft.priority=b.dataset.pri; render(); });
+  const tdPriority = document.getElementById('tdPriority');
+  if(tdPriority) tdPriority.onchange = ()=>{ syncDraft(); taskDraft.priority = tdPriority.value; render(); };
   const tdPeriodSel = document.getElementById('tdPeriodSel');
   if(tdPeriodSel) tdPeriodSel.onchange = ()=>{ syncDraft(); taskDraft.period = tdPeriodSel.value || null; render(); };
 
   document.querySelectorAll('[data-dev]').forEach(b=> b.onclick=()=>{ syncDraft(); taskDraft.device = (taskDraft.device===b.dataset.dev? null : b.dataset.dev); render(); });
   const recurDetails = document.getElementById('tdRecurDetails');
   if(recurDetails) recurDetails.ontoggle = ()=>{ taskDraftRecurOpen = recurDetails.open; };
-  document.querySelectorAll('[data-recur-type]').forEach(b=> b.onclick=()=>{
+  const tdRecurType = document.getElementById('tdRecurType');
+  if(tdRecurType) tdRecurType.onchange = ()=>{
     syncDraft();
-    taskDraft.recurType = b.dataset.recurType || null;
+    taskDraft.recurType = tdRecurType.value || null;
     taskDraftRecurOpen = true;
     render();
-  });
-  document.querySelectorAll('[data-recur-day]').forEach(b=> b.onclick=()=>{
+  };
+  /* the day picker keeps itself open while she ticks — a re-render would shut it
+     after every single day, which is unusable for "الأحد والثلاثاء والخميس" */
+  document.querySelectorAll('[data-dow-pick]').forEach(b=> b.onclick=()=>{
+    const idx = parseInt(b.dataset.dowIdx,10);
+    const which = b.dataset.dowPick;
+    if(which==='habitAdd'){
+      const pos = _habitAddDows.indexOf(idx);
+      if(pos>-1){ if(_habitAddDows.length>1) _habitAddDows.splice(pos,1); }
+      else _habitAddDows.push(idx);
+      paintDowPicker(which, _habitAddDows);
+      return;
+    }
     syncDraft();
-    const day = parseInt(b.dataset.recurDay,10);
     taskDraft.recur = taskDraft.recur || [];
-    const i = taskDraft.recur.indexOf(day);
-    if(i>-1) taskDraft.recur.splice(i,1); else taskDraft.recur.push(day);
-    render();
+    const i = taskDraft.recur.indexOf(idx);
+    if(i>-1) taskDraft.recur.splice(i,1); else taskDraft.recur.push(idx);
+    paintDowPicker(which, taskDraft.recur);
   });
   document.querySelectorAll('[data-rte-cmd]').forEach(b=> b.onclick=()=>{
     document.getElementById('tdLongNote').focus();
@@ -9048,13 +9104,6 @@ function attachGlobalEvents(){
   const nextWeek = document.getElementById('nextWeek');
   if(nextWeek) nextWeek.onclick = ()=>{ weekRef = addDays(weekRef,7); render(); };
 
-  document.querySelectorAll('[data-add-dow]').forEach(b=> b.onclick=()=>{
-    const i = parseInt(b.dataset.addDow,10);
-    const pos = _habitAddDows.indexOf(i);
-    if(pos>-1){ if(_habitAddDows.length>1) _habitAddDows.splice(pos,1); }
-    else{ _habitAddDows.push(i); }
-    render();
-  });
   const pageHabitAdd = document.getElementById('pageHabitAdd');
   if(pageHabitAdd) pageHabitAdd.onclick = ()=>{
     const inp = document.getElementById('pageHabitInput');
