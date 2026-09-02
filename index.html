@@ -1552,7 +1552,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 94';
+const APP_BUILD = '2026-08-17 · 95';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -2420,7 +2420,9 @@ function noteStorageFailure(e){
 function paintSyncStatus(){
   const el = document.getElementById('syncStatusLine');
   if(!el) return;
-  const label = {idle:'', syncing:'⏳ يتزامن…', synced:'☁️ متزامن ✓', error:'⚠️ خطأ بالتزامن'}[cloudStatus] || '';
+  /* "synced" is not news — the head of the card says so permanently. This line
+     is for the two states that are actually happening to her right now. */
+  const label = {idle:'', syncing:'⏳ يتزامن…', synced:'', error:'⚠️ خطأ بالتزامن'}[cloudStatus] || '';
   el.textContent = label;
   el.style.display = label? '' : 'none';
 }
@@ -3163,7 +3165,7 @@ function rememberUpdatePane(v){
 }
 /* ============ settings ============ */
 function renderSettings(){
-  const statusLabel = {idle:'', syncing:'⏳ يتزامن…', synced:'☁️ متزامن ✓', error:'⚠️ خطأ بالتزامن'}[cloudStatus] || '';
+  const statusLabel = {idle:'', syncing:'⏳ يتزامن…', synced:'', error:'⚠️ خطأ بالتزامن'}[cloudStatus] || '';
   return `
   <div style="padding-top:10px;">
     <div class="card">
@@ -3175,7 +3177,9 @@ function renderSettings(){
             belongs to. */''}
       <div class="card-title" style="align-items:center;">
         <h3 style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
-          <span>☁️ التزامن التلقائي</span>
+          ${/* no cloud on the title: the mark right beside it is already one,
+                and two in a row read as a stutter */''}
+          <span>التزامن التلقائي</span>
           ${cloud.linked? `<button type="button" class="upd-quick" id="updQuick" title="${escapeHtml(UPDATE_METHODS[lastUpdatePane()]||'')}" aria-label="${escapeHtml(UPDATE_METHODS[lastUpdatePane()]||'')}">${UPDATE_ICONS[lastUpdatePane()]||'🔄'}</button>`:''}
           <span class="sync-state ${cloud.linked && cloudStatus!=='error' ?'on':'off'}">(${
             !cloud.linked? 'غير مرتبط'
