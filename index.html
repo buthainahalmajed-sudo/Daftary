@@ -372,7 +372,7 @@ display:flex;gap:8px;margin:4px 0 10px;}
    mistake next to everything else */
 .field input[type=text], .field input[type=email], .field input[type=date],
 .field input[type=number], .field select, .field textarea{
-  width:100%;padding:12px 13px;border:1.5px solid var(--line);border-radius:10px;
+  width:100%;min-width:0;padding:12px 13px;border:1.5px solid var(--line);border-radius:10px;
   background:var(--parchment);font-size:16px;color:var(--ink);
 }
 .field textarea{resize:vertical;min-height:60px;}
@@ -388,7 +388,7 @@ display:flex;gap:8px;margin:4px 0 10px;}
 .dow-picker > summary::-webkit-details-marker{display:none;}
 .dow-picker > summary .dp-val{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dow-picker[open] > summary{border-bottom:1px solid var(--line);}
-.dow-picker .dp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(76px,1fr));gap:6px;padding:10px;}
+.dow-picker .dp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(68px,1fr));gap:6px;padding:10px;}
 .dow-picker .dp-grid .chip{padding:8px 6px;text-align:center;}
 
 /* ---------- chips ---------- */
@@ -1536,7 +1536,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 91';
+const APP_BUILD = '2026-08-17 · 92';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -8479,12 +8479,14 @@ function renderTaskDraft(){
               <input type="number" id="tdRecurMonthDay" min="1" max="31" value="${d.recurMonthDay||''}" placeholder="مثال: 5"/>
             </div>`:''}
             ${d.recurType? `
-            <div style="display:flex;gap:10px;">
-              <div style="flex:1;">
+            ${/* a date input has a wide minimum of its own — two of them side by
+                  side on a phone push each other off the edge, so they stack */''}
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+              <div style="flex:1 1 150px;min-width:0;">
                 <label style="font-size:var(--t2);">تبدأ من (اختياري)</label>
                 <input type="date" id="tdRecurStart" value="${d.recurStart||''}"/>
               </div>
-              <div style="flex:1;">
+              <div style="flex:1 1 150px;min-width:0;">
                 <label style="font-size:var(--t2);">تنتهي في (اختياري)</label>
                 <input type="date" id="tdRecurEnd" value="${d.recurEnd||''}"/>
               </div>
