@@ -367,7 +367,11 @@ display:flex;gap:8px;margin:4px 0 10px;}
 /* ---------- inputs ---------- */
 .field{margin-bottom:14px;}
 .field label{display:block;font-size:var(--t3);font-weight:700;color:var(--petrol-dark);margin-bottom:6px;}
-.field input[type=text], .field input[type=email], .field select, .field textarea{
+/* the date field was the one control left at its native width — a short box
+   floated against the edge in a column of full-width fields, which read as a
+   mistake next to everything else */
+.field input[type=text], .field input[type=email], .field input[type=date],
+.field input[type=number], .field select, .field textarea{
   width:100%;padding:12px 13px;border:1.5px solid var(--line);border-radius:10px;
   background:var(--parchment);font-size:16px;color:var(--ink);
 }
@@ -1532,7 +1536,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 90';
+const APP_BUILD = '2026-08-17 · 91';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
