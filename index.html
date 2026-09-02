@@ -378,6 +378,11 @@ display:flex;gap:8px;margin:4px 0 10px;}
 .field textarea{resize:vertical;min-height:60px;}
 .field input:focus, .field select:focus, .field textarea:focus{outline:2px solid var(--sage);outline-offset:1px;}
 
+/* the badge on the closed 🔄 mark: the reason to open it, or the reason not to */
+.upd-badge{font-size:var(--t1);font-weight:600;padding:2px 8px;border-radius:20px;}
+.upd-badge.ok{background:rgba(143,169,152,.22);color:var(--petrol-dark);}
+.upd-badge.warn{background:rgba(178,76,99,.14);color:var(--rose-dark);}
+
 /* the day picker: closed it is the same shape as a select, so a form of
    dropdowns stays a straight column instead of breaking on a row of chips */
 .dow-picker{width:100%;border:1.5px solid var(--line);border-radius:10px;background:var(--parchment);}
@@ -1536,7 +1541,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 92';
+const APP_BUILD = '2026-08-17 · 93';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -3157,11 +3162,25 @@ function renderSettings(){
         <p class="muted" id="syncStatusLine" style="margin-bottom:10px;${statusLabel?"":"display:none;"}">${statusLabel}</p>
         ${cloudStatus==='error'&&cloudStatusMsg? `<p class="muted" style="color:var(--rose-dark);margin-bottom:10px;">${escapeHtml(cloudStatusMsg)}</p>`:''}
         ${helpNote('auto7','يتزامن وحده: عند فتح التطبيق، وكل ما ترجعين له، وكل دقيقة وهو مفتوح — وأي تعديل يُرفع فورًا.')}
-
-        ${/* three things she can do with the link, each a tile with its own mark.
-              They were three full-width buttons and two paragraphs stacked down
-              the card; only the one she opens shows its detail now. */''}
+      `}
+        ${/* Every way of updating anything used to be scattered down this page:
+              the app version sat in its own card at the very bottom, the sync
+              tools at the top, and "زامني الآن" did not exist at all. They are
+              one folded mark now — she opens it when she wants to update and
+              picks the method that fits the moment. The summary carries the
+              version check, so the closed mark is what tells her to open it. */''}
+        <details class="card sub-card" data-sec="updateHub" ${openSections.updateHub?'open':''} style="margin-top:4px;">
+          <summary><h3>🔄 طرق التحديث <span class="upd-badge" id="updBadge"></span> <span class="chev">▾</span></h3></summary>
+          <div class="details-body">
         <div class="sync-tiles">
+          <button type="button" class="sync-tile ${syncPane==='app'?'on':''}" data-sync-pane="app">
+            <span class="st-icon">📦</span><span class="st-lbl">نسخة التطبيق</span>
+          </button>
+          ${/* the rest only mean something once the device is linked */''}
+          ${cloud.linked? `
+          <button type="button" class="sync-tile ${syncPane==='now'?'on':''}" data-sync-pane="now">
+            <span class="st-icon">☁️</span><span class="st-lbl">زامني الآن</span>
+          </button>
           <button type="button" class="sync-tile ${syncPane==='revisions'?'on':''}" data-sync-pane="revisions">
             <span class="st-icon">🕘</span><span class="st-lbl">نسخ سابقة</span>
           </button>
@@ -3173,8 +3192,28 @@ function renderSettings(){
           </button>
           <button type="button" class="sync-tile ${syncPane==='unlink'?'on':''}" data-sync-pane="unlink">
             <span class="st-icon">⛓️‍💥</span><span class="st-lbl">إلغاء الربط</span>
-          </button>
+          </button>`:''}
         </div>
+
+        ${syncPane==='app'? `
+        <div class="sync-pane">
+          ${helpNote('appUpdate','لو رقم نسختك ما يطابق المنشور، اضغطي 🔄. ما تحتاجين تحذفين الأيقونة من جوالك.')}
+          <div class="update-row">
+            <div class="upd-ver">
+              <span>${APP_BUILD}</span>
+              <small id="buildCompare">…يقارن بالنسخة المنشورة</small>
+            </div>
+            <button class="icon-tile" id="checkAppUpdate" title="تحديث الآن" aria-label="تحديث الآن">🔄</button>
+          </div>
+          ${appUpdateMsg? `<p class="muted" style="margin:8px 0 0;color:${appUpdateMsg.ok?'var(--sage)':'var(--rose-dark)'};">${escapeHtml(appUpdateMsg.text)}</p>`:''}
+        </div>`:''}
+
+        ${syncPane==='now' && cloud.linked? `
+        <div class="sync-pane">
+          ${helpNote('syncNow','يتزامن وحده عادةً. هذا للحظة اللي تبين فيها تتأكدين بنفسك — مثلاً قبل ما تقفلين جهاز وتفتحين الثاني.')}
+          <p class="muted" style="margin-bottom:8px;">${cloudLastSync? 'آخر تزامن: '+cloudLastSync.toLocaleString('ar') : 'ما تزامن بهذي الجلسة بعد.'}${state._pendingSync? ' · فيه تعديلات ما انرفعت بعد' : ' · كل شي مرفوع ✓'}</p>
+          <button class="btn btn-block" id="syncNowBtn" ${cloudStatus==='syncing'?'disabled':''}>${cloudStatus==='syncing'?'⏳ يتزامن…':'☁️ زامني الآن'}</button>
+        </div>`:''}
 
         ${syncPane==='revisions'? `
         <div class="sync-pane">
@@ -3281,26 +3320,13 @@ function renderSettings(){
           ${helpNote('auto10','بيوقف التزامن على هذا الجهاز. بياناتك تضل بالسحاب وبهذا الجهاز، وتقدرين تربطين من جديد بنفس الـGist ID والToken.')}
           <button class="btn ghost btn-block" id="unlinkCloud">إلغاء الربط</button>
         </div>`:''}
-      `}
+          </div>
+        </details>
     </div>
 
     <h3 style="font-size:var(--t5);color:var(--petrol-dark);margin:26px 0 10px;">📋 قوائمك</h3>
     ${helpNote('auto11','القوائم اللي تُبنى عليها صفحاتك. عدّليها متى ما احتجتِ — وما راح تزحم صفحاتك اليومية.')}
     ${renderListManagers()}
-
-    <div class="card">
-      <div class="card-title"><h3>📦 تحديثات التطبيق</h3>${helpNote('appUpdate','لو رقم نسختك ما يطابق المنشور، اضغطي 🔄. ما تحتاجين تحذفين الأيقونة من جوالك.')}</div>
-      ${/* a version box, a paragraph and a full-width button for one number and
-            one action — now the number and the action stand side by side */''}
-      <div class="update-row">
-        <div class="upd-ver">
-          <span>${APP_BUILD}</span>
-          <small id="buildCompare">…يقارن بالنسخة المنشورة</small>
-        </div>
-        <button class="icon-tile" id="checkAppUpdate" title="تحديث الآن" aria-label="تحديث الآن">🔄</button>
-      </div>
-      ${appUpdateMsg? `<p class="muted" style="margin:8px 0 0;color:${appUpdateMsg.ok?'var(--sage)':'var(--rose-dark)'};">${escapeHtml(appUpdateMsg.text)}</p>`:''}
-    </div>
 
   </div>`;
 }
@@ -3605,24 +3631,38 @@ function attachSettingsEvents(){
 
   /* read the published build straight off the server, bypassing every cache, and
      say plainly whether this device is behind — guessing was the problem */
-  const cmp = document.getElementById('buildCompare');
-  if(cmp){
+  /* The version check has to run whether or not the pane holding it is open —
+     its whole job is to tell her the mark is worth opening. It writes to the
+     badge on the closed summary as well as to the line inside. */
+  {
+    const cmp = document.getElementById('buildCompare');
+    const badge = document.getElementById('updBadge');
+    const say = (txt, cls)=>{ if(badge){ badge.textContent = txt; badge.className = 'upd-badge '+(cls||''); } };
     fetch(location.pathname + '?v=' + Date.now(), {cache:'no-store'})
       .then(r=> r.ok? r.text() : Promise.reject(new Error('كود '+r.status)))
       .then(html=>{
         const m = html.match(/APP_BUILD\s*=\s*'([^']+)'/);
         const live = m && m[1];
-        if(!live){ cmp.textContent = 'ما قدرت أقرأ النسخة المنشورة.'; return; }
+        if(!live){ if(cmp) cmp.textContent = 'ما قدرت أقرأ النسخة المنشورة.'; return; }
         if(live === APP_BUILD){
-          cmp.style.color = 'var(--sage)';
-          cmp.textContent = '✓ عندك آخر نسخة منشورة.';
+          if(cmp){ cmp.style.color = 'var(--sage)'; cmp.textContent = '✓ عندك آخر نسخة منشورة.'; }
+          say('محدّث ✓', 'ok');
         }else{
-          cmp.style.color = 'var(--rose-dark)';
-          cmp.textContent = '⚠️ فيه نسخة أحدث منشورة (' + live + ') — اضغطي تحديث.';
+          if(cmp){ cmp.style.color = 'var(--rose-dark)'; cmp.textContent = '⚠️ فيه نسخة أحدث منشورة (' + live + ') — اضغطي تحديث.'; }
+          say('فيه نسخة أحدث', 'warn');
         }
       })
-      .catch(e=>{ cmp.textContent = 'ما قدرت أتأكد من النسخة المنشورة (' + friendlyErr(e) + ').'; });
+      .catch(e=>{ if(cmp) cmp.textContent = 'ما قدرت أتأكد من النسخة المنشورة (' + friendlyErr(e) + ').'; });
   }
+
+  const syncNowBtn = document.getElementById('syncNowBtn');
+  if(syncNowBtn) syncNowBtn.onclick = async ()=>{
+    cloudStatus='syncing'; render();
+    /* a push reads the cloud and merges before writing, so this one call covers
+       both directions whether or not this device is holding anything */
+    if(state._pendingSync) await cloudPush(); else await cloudPull();
+    render();
+  };
 
   const checkAppUpdate = document.getElementById('checkAppUpdate');
   if(checkAppUpdate) checkAppUpdate.onclick = async ()=>{
