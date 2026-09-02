@@ -378,6 +378,17 @@ display:flex;gap:8px;margin:4px 0 10px;}
 .field textarea{resize:vertical;min-height:60px;}
 .field input:focus, .field select:focus, .field textarea:focus{outline:2px solid var(--sage);outline-offset:1px;}
 
+/* the head of the sync card: title, shortcut mark, state — one line */
+.upd-quick{
+  flex-shrink:0;width:31px;height:31px;border-radius:9px;border:1px solid var(--line);
+  background:var(--parchment);font-size:16px;line-height:1;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;
+}
+.upd-quick:active{background:var(--sage);}
+.sync-state{flex-shrink:0;font-size:var(--t2);font-weight:600;}
+.sync-state.on{color:var(--sage);}
+.sync-state.off{color:var(--rose-dark);}
+
 /* the badge on the closed 🔄 mark: the reason to open it, or the reason not to */
 .upd-badge{font-size:var(--t1);font-weight:600;padding:2px 8px;border-radius:20px;}
 .upd-badge.ok{background:rgba(143,169,152,.22);color:var(--petrol-dark);}
@@ -1541,7 +1552,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 93';
+const APP_BUILD = '2026-08-17 · 94';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -3133,13 +3144,46 @@ function syncTemplateDraftFields(){
   templateDraft.learningLink = val('tdLearningLink', templateDraft.learningLink||'');
 }
 
+/* The six ways of updating, and the mark each one goes by. The one she reached
+   for last sits next to the title as a shortcut — "the method I always use"
+   without her having to declare which that is, and it can differ per device,
+   which is why it is remembered here rather than in the synced state. */
+const UPDATE_ICONS = {app:'📦', now:'☁️', revisions:'🕘', link:'🔑', rescue:'🛟', unlink:'⛓️‍💥'};
+const UPDATE_METHODS = {app:'نسخة التطبيق', now:'زامني الآن', revisions:'نسخ سابقة',
+                        link:'بيانات الربط', rescue:'نسخ الطوارئ', unlink:'إلغاء الربط'};
+function lastUpdatePane(){
+  let v = null;
+  try{ v = localStorage.getItem('lastUpdatePane'); }catch(e){}
+  if(v && UPDATE_ICONS[v] && (cloud.linked || v==='app')) return v;
+  return cloud.linked? 'now' : 'app';
+}
+function rememberUpdatePane(v){
+  if(!UPDATE_ICONS[v]) return;
+  try{ localStorage.setItem('lastUpdatePane', v); }catch(e){}
+}
 /* ============ settings ============ */
 function renderSettings(){
   const statusLabel = {idle:'', syncing:'⏳ يتزامن…', synced:'☁️ متزامن ✓', error:'⚠️ خطأ بالتزامن'}[cloudStatus] || '';
   return `
   <div style="padding-top:10px;">
     <div class="card">
-      <div class="card-title"><h3>☁️ التزامن التلقائي بين الأجهزة</h3>
+      ${/* The head used to be a title, then three lines of prose telling her she
+            was connected, when it last synced and that it syncs by itself — a
+            paragraph restating a state that one word says. It is one line now:
+            the title, a shortcut to the method she actually uses, and the state
+            in brackets. Everything the paragraph said lives inside the pane it
+            belongs to. */''}
+      <div class="card-title" style="align-items:center;">
+        <h3 style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
+          <span>☁️ التزامن التلقائي</span>
+          ${cloud.linked? `<button type="button" class="upd-quick" id="updQuick" title="${escapeHtml(UPDATE_METHODS[lastUpdatePane()]||'')}" aria-label="${escapeHtml(UPDATE_METHODS[lastUpdatePane()]||'')}">${UPDATE_ICONS[lastUpdatePane()]||'🔄'}</button>`:''}
+          <span class="sync-state ${cloud.linked && cloudStatus!=='error' ?'on':'off'}">(${
+            !cloud.linked? 'غير مرتبط'
+            : cloudStatus==='error'? 'غير متزامن'
+            : cloudStatus==='syncing'? 'يتزامن…'
+            : state._pendingSync? 'باقي رفع' : 'متزامن'
+          })</span>
+        </h3>
         <button class="icon-btn" id="closeSettings">✕</button>
       </div>
       ${!cloud.linked? `
@@ -3158,10 +3202,10 @@ function renderSettings(){
         ${helpNote('auto6','هذا هو الزر المناسب لأي جهاز ثاني أو ثالث — يجيب البيانات الموجودة بالسحاب بدل ما يمسحها.')}
         <button class="btn ghost btn-block" id="linkPush" style="margin-top:6px;" ${cloudStatus==='syncing'?'disabled':''}>🔼 ارفعي بيانات هذا الجهاز (بس لو هذا أول جهاز على الإطلاق)</button>
       `:`
-        <p class="muted" style="margin-bottom:8px;">مرتبط بنجاح ✓ ${cloudLastSync? 'آخر تزامن: '+cloudLastSync.toLocaleTimeString('ar'):''}</p>
-        <p class="muted" id="syncStatusLine" style="margin-bottom:10px;${statusLabel?"":"display:none;"}">${statusLabel}</p>
-        ${cloudStatus==='error'&&cloudStatusMsg? `<p class="muted" style="color:var(--rose-dark);margin-bottom:10px;">${escapeHtml(cloudStatusMsg)}</p>`:''}
-        ${helpNote('auto7','يتزامن وحده: عند فتح التطبيق، وكل ما ترجعين له، وكل دقيقة وهو مفتوح — وأي تعديل يُرفع فورًا.')}
+        ${/* kept only so paintSyncStatus has its slot; it is empty unless
+              something is actually happening */''}
+        <p class="muted" id="syncStatusLine" style="margin:0 0 6px;${statusLabel?"":"display:none;"}">${statusLabel}</p>
+        ${cloudStatus==='error'&&cloudStatusMsg? `<p class="muted" style="color:var(--rose-dark);margin-bottom:8px;">${escapeHtml(cloudStatusMsg)}</p>`:''}
       `}
         ${/* Every way of updating anything used to be scattered down this page:
               the app version sat in its own card at the very bottom, the sync
@@ -3210,8 +3254,8 @@ function renderSettings(){
 
         ${syncPane==='now' && cloud.linked? `
         <div class="sync-pane">
-          ${helpNote('syncNow','يتزامن وحده عادةً. هذا للحظة اللي تبين فيها تتأكدين بنفسك — مثلاً قبل ما تقفلين جهاز وتفتحين الثاني.')}
-          <p class="muted" style="margin-bottom:8px;">${cloudLastSync? 'آخر تزامن: '+cloudLastSync.toLocaleString('ar') : 'ما تزامن بهذي الجلسة بعد.'}${state._pendingSync? ' · فيه تعديلات ما انرفعت بعد' : ' · كل شي مرفوع ✓'}</p>
+          ${helpNote('syncNow','يتزامن وحده: عند فتح التطبيق، وكل ما ترجعين له، وكل دقيقة وهو مفتوح — وأي تعديل يُرفع فورًا. هذا الزر للحظة اللي تبين فيها تتأكدين بنفسك، مثلاً قبل ما تقفلين جهاز وتفتحين الثاني.')}
+          <p class="muted" style="margin-bottom:8px;">مرتبط بنجاح ✓ · ${cloudLastSync? 'آخر تزامن: '+cloudLastSync.toLocaleString('ar') : 'ما تزامن بهذي الجلسة بعد'}${state._pendingSync? ' · فيه تعديلات ما انرفعت بعد' : ' · كل شي مرفوع ✓'}</p>
           <button class="btn btn-block" id="syncNowBtn" ${cloudStatus==='syncing'?'disabled':''}>${cloudStatus==='syncing'?'⏳ يتزامن…':'☁️ زامني الآن'}</button>
         </div>`:''}
 
@@ -3623,8 +3667,18 @@ function attachSettingsEvents(){
   document.querySelectorAll('[data-sync-pane]').forEach(b=> b.onclick=()=>{
     /* tapping the open one closes it, so the card can rest showing nothing */
     syncPane = (syncPane===b.dataset.syncPane)? null : b.dataset.syncPane;
+    if(syncPane) rememberUpdatePane(syncPane);   /* becomes the shortcut mark */
     render();
   });
+  /* the mark beside the title: straight to the method she used last, no
+     unfolding and no choosing */
+  const updQuick = document.getElementById('updQuick');
+  if(updQuick) updQuick.onclick = ()=>{
+    syncPane = lastUpdatePane();
+    openSections.updateHub = true;
+    state.openSections = openSections;
+    render();
+  };
 
 
   attachManagerEvents();
