@@ -1222,8 +1222,7 @@ function financeParentGoalId(){
 
   /* the financial goal itself, when it exists — no more guessing at a yearly one */
   if(state.financialGoal && state.financialGoal.configured) return FIN_GOAL_ID;
-  const g = state.goals.find(x=> x.cat==='finance');
-  return g? g.id : null;
+  return null;   /* the financial goal is its own node now â no domain to guess from */
 }
 
 /* categories used to classify raw inbox tasks — user-editable, lives in state.taskCategories.
@@ -1240,20 +1239,34 @@ function tcatOf(id){ return state.taskCategories.find(c=>c.id===id) || null; }
    while the goal wizard and every goal tag still showed the old one. */
 function catOf(id){ return tcatOf(id) || CAT_MAP[id] || null; }
 function catIcon(id){ return (catOf(id)||{}).icon || ''; }
+/* a goal's mark is its pillar's — the place it actually sits in the chain,
+   instead of the parallel domain that used to be asked for separately */
+function pillarIcon(g){ const p = g? pillarOf(goalPillarId(g)) : null; return p? p.icon : '🎯'; }
+/* Which yearly goals are the money ones. This was "its domain is finance"; the
+   financial goal now names its own pillar, so a yearly goal filed under that
+   same pillar is the one the money page is detailing. */
+function isFinanceGoal(g){
+  if(!g) return false;
+  if(g.id === FIN_GOAL_ID || g.isFinancial) return true;
+  const fp = state.financialGoal && state.financialGoal.pillarId;
+  return !!(fp && goalPillarId(g) === fp);
+}
 function catLabel(id){ return (catOf(id)||{}).label || ''; }
 
-const QUESTIONS = {
-  health:['وش أول خطوة صغيرة تقدرين تبدئين فيها هالأسبوع؟','كم مرة بالأسبوع تبين تخصصين وقت لها؟'],
-  hair:['وش أكبر شي مضايقك في شعرك حالياً؟','عندك روتين معيّن تبين تبدئين فيه أو تكملين عليه؟'],
-  finance:['وش أول هدف مالي واضح تبين توصلينه هالسنة؟','تبين تتابعين مصروفك يومياً ولا أسبوعياً؟'],
-  selfdev:['أي مهارة أو عادة تبين تطورينها أول شي؟','كم دقيقة يومياً تقدرين تخصصين لها؟'],
-  career:['وش أقرب خطوة محسوسة في مسارك المهني؟','فيه شهادة أو مهارة معينة تبين تحصلينها؟'],
-  business:['وش فكرة الدخل أو البزنس اللي تبين تبدين فيها أو تطورينها؟','كم تستهدفين تزودين دخلك الإضافي شهرياً؟'],
-  relationships:['مين الشخص أو العلاقة اللي تبين تعطينها وقت أكثر؟','وش تحسين ينقص علاقاتك حالياً؟'],
-  spiritual:['وش تبين تضيفينه لروتينك الروحاني؟','فيه وقت معيّن باليوم يناسبك له؟'],
-  other:['وش أول خطوة عملية لهالهدف؟','متى تبين تبدئين فيها؟'],
-};
+/* One pair of questions for every goal. There used to be a set per domain, which
+   was the only thing the domain field was really buying — and it bought it by
+   making her answer a taxonomy question first. These two work for any goal. */
+const GOAL_QUESTIONS = ['وش أول خطوة عملية لهالهدف؟','متى تبين تبدئين فيها، وكم وقت تعطينها؟'];
 
+/* The daily suggestion used to draw from a canned list per domain. With the
+   domain gone, her own two answers are the first and best source — these are
+   what it falls back to when she hasn't answered yet. */
+const GENERIC_TIPS = [
+  'خذي أصغر خطوة ممكنة اليوم، ولو خمس دقائق.',
+  'حددي وقتًا ثابتًا بيومك لهذا الهدف بدل ما تنتظرين الفراغ.',
+  'اكتبي وش يوقفك عنه — غالبًا العائق أصغر مما يبدو.',
+  'راجعي وين وصلتِ فيه هالأسبوع، وعدّلي الخطة لو احتاج.',
+];
 const TIPS = {
   health:['امشي 15 دقيقة اليوم، حتى لو داخل البيت.','اشربي كوب ماء زيادة قبل كل وجبة.','خصصي 5 دقائق تمدد قبل النوم.'],
   hair:['استخدمي زيت تدليك لفروة الرأس مرتين هالأسبوع.','قصي أطراف شعرك كل 8-10 أسابيع.','قللي حرارة الأدوات وابدئي روتين ترطيب أسبوعي.'],
@@ -1552,7 +1565,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 95';
+const APP_BUILD = '2026-08-17 · 96';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -2882,7 +2895,7 @@ function attachOnboardingEvents(){
 
 /* ============ goal wizard ============ */
 function renderGoalWizard(){
-  const qs = QUESTIONS[goalWizard.cat] || [];
+  const qs = GOAL_QUESTIONS;
   const isEdit = !!goalWizard.id;
   return `
   <div style="padding-top:10px;">
@@ -2900,21 +2913,14 @@ function renderGoalWizard(){
           <option value="">— بدون بند —</option>
           ${state.goalPillars.map(p=>`<option value="${p.id}" ${goalWizard.pillarId===p.id?'selected':''}>${p.icon} ${escapeHtml(p.label)}</option>`).join('')}
         </select>
-        ${(goalWizard.customPillars||[]).length? `
-        <div class="chip-row" style="margin-top:8px;">
-          ${goalWizard.customPillars.map((c,i)=>`<span class="chip selected" style="display:inline-flex;align-items:center;gap:6px;">${escapeHtml(c)}<button type="button" data-custompillar-del="${i}" style="background:none;border:none;color:inherit;padding:0;cursor:pointer;font-size:var(--t3);">✕</button></span>`).join('')}
-        </div>`:''}
-        <div style="display:flex;gap:8px;margin-top:8px;">
-          <input type="text" id="gwCustomPillarInput" placeholder="بند مخصص لهذا الهدف بس (ما يضاف للقائمة الثابتة)"/>
-          <button type="button" class="btn ghost sm" id="gwCustomPillarAdd">+ إضافة</button>
-        </div>
+        ${/* The custom pillar went too. It made a pillar that belonged to one
+              goal and grouped nothing, and every one she typed was already being
+              converted into a real pillar on load — so the field offered her a
+              second, weaker way to do what the dropdown above it does. */''}
       </div>
-      <div class="field">
-        <label>مجال الهدف — أي نوع شغل هو؟</label>${helpNote('auto3','يجمع مهام هذا الهدف بصفحة المهام، وهو نفس تصنيف المهام.')}
-        <select id="gwCatSel">
-          ${state.taskCategories.map(c=>`<option value="${c.id}" ${goalWizard.cat===c.id?'selected':''}>${c.icon} ${escapeHtml(c.label)}</option>`).join('')}
-        </select>
-      </div>
+      ${/* And the domain. A goal already sits under a pillar; asking for a
+            domain as well was a second axis for the same question, filled in
+            twice and read as one. */''}
       <hr style="border:none;border-top:1px dashed var(--line);margin:16px 0;">
       <span class="eyebrow">عشان أساعدك أبني مهامك اليومية</span>
       ${qs.map((q,i)=>`
@@ -2950,42 +2956,12 @@ function renderGoalWizard(){
   </div>`;
 }
 function attachGoalWizardEvents(){
-  const gwCatSel = document.getElementById('gwCatSel');
-  if(gwCatSel) gwCatSel.onchange = ()=>{
-    goalWizard.title = document.getElementById('gwTitle').value;
-    goalWizard.cat = gwCatSel.value;
-    goalWizard.answers = ['',''];   /* the questions below depend on the domain */
-    render();
-  };
   const gwPillarSel = document.getElementById('gwPillarSel');
   if(gwPillarSel) gwPillarSel.onchange = ()=>{
     goalWizard.title = document.getElementById('gwTitle').value;
     goalWizard.pillarId = gwPillarSel.value || null;
     render();
   };
-  const gwCustomPillarAdd = document.getElementById('gwCustomPillarAdd');
-  if(gwCustomPillarAdd) gwCustomPillarAdd.onclick = ()=>{
-    goalWizard.title = document.getElementById('gwTitle').value;
-    const inp = document.getElementById('gwCustomPillarInput');
-    const val = inp.value.trim();
-    if(!val) return;
-    /* a pillar she types becomes a real pillar. It used to be kept as loose text
-       on the goal, which displayed but grouped nothing — two goals carrying the
-       identical wording both landed under "بدون بند" instead of together. */
-    const existing = state.goalPillars.find(p=> p.label.trim() === val);
-    const pillar = existing || {id:uid(), label:val, icon:'✨'};
-    if(!existing) state.goalPillars.push(pillar);
-    goalWizard.pillarId = pillar.id;
-    inp.value = '';
-    saveState(); render();
-  };
-  document.querySelectorAll('[data-custompillar-del]').forEach(b=>{
-    b.onclick = ()=>{
-      goalWizard.title = document.getElementById('gwTitle').value;
-      goalWizard.customPillars.splice(parseInt(b.dataset.custompillarDel,10),1);
-      render();
-    };
-  });
   const gwAttachInput = document.getElementById('gwAttachInput');
   if(gwAttachInput) gwAttachInput.onchange = ()=>{
     goalWizard.title = document.getElementById('gwTitle').value;
@@ -3021,18 +2997,16 @@ function attachGoalWizardEvents(){
   document.getElementById('gwSave').onclick = ()=>{
     const title = document.getElementById('gwTitle').value.trim();
     if(!title){ document.getElementById('gwTitle').focus(); return; }
-    const qs = QUESTIONS[goalWizard.cat]||[];
-    const answers = qs.map((_,i)=> (document.getElementById('gwAns'+i)?.value||'').trim());
+    const answers = GOAL_QUESTIONS.map((_,i)=> (document.getElementById('gwAns'+i)?.value||'').trim());
     const pillarId = goalWizard.pillarId || null;
     const pillarIds = pillarId? [pillarId] : [];
-    const customPillars = (goalWizard.customPillars||[]).slice();
     const notes = document.getElementById('gwNotes').value.trim();
     const attachments = (goalWizard.attachments||[]).slice();
     if(goalWizard.id){
       const g = state.goals.find(x=>x.id===goalWizard.id);
-      if(g){ g.title = title; g.cat = goalWizard.cat; g.answers = answers; g.pillarId = pillarId; g.pillarIds = pillarIds; g.customPillars = customPillars; g.notes = notes; g.attachments = attachments; }
+      if(g){ g.title = title; g.answers = answers; g.pillarId = pillarId; g.pillarIds = pillarIds; g.notes = notes; g.attachments = attachments; }
     }else{
-      state.goals.push({id:uid(), title, cat:goalWizard.cat, pillarId, pillarIds, customPillars, notes, attachments, answers, createdAt:todayStr()});
+      state.goals.push({id:uid(), title, pillarId, pillarIds, notes, attachments, answers, createdAt:todayStr()});
     }
     attachError = null;
     saveState();
@@ -4504,7 +4478,7 @@ function renderTaskCategoryManager(){
 
 function tipsPoolForGoal(g){
   const personal = (g.answers||[]).filter(a=>a && a.trim()).map(a=>({text:a.trim(), personal:true}));
-  const canned = (TIPS[g.cat]||[]).map(t=>({text:t, personal:false}));
+  const canned = GENERIC_TIPS.map(t=>({text:t, personal:false}));
   return [...personal, ...canned];
 }
 function ensureDailyTipRotation(){
@@ -4541,7 +4515,7 @@ function renderSuggestionsCard(){
     <div class="card">
       <div class="card-title"><h3 style="cursor:pointer;flex:1;display:flex;align-items:center;gap:7px;" data-toggle-collapse="suggestion"><span style="flex:1;">مقترح اليوم</span><span class="chev ${collapsed?"":"open"}">▾</span></h3></div>
       ${collapsed? '' : `
-      <p class="muted" style="margin-bottom:8px;">مبني على هدفك: <b style="color:var(--petrol-dark);">${catIcon(g.cat)} ${escapeHtml(g.title)}</b>${state.goals.length>1? ` <span class="muted">(هدف ${(( state.tipGoalIndex||0)%state.goals.length)+1} من ${state.goals.length})</span>`:''}</p>
+      <p class="muted" style="margin-bottom:8px;">مبني على هدفك: <b style="color:var(--petrol-dark);">${pillarIcon(g)} ${escapeHtml(g.title)}</b>${state.goals.length>1? ` <span class="muted">(هدف ${(( state.tipGoalIndex||0)%state.goals.length)+1} من ${state.goals.length})</span>`:''}</p>
       ${entry.personal? `<p class="muted" style="margin-bottom:4px;">🎯 من إجابتك أنتِ:</p>`:''}
       <p style="font-size:var(--t4);margin-bottom:12px;">${escapeHtml(entry.text)}</p>
       <div style="display:flex;gap:8px;">
@@ -5164,7 +5138,6 @@ function renderGoalCard(g){
   }
   const i = state.goals.indexOf(g);
 
-  const customTags = (g.customPillars||[]).map(c=>`<span class="tag">${escapeHtml(c)}</span>`).join('');
   /* Every goal used to print its identity tag, its domain tag, its answers, its
      notes and its attachments at once, so the yearly-goals card ran to 683px.
      A goal is a line now — its name and how much of its work is done — and
@@ -5183,7 +5156,7 @@ function renderGoalCard(g){
     <button type="button" class="goal-head" data-toggle-collapse="${key}">
       <span class="chev ${closed?'':'open'}">▾</span>
       <span class="grow">
-        <span class="gh-title">${catIcon(g.cat)} ${escapeHtml(g.title)}</span>
+        <span class="gh-title">${pillarIcon(g)} ${escapeHtml(g.title)}</span>
         <span class="gh-sub">${tasks.length? `${doneCount} من ${tasks.length} مهمة` : 'ما فيه مهام تحته بعد'}</span>
       </span>
       ${tasks.length? `<span class="gh-bar"><i style="width:${pct}%;"></i></span>`:''}
@@ -5196,10 +5169,9 @@ function renderGoalCard(g){
       <button class="icon-btn" data-edit-goal="${g.id}">✎</button>
       <button class="icon-btn" data-delgoal="${g.id}">✕</button>
     </div>
-    ${customTags? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px;">${customTags}</div>`:''}
     ${g.answers && g.answers.some(a=>a) ? `
       <div style="margin-top:6px;">
-        ${QUESTIONS[g.cat].map((q,i)=> g.answers[i]? `<p class="muted" style="margin-bottom:6px;"><b style="color:var(--petrol-dark);">${q}</b><br>${escapeHtml(g.answers[i])}</p>`:'').join('')}
+        ${GOAL_QUESTIONS.map((q,i)=> g.answers[i]? `<p class="muted" style="margin-bottom:6px;"><b style="color:var(--petrol-dark);">${q}</b><br>${escapeHtml(g.answers[i])}</p>`:'').join('')}
       </div>`:''}
     ${g.notes? `<p style="margin-top:8px;white-space:pre-wrap;font-size:var(--t3);line-height:1.7;">${escapeHtml(g.notes)}</p>`:''}
     ${(g.attachments||[]).length? `
@@ -5212,7 +5184,7 @@ function renderGoalCard(g){
       ${state.goalPillars.map(p=>`<option value="${p.id}">${p.icon} ${escapeHtml(p.label)}</option>`).join('')}
     </select>`:''}
     <button class="btn ghost sm" data-addtaskfor="${g.id}" style="margin-top:8px;">+ إضافة مهمة لهالهدف</button>
-    ${g.cat==='finance'? renderFinanceGoalLink() : ''}
+    ${isFinanceGoal(g)? renderFinanceGoalLink() : ''}
     </div>`}
   </div>`;
 }
@@ -6588,7 +6560,7 @@ function renderFinanceDashboard(){
   <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:4px;">🎯 ${escapeHtml(fg.title)}</h2>
   ${(()=>{ /* the other direction of the link the yearly-goal card already offers,
               so the two "goals" read as one thing seen at two zoom levels */
-    const yearly = state.goals.filter(g=>g.cat==='finance');
+    const yearly = state.goals.filter(isFinanceGoal);
     if(!yearly.length) return `${helpNote('auto29','هذا هدفك المالي التفصيلي — بمراحل ومصادر دخل. أهدافك السنوية العامة بتبويب "الأساس".')}`;
     return `<p class="muted" style="margin-bottom:14px;font-size:var(--t2);">التفصيل المالي لـ ${yearly.map(g=>`<b style="color:var(--petrol-dark);">${escapeHtml(g.title)}</b>`).join(' و ')} — <button type="button" class="linkish" data-goto-goals="1">افتحي الهدف السنوي</button></p>`;
   })()}
@@ -8643,8 +8615,10 @@ function attachTaskDraftEvents(){
     /* the goal carries a domain already — asking her for it again was the last
        place the two axes were still being filled in separately */
     const g = taskGoal(taskDraft);
-    if(g && g.cat){
-      taskDraft.category = g.cat;
+    /* the goal no longer carries a domain, so there is nothing to copy down â
+       the period is hers to pick from the dropdown below */
+    if(g && g.category){
+      taskDraft.category = g.category;
       const box = timeBoxForCategory(taskDraft.category);
       if(box && !taskDraft.period) taskDraft.period = box.id;
     }
@@ -8966,7 +8940,7 @@ function attachGlobalEvents(){
   document.querySelectorAll('[data-edit-goal]').forEach(b=> b.onclick=()=>{
     const g = state.goals.find(x=>x.id===b.dataset.editGoal);
     if(!g) return;
-    goalWizard = {id:g.id, title:g.title, cat:g.cat, pillarId:goalPillarId(g), pillarIds:(g.pillarIds||[]).slice(), customPillars:(g.customPillars||[]).slice(), answers:(g.answers||[]).slice(), notes:g.notes||'', attachments:(g.attachments||[]).slice()};
+    goalWizard = {id:g.id, title:g.title, pillarId:goalPillarId(g), pillarIds:(g.pillarIds||[]).slice(), answers:(g.answers||[]).slice(), notes:g.notes||'', attachments:(g.attachments||[]).slice()};
     attachError = null;
     render();
   });
@@ -9099,7 +9073,7 @@ function attachGlobalEvents(){
     t.goalId = sel.value;
     /* take the goal's domain too when the task has none, same as the editor does */
     const g = taskGoal({goalId:sel.value});
-    if(g && g.cat && !t.category) t.category = g.cat;
+    if(g && g.category && !t.category) t.category = g.category;
     saveState(); render();
   });
   document.querySelectorAll('[data-daygroup]').forEach(b=> b.onclick=()=>{
@@ -9304,7 +9278,7 @@ function attachGlobalEvents(){
        pasted task lands in "مهام بلا هدف" and the chain quietly stops meaning
        anything */
     const g = taskGoal({goalId:sel.value});
-    if(g && g.cat && !aiPlan[i].category){ aiPlan[i].category = g.cat; render(); }
+    if(g && g.category && !aiPlan[i].category){ aiPlan[i].category = g.category; render(); }
   });
   document.querySelectorAll('[data-plan-cat]').forEach(sel=> sel.onchange=()=>{
     const i = parseInt(sel.dataset.planCat,10);
