@@ -1386,7 +1386,7 @@ const PRIORITIES = ['عالية','متوسطة','منخفضة'];
    effort each task takes, not just what it's about */
 const ACTION_TYPES = [
   'اتصال','حركة','تذكير','قرار','تفكير','دفع','متابعة','اجتماع','إيميل',
-  'بحث','كتابة','قراءة','تخطيط','مراجعة','حجز','إرسال','تسوق','زيارة','تعلم','تنظيم',
+  'بحث','كتابة','قراءة','تخطيط','مراجعة','حجز','إرسال','تسوق','زيارة','تعلم','تنظيم','AI',
 ];
 /* shown instead of the top-3 task list when nothing's pending today — picks a
    different one each day (stable all day, not re-rolled on every render) */
@@ -1611,7 +1611,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 97';
+const APP_BUILD = '2026-08-17 · 98';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -1855,6 +1855,13 @@ function hydrateState(parsed){
   sweep(state.collapsed);
   state.openSections = openSections;
   if(!state.actionTypes || !state.actionTypes.length) state.actionTypes = ACTION_TYPES.slice();
+  /* AI became a kind of work of its own after the list was first written. Added
+     once, behind a flag — seeding it every load would put it back each time she
+     deleted it, which is the bug the category list already had. */
+  if(!state._aiActionAdded){
+    state._aiActionAdded = true;
+    if(!state.actionTypes.includes('AI')) state.actionTypes.push('AI');
+  }
   /* answers used to be a positional array, so editing or reordering the question
      list would have re-pointed every past answer at the wrong question. They are
      keyed by question id now; the old array is left untouched as a raw copy since
@@ -3971,6 +3978,9 @@ function renderSocialPage(){
   };
   return `
   <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:14px;">📣 أفكاري للسوشال</h2>
+  ${(()=>{ const n = ideas.filter(s=>s.stage==='ready').length;
+    return n? `<button class="btn btn-block" id="wpOpen" style="margin-bottom:14px;">📅 خطة الأسبوع — وزّعي الـ${n} الجاهزة على الأيام</button>` : ''; })()}
+  ${renderWeekPlan()}
 
   <details class="card" data-sec="siCapture" ${openSections.siCapture?'open':''} style="border-color:var(--sage);margin-bottom:16px;">
     <summary><h3>✍️ اكتبي أفكارك <span class="chev">▾</span></h3></summary>
@@ -4014,7 +4024,81 @@ function renderSocialPage(){
     </div>`;
   }).join('')}`;
 }
+/* ---- خطة الأسبوع ----
+   Everything sitting at "ready to film" is work that has a date-shaped hole in
+   it: she knows what it is, she just hasn't said when. This spreads them one per
+   day across the next seven days as real scheduled tasks, so they leave the
+   ideas page and join the day she actually has to do them.
+
+   One per day rather than all on the first free day — a filming day with six
+   pieces on it is a day she will move, and then the plan is gone. */
+let weekPlanDraft = null;   /* {rows:[{idea, date}], } — shown for her yes */
+function buildWeekPlan(){
+  const ready = (state.socialIdeas||[]).filter(s=> s.stage==='ready');
+  return ready.map((idea,i)=> ({idea, date: addDays(todayStr(), i)}));
+}
+function renderWeekPlan(){
+  if(!weekPlanDraft) return '';
+  const rows = weekPlanDraft.rows;
+  return `
+  <div class="card" style="border:1.5px solid var(--sage);margin-bottom:16px;">
+    <div class="card-title"><h3>📅 خطة الأسبوع</h3></div>
+    <p class="muted" style="margin-bottom:8px;">كل فكرة جاهزة للتصوير بتصير مهمة بيومها. عدّلي التاريخ لو تبين، أو شيلي الصح عن أي وحدة.</p>
+    ${rows.map((r,i)=>`
+      <div class="inbox-row" style="align-items:center;">
+        <input type="checkbox" data-wp-pick="${i}" ${weekPlanDraft.picked[i]?'checked':''} style="width:17px;height:17px;flex-shrink:0;"/>
+        <div style="flex:1;min-width:0;">
+          <div class="txt">${escapeHtml(r.idea.hook || r.idea.text || '—')}</div>
+          <input type="date" data-wp-date="${i}" value="${r.date}" style="margin-top:4px;font-size:var(--t2);padding:6px 8px;border:1.5px solid var(--line);border-radius:8px;background:var(--parchment);color:var(--ink);width:100%;"/>
+        </div>
+      </div>`).join('')}
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+      <button class="btn sm" id="wpConfirm">اعتمدي الخطة</button>
+      <button class="btn ghost sm" id="wpCancel">إلغاء</button>
+    </div>
+  </div>`;
+}
+function attachWeekPlanEvents(){
+  const wpOpen = document.getElementById('wpOpen');
+  if(wpOpen) wpOpen.onclick = ()=>{
+    const rows = buildWeekPlan();
+    if(!rows.length){ socialError = 'ما فيه أفكار بمرحلة «جاهزة للتصوير» بعد.'; render(); return; }
+    socialError = null;
+    weekPlanDraft = {rows, picked:{}};
+    rows.forEach((_,i)=> weekPlanDraft.picked[i] = true);
+    render();
+  };
+  document.querySelectorAll('[data-wp-pick]').forEach(cb=> cb.onchange = ()=>{
+    weekPlanDraft.picked[parseInt(cb.dataset.wpPick,10)] = cb.checked;
+  });
+  document.querySelectorAll('[data-wp-date]').forEach(el=> el.onchange = ()=>{
+    weekPlanDraft.rows[parseInt(el.dataset.wpDate,10)].date = el.value;
+  });
+  const wpCancel = document.getElementById('wpCancel');
+  if(wpCancel) wpCancel.onclick = ()=>{ weekPlanDraft = null; render(); };
+  const wpConfirm = document.getElementById('wpConfirm');
+  if(wpConfirm) wpConfirm.onclick = ()=>{
+    const keep = weekPlanDraft.rows.filter((_,i)=> weekPlanDraft.picked[i]);
+    keep.forEach(r=>{
+      state.tasks.push({
+        id:uid(), title:'🎬 تصوير: '+(r.idea.hook || r.idea.text || '').slice(0,60),
+        goalId:null, category:null, priority:'متوسطة', due:r.date,
+        period:null, device:null, actionType:'حركة', recur:[],
+        link:r.idea.link||'', longNote:r.idea.shootNote||'',
+        socialIdeaId:r.idea.id, done:false, createdAt:todayStr()
+      });
+      /* it has a date now, so it belongs in the scheduled column */
+      r.idea.stage = 'scheduled';
+    });
+    weekPlanDraft = null;
+    saveState();
+    popStamp('انجدولت', keep.length+' مهمة');
+    render();
+  };
+}
+
 function attachSocialEvents(){
+  attachWeekPlanEvents();
   const ta = document.getElementById('siPaste');
   if(ta) ta.oninput = ()=>{ socialPasteText = ta.value; };
   const siSplit = document.getElementById('siSplit');
@@ -4473,17 +4557,29 @@ function renderScheduleCard(){
      and often the more useful one — there is no point reading an "at the work
      computer" task while sitting at home. The same list, cut either way. */
   const byDevice = dayGroupBy === 'device';
+  /* And a third cut: the kind of work. Writing, planning, moving, AI — batching
+     by the mode she has to be in beats batching by the clock on a day where the
+     hours are loose. The buckets are only the kinds actually present in what is
+     left, so twenty action types never become twenty tabs. */
+  const byAction = dayGroupBy === 'action';
   /* She already keeps a box called "أي وقت", so adding a catch-all of my own put
      two tabs with that name side by side. Hers wins: anything unplaced goes in
      it, and the synthetic one only appears when she has no such box. */
   const bareAlef = s => (s||'').replace(/[أإآ]/g,'ا').replace(/\s+/g,'').trim();
-  const ownAnyBox = byDevice? null : state.timeBoxes.find(b=> bareAlef(b.label)==='ايوقت');
+  const ownAnyBox = (byDevice||byAction)? null : state.timeBoxes.find(b=> bareAlef(b.label)==='ايوقت');
   const ANYTIME = ownAnyBox? ownAnyBox.id : '__any__';
   const inBox = t => state.timeBoxes.some(b=>b.id===t.period);
-  const boxOfTask = t => byDevice
+  const boxOfTask = t => byAction
+    ? (t.actionType && (state.actionTypes||[]).includes(t.actionType)? 'act:'+t.actionType : ANYTIME)
+    : byDevice
     ? (t.device && DEVICE_LABELS[t.device]? t.device : ANYTIME)
     : (inBox(t)? t.period : ANYTIME);
-  const buckets = byDevice
+  const usedActions = byAction
+    ? (state.actionTypes||[]).filter(a=> rest.some(t=> t.actionType===a))
+    : [];
+  const buckets = byAction
+    ? usedActions.map(a=>({id:'act:'+a, label:a}))
+    : byDevice
     ? Object.keys(DEVICE_LABELS).map(k=>({id:k, label:DEVICE_LABELS[k], icon:deviceIconSvg(k,15)}))
     : state.timeBoxes.map(b=>({id:b.id, label:b.label, color:b.color}));
   if(!buckets.some(b=>b.id===period) && period!==ANYTIME) period = buckets.length? buckets[0].id : ANYTIME;
@@ -4517,8 +4613,9 @@ function renderScheduleCard(){
       <summary><span class="grow">بقية مهام اليوم${restCount? ` <span class="ptab-count">${restCount}</span>`:''}</span><span class="chev">▾</span></summary>
       <div class="details-body">
     <div class="group-switch">
-      <button type="button" class="gs-btn ${byDevice?'':'on'}" data-daygroup="period">⏰ حسب الوقت</button>
-      <button type="button" class="gs-btn ${byDevice?'on':''}" data-daygroup="device">💻 حسب الجهاز</button>
+      <button type="button" class="gs-btn ${(!byDevice&&!byAction)?'on':''}" data-daygroup="period">⏰ الوقت</button>
+      <button type="button" class="gs-btn ${byDevice?'on':''}" data-daygroup="device">💻 الجهاز</button>
+      <button type="button" class="gs-btn ${byAction?'on':''}" data-daygroup="action">✍️ نوع الفعل</button>
     </div>
     <div class="period-tabs">
       ${buckets.map(b=>{
@@ -4528,15 +4625,15 @@ function renderScheduleCard(){
       }).join('')}
       ${/* shown whenever something is sitting in it, so nothing scheduled can go
             missing — and while it is the open tab, so she can get back out */''}
-      ${((countIn(ANYTIME) || period===ANYTIME) && !ownAnyBox)? `<button type="button" class="period-tab ${period===ANYTIME?'active':''}" data-period="${ANYTIME}" ${period===ANYTIME?'style="background:var(--sage);border-color:var(--sage);color:#fff;"':''}>${byDevice? 'أي مكان' : 'أي وقت'}${countIn(ANYTIME)? ` <span class="ptab-count">${countIn(ANYTIME)}</span>`:''}</button>`:''}
+      ${((countIn(ANYTIME) || period===ANYTIME) && !ownAnyBox)? `<button type="button" class="period-tab ${period===ANYTIME?'active':''}" data-period="${ANYTIME}" ${period===ANYTIME?'style="background:var(--sage);border-color:var(--sage);color:#fff;"':''}>${byAction? 'بدون نوع' : byDevice? 'أي مكان' : 'أي وقت'}${countIn(ANYTIME)? ` <span class="ptab-count">${countIn(ANYTIME)}</span>`:''}</button>`:''}
     </div>
     ${/* the box also listed every category assigned to it, which ran to a line
           and a half of names she never acts on from here */''}
-    ${(!byDevice && activeBox)? `<p class="muted" style="margin:6px 0 8px;font-size:var(--t1);">⏰ ${activeBox.start} – ${activeBox.end}</p>`:''}
-    ${items.length===0? `<div class="empty tight">${period===ANYTIME? (byDevice? 'ما فيه مهام بلا جهاز محدد' : 'ما فيه مهام بلا وقت محدد') : 'ما فيه مهام هنا'}</div>` : items.map(t=>taskRowHtml(t, {date:dateStr, assign:true})).join('')}
+    ${(!byDevice && !byAction && activeBox)? `<p class="muted" style="margin:6px 0 8px;font-size:var(--t1);">⏰ ${activeBox.start} – ${activeBox.end}</p>`:''}
+    ${items.length===0? `<div class="empty tight">${period===ANYTIME? (byAction? 'ما فيه مهام بلا نوع فعل' : byDevice? 'ما فيه مهام بلا جهاز محدد' : 'ما فيه مهام بلا وقت محدد') : 'ما فيه مهام هنا'}</div>` : items.map(t=>taskRowHtml(t, {date:dateStr, assign:true})).join('')}
     ${/* under the device cut this button must preset a device, not stuff a
           device id into the task's time box — and "أي وقت" presets neither */''}
-    <button class="btn ghost btn-block" style="margin-top:8px;" id="goAddTaskPeriod" data-add-period="${(!byDevice && period!==ANYTIME)? period : ''}" data-add-device="${(byDevice && period!==ANYTIME)? period : ''}">+ إضافة مهمة ${(!byDevice && activeBox)? 'لـ'+escapeHtml(activeBox.label) : (byDevice && period!==ANYTIME? 'لـ'+escapeHtml(DEVICE_LABELS[period]||'') : '')}</button>
+    <button class="btn ghost btn-block" style="margin-top:8px;" id="goAddTaskPeriod" data-add-period="${(!byDevice && !byAction && period!==ANYTIME)? period : ''}" data-add-device="${(byDevice && period!==ANYTIME)? period : ''}" data-add-action="${(byAction && period!==ANYTIME)? period.slice(4) : ''}">+ إضافة مهمة ${(!byDevice && !byAction && activeBox)? 'لـ'+escapeHtml(activeBox.label) : (byDevice && period!==ANYTIME? 'لـ'+escapeHtml(DEVICE_LABELS[period]||'') : (byAction && period!==ANYTIME? 'لـ'+escapeHtml(period.slice(4)) : ''))}</button>
       </div>
     </details>
     `}
@@ -4830,26 +4927,17 @@ function renderJournalEntryRow(j){
    finance achievement can be either. Sharing CATS here means her journal can be
    sliced the same way her goals and tasks are. */
 function journalCatPicker(kind, selected){
-  /* nine domain chips pushed the "إضافة" button off the bottom of the screen,
-     and the field is optional anyway — so it stays folded, with whatever she
-     picked shown on the closed row so she never has to open it just to check.
-     Key has no colon on purpose: that's what marks it a fixed section the
-     stale-fold sweep leaves alone. */
-  const key = 'journalCat' + (kind==='work' ? 'Work' : 'Personal');
-  /* the shared toggle reads an unset key as "open", so a section that starts
-     folded has to say so explicitly or the first click does nothing */
-  if(state.collapsed[key] === undefined) state.collapsed[key] = true;
-  const closed = !!state.collapsed[key];
-  const chosen = selected ? state.taskCategories.find(c=>c.id===selected) : null;
+  /* Nine chips pushed the "إضافة" button off the bottom of the screen. It was a
+     fold with the chips inside; a dropdown does the same job in one line and
+     matches every other picker in the app. */
   return `
-  <button type="button" class="fold-line" data-toggle-collapse="${key}">
-    <span class="chev ${closed?'':'open'}">▾</span>
-    <span class="grow">في أي مجال؟ <span class="muted" style="font-weight:400;">(اختياري)</span></span>
-    ${chosen? `<span class="chip cat selected" style="pointer-events:none;">${chosen.icon} ${escapeHtml(chosen.label)}</span>` : ''}
-  </button>
-  ${closed? '' : `<div class="chip-row" style="margin:8px 0 10px;">
-    ${state.taskCategories.map(c=>`<button type="button" class="chip cat ${selected===c.id?'selected':''}" data-journal-cat="${kind}" data-cat="${c.id}">${c.icon} ${c.label}</button>`).join('')}
-  </div>`}`;
+  <div class="field" style="margin:8px 0 10px;">
+    <label>في أي مجال؟ <span class="muted" style="font-weight:400;">(اختياري)</span></label>
+    <select data-journal-cat="${kind}">
+      <option value="">— بدون مجال —</option>
+      ${state.taskCategories.map(c=>`<option value="${c.id}" ${selected===c.id?'selected':''}>${c.icon} ${escapeHtml(c.label)}</option>`).join('')}
+    </select>
+  </div>`;
 }
 /* ============ خريطتي للمجهول ============
    A protocol for a confusing moment, not a daily prompt — so it is reached on
@@ -6124,15 +6212,15 @@ function renderPathQualify(){
 
       <div class="field">
         <label>وش مستواك الحالي بهذا المصدر؟</label>
-        <div class="chip-row">
-          ${['مبتدئة تماماً','أساسيات','متمرسة'].map(v=>`<button type="button" class="chip ${d.skillLevel===v?'selected':''}" data-pq-skill="${v}">${v}</button>`).join('')}
-        </div>
+        <select id="pqSkill">
+          ${['مبتدئة تماماً','أساسيات','متمرسة'].map(v=>`<option value="${escapeHtml(v)}" ${d.skillLevel===v?'selected':''}>${v}</option>`).join('')}
+        </select>
       </div>
       <div class="field">
         <label>متى تبين توصلين لنتيجة ملموسة؟</label>
-        <div class="chip-row">
-          ${['شهر','3 أشهر','6 أشهر فأكثر'].map(v=>`<button type="button" class="chip ${d.timeline===v?'selected':''}" data-pq-timeline="${v}">${v}</button>`).join('')}
-        </div>
+        <select id="pqTimeline">
+          ${['شهر','3 أشهر','6 أشهر فأكثر'].map(v=>`<option value="${escapeHtml(v)}" ${d.timeline===v?'selected':''}>${v}</option>`).join('')}
+        </select>
       </div>
       <div class="field">
         <label>كيف تعرفين إنك نجحتي؟</label>
@@ -6152,8 +6240,10 @@ function renderPathQualify(){
   </div>`;
 }
 function attachPathQualifyEvents(){
-  document.querySelectorAll('[data-pq-skill]').forEach(b=> b.onclick=()=>{ pathQualifyDraft.skillLevel=b.dataset.pqSkill; render(); });
-  document.querySelectorAll('[data-pq-timeline]').forEach(b=> b.onclick=()=>{ pathQualifyDraft.timeline=b.dataset.pqTimeline; render(); });
+  const pqSkill = document.getElementById('pqSkill');
+  if(pqSkill) pqSkill.onchange = ()=>{ pathQualifyDraft.skillLevel = pqSkill.value; };
+  const pqTimeline = document.getElementById('pqTimeline');
+  if(pqTimeline) pqTimeline.onchange = ()=>{ pathQualifyDraft.timeline = pqTimeline.value; };
   document.querySelectorAll('[data-pq-tool]').forEach(b=> b.onclick=()=>{
     const t = b.dataset.pqTool;
     pathQualifyDraft.tools[t] = !pathQualifyDraft.tools[t];
@@ -8803,11 +8893,10 @@ function renderTaskDraft(){
       </div>
       <div class="field">
         <label>على أي جهاز؟</label>
-        <div class="chip-row">
-          <button type="button" class="chip ${d.device==='work'?'selected':''}" data-dev="work">${deviceIconSvg('work',16)} كمبيوتر العمل</button>
-          <button type="button" class="chip ${d.device==='home'?'selected':''}" data-dev="home">${deviceIconSvg('home',16)} كمبيوتر المنزل</button>
-          <button type="button" class="chip ${d.device==='laptop'?'selected':''}" data-dev="laptop">${deviceIconSvg('laptop',16)} لابتوب</button>
-        </div>
+        <select id="tdDevice">
+          <option value="">— بدون تحديد —</option>
+          ${Object.keys(DEVICE_LABELS).map(k=>`<option value="${k}" ${d.device===k?'selected':''}>${escapeHtml(DEVICE_LABELS[k])}</option>`).join('')}
+        </select>
       </div>
       <div class="field">
         <details id="tdRecurDetails" ${taskDraftRecurOpen? 'open':''}>
@@ -8908,7 +8997,8 @@ function attachTaskDraftEvents(){
   const tdPeriodSel = document.getElementById('tdPeriodSel');
   if(tdPeriodSel) tdPeriodSel.onchange = ()=>{ syncDraft(); taskDraft.period = tdPeriodSel.value || null; render(); };
 
-  document.querySelectorAll('[data-dev]').forEach(b=> b.onclick=()=>{ syncDraft(); taskDraft.device = (taskDraft.device===b.dataset.dev? null : b.dataset.dev); render(); });
+  const tdDevice = document.getElementById('tdDevice');
+  if(tdDevice) tdDevice.onchange = ()=>{ syncDraft(); taskDraft.device = tdDevice.value || null; render(); };
   const recurDetails = document.getElementById('tdRecurDetails');
   if(recurDetails) recurDetails.ontoggle = ()=>{ taskDraftRecurOpen = recurDetails.open; };
   const tdRecurType = document.getElementById('tdRecurType');
@@ -9312,6 +9402,7 @@ function attachGlobalEvents(){
     taskDraft={title:'', goalId:'', priority:'متوسطة',
       period: addTaskPeriod.dataset.addPeriod || null,
       device: addTaskPeriod.dataset.addDevice || null,
+      actionType: addTaskPeriod.dataset.addAction || '',
       due: selectedDate!==todayStr()? selectedDate : '', recur:[]};
     taskDraftRecurOpen=false; attachError=null; render();
   };
@@ -9605,11 +9696,10 @@ function attachGlobalEvents(){
     journalPersonalDraft = ''; journalPersonalCat = '';
     saveState(); render();
   };
-  document.querySelectorAll('[data-journal-cat]').forEach(b=> b.onclick=()=>{
-    const picked = b.dataset.cat;
-    if(b.dataset.journalCat==='work') journalWorkCat = (journalWorkCat===picked? '' : picked);
-    else journalPersonalCat = (journalPersonalCat===picked? '' : picked);
-    render();
+  /* no redraw: the textarea above it is usually mid-sentence */
+  document.querySelectorAll('[data-journal-cat]').forEach(sel=> sel.onchange=()=>{
+    if(sel.dataset.journalCat==='work') journalWorkCat = sel.value;
+    else journalPersonalCat = sel.value;
   });
   document.querySelectorAll('[data-journal-filter]').forEach(b=> b.onclick=()=>{
     journalFilterCat = b.dataset.journalFilter;
