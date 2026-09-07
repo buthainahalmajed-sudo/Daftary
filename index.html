@@ -512,6 +512,16 @@ display:flex;gap:8px;margin:4px 0 10px;}
 .item-card .card-grid select, .item-card .card-grid input{min-width:0;text-overflow:ellipsis;}
 .item-card .card-grid select{padding-left:6px;}
 .item-card label{font-size:var(--t1);color:#6b7a78;display:block;margin-bottom:3px;}
+/* Two-up rows that were never .field: their inputs — a date most visibly — sat
+   at whatever width the browser chose, and the pair was locked to two columns
+   however narrow the phone got. Same treatment as every other field now, and
+   they drop to one column instead of squeezing a date into half a screen. */
+.item-card .card-grid{grid-template-columns:repeat(auto-fit,minmax(140px,1fr));}
+.row2{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;}
+.fg-inline-edit input, .fg-inline-edit select{
+  width:100%;min-width:0;padding:10px 11px;border:1.5px solid var(--line);border-radius:10px;
+  background:var(--parchment);font-size:16px;color:var(--ink);font-family:inherit;
+}
 .expense-diag .inbox-row{padding:8px 4px;}
 .safety-calc .total-line{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);}
 .safety-calc .total-line .lbl{font-size:var(--t2);color:#6b7a78;}
@@ -1591,7 +1601,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 99';
+const APP_BUILD = '2026-08-17 · 100';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -3484,14 +3494,7 @@ function attachManagerEvents(){
       if(b && inp.value){ b.end = inp.value; saveState(); }
     };
   });
-  document.querySelectorAll('[data-tbox-cat]').forEach(btn=> btn.onclick=()=>{
-    const b = timeBoxOf(btn.dataset.tboxCat);
-    if(!b) return;
-    if(!Array.isArray(b.categoryIds)) b.categoryIds = [];
-    const idx = b.categoryIds.indexOf(btn.dataset.cat);
-    if(idx>-1) b.categoryIds.splice(idx,1); else b.categoryIds.push(btn.dataset.cat);
-    saveState(); render();
-  });
+  attachMultiPickers();
   document.querySelectorAll('[data-tbox-color]').forEach(btn=> btn.onclick=()=>{
     const b = timeBoxOf(btn.dataset.tboxColor);
     if(b){ b.color = btn.dataset.color; saveState(); render(); }
@@ -3743,6 +3746,7 @@ function attachSettingsEvents(){
   };
 
   attachManagerEvents();
+  attachDowPickers();
   paintVersionLine();
   checkAppUpdate();
 
@@ -4621,9 +4625,7 @@ function renderTimeBoxManager(){
             <input type="time" data-tbox-end="${b.id}" value="${b.end}"/>
           </div>
           ${helpNote('auto13','أي تصنيفات تناسب هالصندوق؟ (المهمة بهالتصنيف تنتقل له تلقائيًا)')}
-          <div class="chip-row">
-            ${state.taskCategories.map(c=>`<button type="button" class="chip ${(b.categoryIds||[]).includes(c.id)?'selected':''}" data-tbox-cat="${b.id}" data-cat="${c.id}">${c.icon} ${c.label}</button>`).join('')}
-          </div>
+          ${multiPicker('tbox:'+b.id, state.taskCategories, (b.categoryIds||[]), 'ما ربطتِ تصنيفات')}
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <div class="chip-row" style="flex:1;">
               ${TIME_BOX_COLORS.map(c=>`<button type="button" class="color-dot ${b.color===c?'selected':''}" data-tbox-color="${b.id}" data-color="${c}" style="background:${c};" title="${c}"></button>`).join('')}
@@ -5059,8 +5061,10 @@ function renderJournalPage(){
     ${usedCats.length? `
     <p class="muted" style="margin-bottom:6px;font-size:var(--t2);">صفّي حسب المجال:</p>
     <div class="chip-row" style="margin-bottom:14px;">
-      <button type="button" class="chip ${!journalFilterCat?'selected':''}" data-journal-filter="">الكل</button>
-      ${usedCats.map(c=>`<button type="button" class="chip cat ${journalFilterCat===c.id?'selected':''}" data-journal-filter="${c.id}">${c.icon} ${c.label}</button>`).join('')}
+      <select id="journalFilterSel" style="width:100%;padding:10px 11px;border:1.5px solid var(--line);border-radius:10px;background:var(--parchment);font-size:16px;color:var(--ink);font-family:inherit;">
+        <option value="" ${!journalFilterCat?'selected':''}>كل المجالات</option>
+        ${usedCats.map(c=>`<option value="${c.id}" ${journalFilterCat===c.id?'selected':''}>${c.icon} ${escapeHtml(c.label)}</option>`).join('')}
+      </select>
     </div>`:''}
 
     <p style="font-weight:700;color:var(--petrol-dark);margin-bottom:6px;">💼 إنجازات العمل (${workEntries.length})</p>
@@ -6194,9 +6198,9 @@ function renderPathQualify(){
       </div>
       <div class="field">
         <label>عندك أي من هالأدوات؟ (اضغطي اللي عندك، والباقي بنجهزها كأول خطوات)</label>
-        <div class="chip-row">
-          ${(p.tools||[]).map(t=>`<button type="button" class="chip ${d.tools[t]?'selected':''}" data-pq-tool="${escapeHtml(t)}">${d.tools[t]?'✓':''} ${t}</button>`).join('')}
-        </div>
+        ${(()=>{ const items=(p.tools||[]).map(t=>({id:t,label:t}));
+                 d._toolItems = items;
+                 return multiPicker('pqTools', items, Object.keys(d.tools||{}).filter(k=>d.tools[k]), 'ما عندي شي منها'); })()}
       </div>
       <div style="display:flex;gap:10px;margin-top:8px;">
         <button class="btn btn-block" id="pqSave">ابدئي بهذا المصدر</button>
@@ -6210,11 +6214,7 @@ function attachPathQualifyEvents(){
   if(pqSkill) pqSkill.onchange = ()=>{ pathQualifyDraft.skillLevel = pqSkill.value; };
   const pqTimeline = document.getElementById('pqTimeline');
   if(pqTimeline) pqTimeline.onchange = ()=>{ pathQualifyDraft.timeline = pqTimeline.value; };
-  document.querySelectorAll('[data-pq-tool]').forEach(b=> b.onclick=()=>{
-    const t = b.dataset.pqTool;
-    pathQualifyDraft.tools[t] = !pathQualifyDraft.tools[t];
-    render();
-  });
+  attachMultiPickers();   /* the tools list is one of these now */
   document.getElementById('pqSave').onclick = ()=>{
     pathQualifyDraft.successCriteria = document.getElementById('pqSuccess').value.trim();
     const fg = state.financialGoal;
@@ -8781,6 +8781,33 @@ function paintDowPicker(id, chosen){
   const val = box.querySelector('.dp-val');
   if(val) val.textContent = picked.length===7? 'كل الأيام' : (picked.length? picked.join('، ') : 'ما حددتِ أيام');
 }
+/* The same closed-select shape as the day picker, for any multiple choice.
+   These were rows of chips — nine categories on a time box, a handful of tools
+   on an income source — which wrap differently on every screen and are the last
+   thing making these forms look unsettled. Closed it reads what she picked;
+   open it is the same chips, ticked in place without a redraw. */
+function multiPicker(id, items, chosen, emptyText){
+  const names = items.filter(x=> chosen.includes(x.id)).map(x=> (x.icon? x.icon+' ':'')+x.label);
+  const summary = names.length? names.join('، ') : (emptyText || 'ما حددتِ شي');
+  return `
+  <details class="dow-picker" data-multi-picker="${escapeHtml(id)}" data-empty="${escapeHtml(emptyText||'ما حددتِ شي')}">
+    <summary><span class="dp-val">${escapeHtml(summary)}</span><span class="chev">▾</span></summary>
+    <div class="dp-grid">
+      ${items.map(x=>`
+        <button type="button" class="chip ${chosen.includes(x.id)?'selected':''}" data-multi-pick="${escapeHtml(id)}" data-multi-item="${escapeHtml(x.id)}">${x.icon? x.icon+' ':''}${escapeHtml(x.label)}</button>`).join('')}
+    </div>
+  </details>`;
+}
+function paintMultiPicker(id, items, chosen){
+  const box = document.querySelector('[data-multi-picker="'+id+'"]');
+  if(!box) return;
+  box.querySelectorAll('[data-multi-pick]').forEach(b=>{
+    b.classList.toggle('selected', chosen.includes(b.dataset.multiItem));
+  });
+  const names = items.filter(x=> chosen.includes(x.id)).map(x=> (x.icon? x.icon+' ':'')+x.label);
+  const val = box.querySelector('.dp-val');
+  if(val) val.textContent = names.length? names.join('، ') : (box.dataset.empty || 'ما حددتِ شي');
+}
 function dowPicker(id, chosen, label){
   const picked = DOW_NAMES.map((n,i)=> chosen.includes(i)? n : null).filter(Boolean);
   const summary = picked.length===7? 'كل الأيام' : (picked.length? picked.join('، ') : 'ما حددتِ أيام');
@@ -8940,6 +8967,59 @@ function renderTaskDraft(){
     </div>
   </div>`;
 }
+/* The day pickers live in two unrelated places — the repeat block of a task, and
+   "add a habit" on the habits page — and the handler was wired only where the
+   task draft is built. So on the habits page the seven day buttons drew fine and
+   did nothing at all when pressed. Same shape as the Settings bug: a handler
+   living in a function that one of its two callers never reaches. It has its own
+   function now, called from both.
+
+   It repaints in place rather than re-rendering: a redraw would shut the picker
+   after every single day, which is unusable for "الأحد والثلاثاء والخميس". */
+/* Every multiple-choice picker in the app, ticked in place. Its own function,
+   called from every attach point, for the same reason the day pickers now have
+   one: the handler that lived in a single attach point drew seven day buttons on
+   the habits page that did nothing at all when pressed. */
+function attachMultiPickers(){
+  document.querySelectorAll('[data-multi-pick]').forEach(btn=> btn.onclick=()=>{
+    const id = btn.dataset.multiPick, item = btn.dataset.multiItem;
+    if(id.indexOf('tbox:')===0){
+      const b = timeBoxOf(id.slice(5));
+      if(!b) return;
+      if(!Array.isArray(b.categoryIds)) b.categoryIds = [];
+      const i = b.categoryIds.indexOf(item);
+      if(i>-1) b.categoryIds.splice(i,1); else b.categoryIds.push(item);
+      paintMultiPicker(id, state.taskCategories, b.categoryIds);
+      saveState();
+      return;
+    }
+    if(id==='pqTools' && pathQualifyDraft){
+      pathQualifyDraft.tools[item] = !pathQualifyDraft.tools[item];
+      const list = Object.keys(pathQualifyDraft.tools).filter(k=> pathQualifyDraft.tools[k]);
+      paintMultiPicker(id, (pathQualifyDraft._toolItems||[]), list);
+      return;
+    }
+  });
+}
+function attachDowPickers(){
+  document.querySelectorAll('[data-dow-pick]').forEach(b=> b.onclick=()=>{
+    const idx = parseInt(b.dataset.dowIdx,10);
+    const which = b.dataset.dowPick;
+    if(which==='habitAdd'){
+      const pos = _habitAddDows.indexOf(idx);
+      if(pos>-1){ if(_habitAddDows.length>1) _habitAddDows.splice(pos,1); }
+      else _habitAddDows.push(idx);
+      paintDowPicker(which, _habitAddDows);
+      return;
+    }
+    if(!taskDraft) return;
+    syncDraft();
+    taskDraft.recur = taskDraft.recur || [];
+    const i = taskDraft.recur.indexOf(idx);
+    if(i>-1) taskDraft.recur.splice(i,1); else taskDraft.recur.push(idx);
+    paintDowPicker(which, taskDraft.recur);
+  });
+}
 function attachTaskDraftEvents(){
   const tdMore = document.getElementById('tdMoreDetails');
   if(tdMore) tdMore.ontoggle = ()=>{ taskDraftMoreOpen = tdMore.open; };
@@ -8974,24 +9054,7 @@ function attachTaskDraftEvents(){
     taskDraftRecurOpen = true;
     render();
   };
-  /* the day picker keeps itself open while she ticks — a re-render would shut it
-     after every single day, which is unusable for "الأحد والثلاثاء والخميس" */
-  document.querySelectorAll('[data-dow-pick]').forEach(b=> b.onclick=()=>{
-    const idx = parseInt(b.dataset.dowIdx,10);
-    const which = b.dataset.dowPick;
-    if(which==='habitAdd'){
-      const pos = _habitAddDows.indexOf(idx);
-      if(pos>-1){ if(_habitAddDows.length>1) _habitAddDows.splice(pos,1); }
-      else _habitAddDows.push(idx);
-      paintDowPicker(which, _habitAddDows);
-      return;
-    }
-    syncDraft();
-    taskDraft.recur = taskDraft.recur || [];
-    const i = taskDraft.recur.indexOf(idx);
-    if(i>-1) taskDraft.recur.splice(i,1); else taskDraft.recur.push(idx);
-    paintDowPicker(which, taskDraft.recur);
-  });
+  attachDowPickers();
   document.querySelectorAll('[data-rte-cmd]').forEach(b=> b.onclick=()=>{
     document.getElementById('tdLongNote').focus();
     document.execCommand(b.dataset.rteCmd, false, null);
@@ -9429,6 +9492,8 @@ function attachGlobalEvents(){
   });
 
   attachManagerEvents();
+  attachDowPickers();
+  attachMultiPickers();
   attachSocialEvents();
 
   const visionStart = document.getElementById('visionStart');
@@ -9667,10 +9732,8 @@ function attachGlobalEvents(){
     if(sel.dataset.journalCat==='work') journalWorkCat = sel.value;
     else journalPersonalCat = sel.value;
   });
-  document.querySelectorAll('[data-journal-filter]').forEach(b=> b.onclick=()=>{
-    journalFilterCat = b.dataset.journalFilter;
-    render();
-  });
+  const journalFilterSel = document.getElementById('journalFilterSel');
+  if(journalFilterSel) journalFilterSel.onchange = ()=>{ journalFilterCat = journalFilterSel.value; render(); };
   document.querySelectorAll('[data-journal-year]').forEach(b=> b.onclick=()=>{
     journalViewYear = parseInt(b.dataset.journalYear,10);
     journalExportText = '';
