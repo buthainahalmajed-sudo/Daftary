@@ -287,6 +287,24 @@ body.has-timer{padding-bottom:calc(126px + env(safe-area-inset-bottom));}
 .stepper button.plus{color:var(--ok); border-color:#BFE5D1; background:#F3FAF6;}
 .stepper button.minus{color:var(--brick); border-color:#F0D7CB; background:var(--brick-soft);}
 
+/* ---------- بطاقة مطوية تحت علامة زائد ---------- */
+.card.fold{padding:0; overflow:hidden;}
+.fold-head{
+  width:100%; display:flex; align-items:center; gap:11px; text-align:start;
+  background:0; border:0; padding:13px 14px; cursor:pointer;
+}
+.fold-plus{
+  width:34px; height:34px; flex:0 0 34px; border-radius:12px;
+  background:var(--gold-soft); color:#8A6212; display:grid; place-items:center;
+  font-size:20px; font-weight:800; line-height:1; transition:background .18s, color .18s, transform .18s;
+}
+.fold-head:active .fold-plus{transform:scale(.9);}
+.card.fold.open .fold-plus{background:#E4F1EA; color:var(--pitch);}
+.fold-t{flex:1; min-width:0;}
+.fold-t b{display:block; font-size:15.5px; font-weight:800;}
+.fold-t small{display:block; font-size:12.5px; color:var(--muted);}
+.fold-body{padding:2px 14px 14px; animation:slidein .2s ease-out;}
+
 /* ---------- اختيار دور الجهاز ---------- */
 .gate{min-height:100vh; display:grid; place-items:center; padding:24px 16px;}
 .gate .box{max-width:420px; width:100%; text-align:center;}
@@ -318,7 +336,7 @@ body.has-timer{padding-bottom:calc(126px + env(safe-area-inset-bottom));}
    يتزامن بين الجوالين عبر GitHub Gist، نفس طريقة الربط المستخدمة في دفتري.
    ========================================================================= */
 
-const APP_VERSION   = 'v4';
+const APP_VERSION   = 'v5';
 const CLOUD_FILE    = 'batal-data.json';
 const LS_STATE      = 'batalState';
 const LS_CLOUD      = 'batalCloudCfg';
@@ -1351,6 +1369,20 @@ function fieldView(){
     </div>`;
 }
 
+/* بطاقة تُفتح بعلامة زائد — تبقى مطوية حتى تُطلب، فالشاشة ما تطول بلا داعٍ.
+   حالة الفتح في الذاكرة فقط، فكل جهاز يفتح على المطوي. */
+const folds = {};
+function fold(key, title, sub, inner){
+  const open = !!folds[key];
+  return `<div class="card fold ${open ? 'open' : ''}">
+    <button class="fold-head" data-fold="${key}" aria-expanded="${open}">
+      <span class="fold-plus">${open ? '−' : '+'}</span>
+      <span class="fold-t"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</span>
+    </button>
+    ${open ? `<div class="fold-body">${inner}</div>` : ''}
+  </div>`;
+}
+
 /* ---------------------------- شاشة ماما ---------------------------- */
 function parentBody(){
   if(tab === 'time')   return timeAdminView();
@@ -1404,10 +1436,10 @@ function inboxView(){
       </div></div>`).join('')}
   </div>`;
 
-  html += `<div class="card"><h3>تعديل سريع</h3><p class="sub">نقاط زيادة أو خصم خارج المهام</p>
+  html += fold('quick', 'تعديل سريع', 'نقاط زيادة أو خصم خارج المهام', `
     <div class="field"><label>السبب</label><input id="adjNote" placeholder="مثال: ساعد أخوه بدون ما نقول له"></div>
     <div class="field"><label>النقاط (بالسالب للخصم)</label><input id="adjPts" type="number" inputmode="numeric" value="10"></div>
-    <button class="btn" id="adjGo">سجّليها</button></div>`;
+    <button class="btn" id="adjGo">سجّليها</button>`);
 
   html += `<div class="card"><h3>يوم اليوم</h3><p class="sub">اللي تقدرين تعلّمينه بنفسك</p>
     ${tasksFor(today()).map(t => { const st = taskState(today(), t);
@@ -1615,6 +1647,9 @@ document.addEventListener('click', async ev => {
     }
     setRole(d.setrole); closeSheet(); render(); return;
   }
+
+  /* فتح وطي البطاقات */
+  if(d.fold){ folds[d.fold] = !folds[d.fold]; render(); return; }
 
   /* التنقل */
   if(d.tab){ tab = d.tab; render(); return; }
