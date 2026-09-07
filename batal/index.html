@@ -318,7 +318,7 @@ body.has-timer{padding-bottom:calc(126px + env(safe-area-inset-bottom));}
    يتزامن بين الجوالين عبر GitHub Gist، نفس طريقة الربط المستخدمة في دفتري.
    ========================================================================= */
 
-const APP_VERSION   = 'v3';
+const APP_VERSION   = 'v4';
 const CLOUD_FILE    = 'batal-data.json';
 const LS_STATE      = 'batalState';
 const LS_CLOUD      = 'batalCloudCfg';
@@ -468,7 +468,7 @@ function toggleTask(day, id){
     putEntry({id:key, void:true});
   } else {
     putEntry({id:key, kind:'task', day, task:id, n:1, pts:t.pts, ok: needsOk ? false : true, void:false});
-    cheer(needsOk ? 'وصلت لأمك ✅' : '+' + t.pts + ' نقطة! ⚽');
+    cheer(needsOk ? 'وصلت لماما ✅' : '+' + t.pts + ' نقطة! ⚽');
   }
   sweepBonuses();
   render(); queuePush();
@@ -985,17 +985,31 @@ function hideSplash(){
   setTimeout(() => { s.classList.add('gone'); setTimeout(() => s.remove(), 600); }, 420);
 }
 
+/* اسم البطل كما يُكتب في كل مكان: «البطل محمد»، أو «البطل» قبل ما يُحدَّد الاسم */
+function heroName(){
+  const n = (state.child.name || '').trim();
+  return n ? 'البطل ' + n : 'البطل';
+}
+
 /* أول تشغيل على أي جهاز: هذا جوال مين؟ */
 function roleGate(){
   return `<div class="gate"><div class="box">
-    <div style="font-size:52px;">⚽</div>
-    <h1 style="margin:6px 0 2px;font-size:22px;">بطل</h1>
+    <img src="icon-512.png" alt="" style="width:86px;height:86px;border-radius:22px;box-shadow:var(--shadow);">
+    <h1 style="margin:10px 0 2px;font-size:22px;">بطل</h1>
     <p class="muted" style="margin:0 0 14px;">هذا الجوال حق مين؟ الاختيار يخص هذا الجهاز وحده.</p>
+
+    <div class="card" style="margin-top:0;text-align:start;">
+      <div class="field" style="margin:0;">
+        <label>اسم البطل</label>
+        <input id="gateName" value="${esc(state.child.name)}" placeholder="مثال: محمد" autocomplete="off">
+      </div>
+    </div>
+
     <button class="pick" data-role="parent">
-      <span class="ic">👩</span><span><b>جوال الأم</b><small>يفتح على شاشة المتابعة: التأكيد، الأوزان، وقت الأجهزة</small></span></button>
+      <span class="ic">👩</span><span><b>جوال ماما</b><small>يفتح على شاشة المتابعة: التأكيد، الأوزان، وقت الأجهزة</small></span></button>
     <button class="pick" data-role="child">
-      <span class="ic">🧒</span><span><b>جوال الطفل</b><small>يفتح على مهامه ومكافآته، وشاشة الأم مخفية خلف الرمز</small></span></button>
-    <p class="muted" style="margin-top:14px;">تقدرين تغيّرينه بعدين من الإعدادات.</p>
+      <span class="ic">🧒</span><span><b id="gatePick">${esc(heroName())}</b><small>يفتح على مهامه ومكافآته، وشاشة ماما مخفية خلف الرمز</small></span></button>
+    <p class="muted" style="margin-top:14px;">تقدرين تغيّرين الاسم والدور بعدين من الإعدادات.</p>
   </div></div>`;
 }
 
@@ -1031,12 +1045,12 @@ function paintTimer(){
 
 function hero(){
   const L = levelInfo();
-  const name = state.child.name ? esc(state.child.name) : 'بطل';
+  const name = esc(heroName());
   return `
   <div class="hero"><div class="wrap">
     <div class="hero-top">
       <button class="iconbtn" id="btnSettings" aria-label="الإعدادات">${mode === 'parent' ? '👩' : '🔒'}</button>
-      <h1>${state.child.emoji||'⚽'} ${name}<br><span>${mode === 'parent' ? 'شاشة الأم' : niceDate(today())}</span></h1>
+      <h1>${state.child.emoji||'⚽'} ${name}<br><span>${mode === 'parent' ? 'شاشة ماما' : niceDate(today())}</span></h1>
       <button class="iconbtn" id="btnSync" aria-label="زامن الآن">☁️</button>
     </div>
     <div class="scoreboard">
@@ -1088,7 +1102,7 @@ function todayView(){
     <p class="sub" style="margin:0;">+${PERFECT_BONUS} نقاط زيادة، والسلسلة ${streakEndingAt(day)} يوم</p></div>`;
 
   if(state.settings.approve && pending().length)
-    html += `<p class="muted" style="text-align:center;margin-top:14px;">⏳ ${pending().length} مهمة بانتظار تأكيد أمك</p>`;
+    html += `<p class="muted" style="text-align:center;margin-top:14px;">⏳ ${pending().length} مهمة بانتظار تأكيد ماما</p>`;
 
   return html;
 }
@@ -1105,7 +1119,7 @@ function taskCard(day, t){
         <div class="tick" style="cursor:default;">${tickIcon}</div>
         <div class="t-body">
           <b>${esc(t.title)}</b>
-          <small>${st.n} من ${t.target} أكواب${st.done && !st.ok ? ' · بانتظار تأكيد أمك' : (t.note ? ' · ' + esc(t.note) : '')}</small>
+          <small>${st.n} من ${t.target} أكواب${st.done && !st.ok ? ' · بانتظار تأكيد ماما' : (t.note ? ' · ' + esc(t.note) : '')}</small>
         </div>
         <span class="pts">${st.pts||0}/${t.pts*(t.target||1)}</span>
       </div>
@@ -1118,7 +1132,7 @@ function taskCard(day, t){
   }
   return `<div class="task ${cls}">
     <button class="tick" data-task="${t.id}">${tickIcon}</button>
-    <div class="t-body"><b>${esc(t.title)}</b><small>${st.done && !st.ok ? 'بانتظار تأكيد أمك' : (t.note ? esc(t.note) : '&nbsp;')}</small></div>
+    <div class="t-body"><b>${esc(t.title)}</b><small>${st.done && !st.ok ? 'بانتظار تأكيد ماما' : (t.note ? esc(t.note) : '&nbsp;')}</small></div>
     <span class="pts">${st.done && st.ok ? '+' : ''}${t.pts}</span>
   </div>`;
 }
@@ -1136,7 +1150,7 @@ function timerView(isParent){
     const frac = Math.max(0, Math.min(1, left/total));
     const C = 2 * Math.PI * 84;
     html += `<div class="card" style="margin-top:14px;text-align:center;">
-      <p class="sub" style="margin:0;">${s.by === 'parent' ? 'أمك شغّلت الوقت' : 'الوقت شغّال'} · ${mins(s.allowMin)}</p>
+      <p class="sub" style="margin:0;">${s.by === 'parent' ? 'ماما شغّلت الوقت' : 'الوقت شغّال'} · ${mins(s.allowMin)}</p>
       <div class="ringwrap">
         <svg width="190" height="190" viewBox="0 0 190 190">
           <circle cx="95" cy="95" r="84" fill="none" stroke="#E2E9E5" stroke-width="13"></circle>
@@ -1190,7 +1204,7 @@ function timerView(isParent){
   return html;
 }
 
-/* شاشة الأم للوقت: نفس العدّاد، وفوقه التحكم بالرصيد والحدود */
+/* شاشة ماما للوقت: نفس العدّاد، وفوقه التحكم بالرصيد والحدود */
 function timeAdminView(){
   const cap = dayCap(today()), bonus = Number((state.capBonus||{})[today()] || 0);
   let html = `<div class="card" style="margin-top:14px;">
@@ -1290,7 +1304,7 @@ function storeView(){
     ${minutesLeft() > 0 ? `<div class="card"><h3>وقت الأجهزة</h3>
       <p class="sub">عندك ${mins(minutesLeft())} · تقدر تشغّل ${mins(allowanceNow())} الحين</p>
       <button class="btn" data-gototimer="1">⏱️ روح لشاشة الوقت</button></div>` : ''}
-    ${waits.length ? `<div class="card"><h3>طلبات عند أمي</h3>
+    ${waits.length ? `<div class="card"><h3>طلبات عند ماما</h3>
       ${waits.map(w => `<div class="lg"><span>🎁</span><span>${esc(w.title||'')}</span><b class="pill gold">بانتظار التسليم</b></div>`).join('')}
     </div>` : ''}
     <div class="card">
@@ -1299,7 +1313,7 @@ function storeView(){
         const can = bal >= r.cost;
         return `<div class="reward">
           <div class="rw-ico">${r.emoji||'🎁'}</div>
-          <div class="rw-body"><b>${esc(r.title)}</b><small>${r.type==='minutes' ? mins(r.minutes||0) + ' على الجهاز' : 'أمك تسلّمها لك'}</small></div>
+          <div class="rw-body"><b>${esc(r.title)}</b><small>${r.type==='minutes' ? mins(r.minutes||0) + ' على الجهاز' : 'ماما تسلّمها لك'}</small></div>
           <button class="buy ${can?'can':''}" data-buy="${r.id}" ${can?'':'disabled'}>${r.cost} 🪙</button>
         </div>`;
       }).join('')}
@@ -1337,7 +1351,7 @@ function fieldView(){
     </div>`;
 }
 
-/* ---------------------------- شاشة الأم ---------------------------- */
+/* ---------------------------- شاشة ماما ---------------------------- */
 function parentBody(){
   if(tab === 'time')   return timeAdminView();
   if(tab === 'report') return reportView();
@@ -1502,9 +1516,9 @@ function openSettings(){
     <h2>الإعدادات <button id="closeSheet">✕</button></h2>
 
     <div class="card" style="margin-top:0;">
-      <h3>الطفل</h3>
+      <h3>البطل</h3>
       <div class="row" style="margin-bottom:10px;">
-        <div class="field" style="flex:2;margin:0;"><label>الاسم</label><input id="setName" value="${esc(state.child.name)}" placeholder="اسمه"></div>
+        <div class="field" style="flex:2;margin:0;"><label>اسم البطل</label><input id="setName" value="${esc(state.child.name)}" placeholder="اسمه"></div>
         <div class="field" style="flex:1;margin:0;"><label>رمزه</label><input id="setEmoji" value="${esc(state.child.emoji||'⚽')}"></div>
       </div>
       <div class="field" style="margin:0;"><label>
@@ -1532,14 +1546,14 @@ function openSettings(){
       <h3>دور هذا الجهاز</h3>
       <p class="sub">يخص هذا الجوال وحده ولا يتزامن</p>
       <div class="row">
-        <button class="btn sm ${role==='parent'?'':'ghost'}" data-setrole="parent">👩 جوال الأم</button>
-        <button class="btn sm ${role==='child'?'':'ghost'}" data-setrole="child">🧒 جوال الطفل</button>
+        <button class="btn sm ${role==='parent'?'':'ghost'}" data-setrole="parent">👩 جوال ماما</button>
+        <button class="btn sm ${role==='child'?'':'ghost'}" data-setrole="child">🧒 ${esc(heroName())}</button>
       </div>
-      <p class="muted" style="margin-top:8px;">على جوال الطفل تختفي شاشة الأم من الشريط، وما تُفتح إلا بالرمز.</p>
+      <p class="muted" style="margin-top:8px;">على جوال البطل تختفي شاشة ماما من الشريط، وما تُفتح إلا بالرمز.</p>
     </div>
 
     <div class="card">
-      <h3>رمز شاشة الأم</h3>
+      <h3>رمز شاشة ماما</h3>
       <div class="field"><label>الرمز الحالي/الجديد</label><input id="setPin" class="ltr" inputmode="numeric" value="${esc(state.settings.pin)}"></div>
       <button class="btn ghost" id="savePin">احفظي الرمز</button>
     </div>
@@ -1557,7 +1571,7 @@ function closeSheet(){ $('#modal').innerHTML = ''; }
 /* منح أو خصم وقت مباشرة. الخانة «ترفع حد اليوم» هي اللي تخلي المنحة تتجاوز السقف —
    بدونها الوقت يدخل رصيده لكن يبقى محكومًا بحد اليوم. */
 function grantMinutes(v){
-  const note = (($('#gmNote')||{}).value || '').trim() || (v > 0 ? 'وقت زيادة من أمك' : 'خصم من أمك');
+  const note = (($('#gmNote')||{}).value || '').trim() || (v > 0 ? 'وقت زيادة من ماما' : 'خصم من ماما');
   const raiseCap = !!($('#gmOverCap')||{}).checked;
   putEntry({id:uid('g:'), kind:'grant', day: today(), pts:0, min:v, note, void:false});
   if(raiseCap && v > 0){
@@ -1571,7 +1585,7 @@ function grantMinutes(v){
 }
 
 function askPin(){
-  const p = prompt('رمز شاشة الأم');
+  const p = prompt('رمز شاشة ماما');
   if(p === null) return;
   if(String(p).trim() === String(state.settings.pin)){ mode = 'parent'; tab = 'inbox'; render(); }
   else cheer('الرمز غير صحيح');
@@ -1588,11 +1602,15 @@ document.addEventListener('click', async ev => {
 
   Sound.unlock();                       /* أي ضغطة تفكّ قفل الصوت في هذا الجهاز */
 
-  /* اختيار دور الجهاز */
-  if(d.role){ setRole(d.role); render(); return; }
+  /* اختيار دور الجهاز — والاسم المكتوب في الشاشة الأولى يُحفظ معه */
+  if(d.role){
+    const n = (($('#gateName')||{}).value || '').trim();
+    if(n && n !== state.child.name){ state.child.name = n; state.childAt = now(); saveNow(); }
+    setRole(d.role); render(); queuePush(); return;
+  }
   if(d.setrole){
     if(d.setrole === 'parent' && role === 'child'){    /* الترقية تمرّ بالرمز */
-      const p = prompt('رمز شاشة الأم'); if(p === null) return;
+      const p = prompt('رمز شاشة ماما'); if(p === null) return;
       if(String(p).trim() !== String(state.settings.pin)){ cheer('الرمز غير صحيح'); return; }
     }
     setRole(d.setrole); closeSheet(); render(); return;
@@ -1653,7 +1671,7 @@ document.addEventListener('click', async ev => {
       cheer('انضاف ' + mins(r.minutes||0) + ' 🎮');
     } else {
       putEntry({id:uid('r:'), kind:'redeem', pts:-r.cost, min:0, title:r.title, rewardId:r.id, status:'wait', void:false});
-      cheer('وصل الطلب لأمك 🎁');
+      cheer('وصل الطلب لماما 🎁');
     }
     render(); queuePush(); return;
   }
@@ -1762,6 +1780,14 @@ document.addEventListener('click', async ev => {
     if(!confirm('تصفير كل النقاط والمهام والمكافآت؟ ما فيه رجعة.')) return;
     state = defaultState(); saveNow(); closeSheet(); render(); queuePush(); return;
   }
+});
+
+/* الاسم يظهر على الزر وهو يُكتب، فتشوف «البطل محمد» قبل ما تختار */
+document.addEventListener('input', ev => {
+  if(ev.target.id !== 'gateName') return;
+  const el = $('#gatePick'); if(!el) return;
+  const n = ev.target.value.trim();
+  el.textContent = n ? 'البطل ' + n : 'البطل';
 });
 
 document.addEventListener('change', ev => {
