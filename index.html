@@ -4767,7 +4767,9 @@ function renderDailyQuestionsManager(){
             <button type="button" class="icon-btn" style="padding:1px 6px;font-size:12px;" data-dq-down="${q.id}" ${i===qs.length-1?'disabled':''}>▼</button>
           </div>
           <button type="button" class="icon-btn" data-dq-active="${q.id}" title="${off?'سؤال موقوف — اضغطي لتفعيله':'سؤال نشط — اضغطي لإيقافه'}" style="flex-shrink:0;">${off?'⭕':'✅'}</button>
-          <input type="text" data-dq-text="${q.id}" value="${escapeHtml(q.text)}" placeholder="اكتبي السؤال" style="flex:1;${off?'font-style:italic;':''}"/>
+          ${/* no inline flex here: it beat the .long-text rule that gives a
+                whole-sentence field the full width of its row */''}
+          <input type="text" data-dq-text="${q.id}" value="${escapeHtml(q.text)}" placeholder="اكتبي السؤال" style="${off?'font-style:italic;':''}"/>
           <button type="button" class="icon-btn" data-dq-del="${q.id}">✕</button>
         </div>`;
       }).join('')}
