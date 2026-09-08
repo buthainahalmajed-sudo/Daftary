@@ -655,7 +655,12 @@ font-size:var(--t1);color:#a9c9bb;margin-top:8px;line-height:1.6;}
 .tbox-row:last-of-type{border-bottom:none;}
 .tbox-times{display:flex;align-items:center;gap:8px;}
 .tbox-times input[type="time"]{flex:1;}
-.tcat-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px dashed var(--line);}
+.tcat-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0;border-bottom:1px dashed var(--line);}
+/* A row of four controls leaves about 186px for the text, and her questions run
+   to 300 — so she could not read her own question without scrolling inside a
+   box the width of a thumb. Where the text is a sentence rather than a label it
+   gets the full width of the row, under the controls that act on it. */
+.tcat-row.long-text input[type="text"]{flex:1 1 100%;order:2;}
 .tcat-row:last-of-type{border-bottom:none;}
 .tbox-row input[type="text"], .tbox-row input[type="time"], .tcat-row input[type="text"]{
   padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;background:var(--parchment);font-size:var(--tf);color:var(--ink);
@@ -1626,7 +1631,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 102';
+const APP_BUILD = '2026-08-17 · 103';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -4756,7 +4761,7 @@ function renderDailyQuestionsManager(){
       ${qs.map((q,i)=>{
         const off = q.active===false;
         return `
-        <div class="tcat-row" data-dq="${q.id}" style="${off?'opacity:.6;':''}">
+        <div class="tcat-row long-text" data-dq="${q.id}" style="${off?'opacity:.6;':''}">
           <div style="display:flex;flex-direction:column;gap:1px;flex-shrink:0;">
             <button type="button" class="icon-btn" style="padding:1px 6px;font-size:12px;" data-dq-up="${q.id}" ${i===0?'disabled':''}>▲</button>
             <button type="button" class="icon-btn" style="padding:1px 6px;font-size:12px;" data-dq-down="${q.id}" ${i===qs.length-1?'disabled':''}>▼</button>
@@ -8629,11 +8634,15 @@ function renderHabitsPage(){
   ${/* the day view's habits card carries this too, but she can switch that card
         off in settings — this tab is always in the nav, so the day's routine can
         never become unreachable */''}
-  <p class="muted" style="margin-bottom:14px;font-size:var(--t2);">روتين كل يوم (شعاره ووقته وتعلّمه) يُعدَّل من هنا:
-    <span class="chip-row" style="display:inline-flex;gap:5px;margin-right:4px;vertical-align:middle;">
-      ${DOW_NAMES.map((nm,i)=>`<button type="button" class="chip" data-edit-template="${i}" style="padding:3px 8px;font-size:var(--t1);">${nm}</button>`).join('')}
-    </span>
-  </p>
+  ${/* seven chips wrapping through the middle of a sentence — a dropdown says
+        the same thing in one line, like every other choice in the app */''}
+  <div class="field" style="margin-bottom:14px;">
+    <label>روتين كل يوم (شعاره ووقته وتعلّمه) يُعدَّل من هنا</label>
+    <select id="editTemplateSel">
+      <option value="">— اختاري يومًا —</option>
+      ${DOW_NAMES.map((nm,i)=>`<option value="${i}">${nm}</option>`).join('')}
+    </select>
+  </div>
 
   <div class="card">
     <div class="week-nav">
@@ -9264,12 +9273,14 @@ function attachGlobalEvents(){
     if(dateMid) dateMid.onclick = ()=>{ datePick.showPicker ? datePick.showPicker() : datePick.focus(); };
   }
 
-  document.querySelectorAll('[data-edit-template]').forEach(b=> b.onclick=()=>{
-    const dow = parseInt(b.dataset.editTemplate,10);
+  const openTemplate = (dow)=>{
     const tpl = state.dayTemplates[dow];
     templateDraft = {dow, name:tpl.name, motto:tpl.motto, note:tpl.note, timeLabel:tpl.timeLabel, learning:tpl.learning, learningLink:tpl.learningLink||'', learningDomain:tpl.learningDomain||'', learningMode:tpl.learningMode||''};
     render();
-  });
+  };
+  document.querySelectorAll('[data-edit-template]').forEach(b=> b.onclick=()=> openTemplate(parseInt(b.dataset.editTemplate,10)));
+  const editTemplateSel = document.getElementById('editTemplateSel');
+  if(editTemplateSel) editTemplateSel.onchange = ()=>{ if(editTemplateSel.value!=='') openTemplate(parseInt(editTemplateSel.value,10)); };
 
   document.querySelectorAll('[data-habit]').forEach(b=> b.onclick=()=>{
     const habitId = b.dataset.habit;
