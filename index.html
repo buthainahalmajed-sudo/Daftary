@@ -376,6 +376,14 @@ display:flex;gap:8px;margin:4px 0 10px;}
   background:var(--parchment);font-size:16px;color:var(--ink);
 }
 .field textarea{resize:vertical;min-height:60px;}
+/* On iOS a date input carries a minimum width of its own that width:100% does
+   not override — so this one field kept spilling past the edge of the card while
+   every field around it sat inside it. Dropping the native appearance is what
+   makes it obey a width; the tap still opens the system date picker. */
+input[type=date], input[type=time]{
+  -webkit-appearance:none;appearance:none;max-width:100%;
+}
+.date-nav input[type=date]{max-width:26px;}   /* the hidden one on the day header */
 .field input:focus, .field select:focus, .field textarea:focus{outline:2px solid var(--sage);outline-offset:1px;}
 
 /* social ideas: a stage heading, then its cards */
@@ -463,6 +471,23 @@ display:flex;gap:8px;margin:4px 0 10px;}
 .rte-toolbar button:active{background:var(--sage);color:#fff;}
 .rte-toolbar button.rte-italic{font-style:italic;}
 .rte-editable{min-height:120px;border:1.5px solid var(--line);border-radius:10px;padding:12px 13px;background:var(--parchment);font-size:16px;color:var(--ink);line-height:1.7;}
+/* A note pasted from a web page can run to hundreds of lines — one task then
+   fills the whole day view and buries everything under it. Folded to a few
+   lines with the rest one tap away. */
+.note-clamp{position:relative;}
+.note-clamp.short .rte-editable{max-height:132px;overflow:hidden;}
+.note-clamp.short::after{
+  content:'';position:absolute;inset-inline:0;bottom:26px;height:44px;pointer-events:none;
+  background:linear-gradient(to bottom, rgba(246,241,231,0), var(--parchment));
+}
+.note-more{
+  background:none;border:none;font-family:inherit;font-size:var(--t1);font-weight:700;
+  color:var(--petrol-dark);cursor:pointer;padding:4px 2px;
+}
+/* Long pasted text has no spaces to break on — a URL or a script line pushes the
+   row wider than the screen unless it is told it may break anywhere. */
+.rte-editable{overflow-wrap:anywhere;word-break:break-word;}
+.rte-editable img, .rte-editable table{max-width:100%;}
 .rte-editable:focus{outline:2px solid var(--sage);outline-offset:1px;}
 .rte-editable ul, .rte-editable ol{margin:0;padding-inline-start:22px;}
 .task-title{flex:1;font-size:var(--t4);font-weight:700;}
@@ -1601,7 +1626,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 101';
+const APP_BUILD = '2026-08-17 · 102';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -4480,7 +4505,17 @@ function taskRowHtml(t, opts){
       ${t.due? `<span class="tag">🗓️ ${t.due}</span>`:''}
       ${t.recurType? `<span class="tag">🔁 ${recurLabel(t)}</span>`:''}
       ${t.link? `<a href="${escapeHtml(t.link)}" target="_blank" rel="noopener" class="tag" style="text-decoration:none;">🔗 رابط مساعد</a>`:''}
-      ${t.longNote? `<div class="rte-editable" style="margin-top:6px;min-height:auto;border-style:dashed;width:100%;">${t.longNote}</div>`:''}
+      ${t.longNote? (()=>{
+        const key = 'note:'+t.id;
+        /* the shared toggle reads an unset key as open, so a fold that starts
+           closed has to say so or the first tap does nothing */
+        if(state.collapsed[key] === undefined) state.collapsed[key] = true;
+        const short = !!state.collapsed[key];
+        return `<div class="note-clamp ${short?'short':''}" style="width:100%;margin-top:6px;">
+          <div class="rte-editable" style="min-height:auto;border-style:dashed;width:100%;">${t.longNote}</div>
+          <button type="button" class="note-more" data-toggle-collapse="${key}">${short? '▾ الملاحظة كاملة' : '▴ اختصريها'}</button>
+        </div>`;
+      })():''}
       ${(t.attachments&&t.attachments.length)? `<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;width:100%;">${t.attachments.map(a=>`<a href="${a.dataUrl}" download="${escapeHtml(a.name)}" style="font-size:var(--t3);color:var(--petrol-dark);text-decoration:none;">📄 ${escapeHtml(a.name)}</a>`).join('')}</div>`:''}
       <div class="tr-acts">
         <button class="icon-btn" data-edit-task="${t.id}" title="تعديل">✎</button>
@@ -9059,6 +9094,16 @@ function attachTaskDraftEvents(){
     document.getElementById('tdLongNote').focus();
     document.execCommand(b.dataset.rteCmd, false, null);
   });
+  /* Pasting into a contenteditable brings the source page's markup with it —
+     copying a few lines off a web page dragged in its script tags, its tracking
+     snippet and its styling, and the note became a wall of code inside her task.
+     Only the words come across; her own bold and lists still work. */
+  const longNoteEl = document.getElementById('tdLongNote');
+  if(longNoteEl) longNoteEl.onpaste = (e)=>{
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData('text/plain') || '';
+    document.execCommand('insertText', false, text);
+  };
   const tdAttachInput = document.getElementById('tdAttachInput');
   if(tdAttachInput) tdAttachInput.onchange = ()=>{
     syncDraft();
