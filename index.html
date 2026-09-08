@@ -412,6 +412,29 @@ input[type=date], input[type=time]{
 .sync-state.on{color:var(--sage);}
 .sync-state.off{color:var(--rose-dark);}
 
+/* the optional half of a task: a row of marks instead of seven labelled rows */
+.td-two{display:grid;grid-template-columns:repeat(auto-fit,minmax(136px,1fr));gap:10px;}
+.td-marks-label{font-size:var(--t1);font-weight:700;color:var(--petrol-dark);margin:2px 0 6px;}
+.td-marks{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;}
+.td-mark{
+  position:relative;width:44px;height:44px;flex-shrink:0;border-radius:12px;
+  border:1.5px solid var(--line);background:var(--parchment);
+  font-size:19px;line-height:1;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+}
+.td-mark.on{border-color:var(--sage);background:rgba(143,169,152,.22);}
+/* a mark carrying something wears a dot — the only thing that makes folding
+   these away safe, since otherwise a value she set stays invisible */
+.td-mark .td-dot{
+  position:absolute;top:-3px;inset-inline-start:-3px;width:10px;height:10px;border-radius:50%;
+  background:var(--gold);border:2px solid var(--paper);
+}
+.td-pane{
+  border:1px solid var(--line);border-radius:12px;background:var(--parchment);
+  padding:12px;margin-bottom:10px;
+}
+.td-pane-title{font-size:var(--t2);font-weight:700;color:var(--petrol-dark);margin:0 0 8px;}
+
 /* the day picker: closed it is the same shape as a select, so a form of
    dropdowns stays a straight column instead of breaking on a row of chips */
 .dow-picker{width:100%;border:1.5px solid var(--line);border-radius:10px;background:var(--parchment);}
@@ -1561,8 +1584,9 @@ let pendingStageTaskAdd = null; /* {stageId, taskId, due, period} while choosing
 let pathQualifyDraft = null; /* {methodId, skillLevel, timeline, successCriteria, tools:{label:bool}} while qualifying a new method */
 let goalWizard = null;
 let taskDraft = null;
-let taskDraftRecurOpen = false;
-let taskDraftMoreOpen = false; /* the editor re-renders on every chip tap, so the extra-details fold has to remember itself */
+/* which optional field is showing in the task window — one at a time, or none.
+   Replaces the "تفاصيل أكثر" fold that opened seven of them together. */
+let taskPane = null;
 let templateDraft = null;
 let settingsOpen = false;
 let attachError = null; /* error message shown under the goal-attachment file picker */
@@ -1631,7 +1655,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 104';
+const APP_BUILD = '2026-08-17 · 105';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -8870,8 +8894,26 @@ function dowPicker(id, chosen, label){
   </div>`;
 }
 /* ============ task draft (add/edit) ============ */
+/* The optional half of a task — everything that is not its name, its goal, its
+   priority and its date. It used to arrive as seven labelled rows at once, and
+   she scrolled past all of them every single time she jotted something down.
+
+   One row of marks instead: she taps the one she wants and only that field
+   opens, one at a time. `has` is what puts a gold dot on a mark that is already
+   carrying something, which is the only thing that makes folding safe — without
+   it a value she set last week is invisible until she goes looking. */
+const TASK_PANES = [
+  {id:'action', icon:'🔸', label:'نوع الفعل المطلوب', has:d=> !!d.actionType},
+  {id:'period', icon:'⏰', label:'فترة اليوم',        has:d=> !!d.period},
+  {id:'device', icon:'💻', label:'على أي جهاز؟',      has:d=> !!d.device},
+  {id:'recur',  icon:'🔁', label:'تكرار المهمة',      has:d=> !!d.recurType},
+  {id:'link',   icon:'🔗', label:'رابط مساعد',        has:d=> !!(d.link&&d.link.trim())},
+  {id:'note',   icon:'📝', label:'ملاحظة طويلة',      has:d=> !!(d.longNote&&d.longNote.trim())},
+  {id:'attach', icon:'📎', label:'مرفقات',            has:d=> !!(d.attachments&&d.attachments.length)},
+];
 function renderTaskDraft(){
   const d = taskDraft;
+  const pane = TASK_PANES.find(p=>p.id===taskPane);
   return `
   <div style="padding-top:10px;">
     <div class="card">
@@ -8894,117 +8936,123 @@ function renderTaskDraft(){
                  if(g) return `<p class="muted" style="margin:4px 0 0;font-size:var(--t1);">هذا الهدف بلا بند هوية — حدّدي له بند من صفحة الأساس عشان ياخذ مكانه بالتسلسل.</p>`;
                  return `${helpNote('auto39','بدون هدف بتوقع في «مهام بلا هدف».')}`;})()}
       </div>
-      <div class="field">
-        <label>الأولوية</label>
-        <select id="tdPriority">
-          ${PRIORITIES.map(p=>`<option value="${escapeHtml(p)}" ${d.priority===p?'selected':''}>${escapeHtml(p)}</option>`).join('')}
-        </select>
-      </div>
-      <div class="field">
-        <label>موعدها</label>
-        <input id="tdDue" type="date" value="${d.due||''}"/>
-      </div>
-
-      ${/* أ: what a task actually needs is a name, a goal, a priority and a date.
-            Everything else was nine fields marked "اختياري" that she scrolled
-            past every single time she jotted something down. */''}
-      ${/* opening a task that already carries a note, a link, a repeat or a
-            device must not hide them behind a closed fold — she'd think they
-            were lost */''}
-      <details class="card sub-card" id="tdMoreDetails" ${(taskDraftMoreOpen || d.link || d.longNote || d.recurType || d.device || d.actionType || (d.attachments&&d.attachments.length))?'open':''}>
-
-        <summary><h3>تفاصيل أكثر <span class="chev">▾</span></h3></summary>
-        <div class="details-body">
-      <div class="field">
-        <label>نوع الفعل المطلوب</label>
-        <select id="tdAction">
-          <option value="">بدون تحديد</option>
-          ${(state.actionTypes||[]).map(a=>`<option value="${escapeHtml(a)}" ${d.actionType===a?'selected':''}>${escapeHtml(a)}</option>`).join('')}
-          ${d.actionType && !(state.actionTypes||[]).includes(d.actionType)? `<option value="${escapeHtml(d.actionType)}" selected>${escapeHtml(d.actionType)} (نوع محذوف)</option>`:''}
-        </select>
-      </div>
-      <div class="field">
-        <label>فترة اليوم</label>
-        <select id="tdPeriodSel">
-          <option value="">— أي وقت —</option>
-          ${state.timeBoxes.map(p=>`<option value="${p.id}" ${d.period===p.id?'selected':''}>${escapeHtml(p.label)}</option>`).join('')}
-        </select>
-      </div>
-      <div class="field">
-        <label>على أي جهاز؟</label>
-        <select id="tdDevice">
-          <option value="">— بدون تحديد —</option>
-          ${Object.keys(DEVICE_LABELS).map(k=>`<option value="${k}" ${d.device===k?'selected':''}>${escapeHtml(DEVICE_LABELS[k])}</option>`).join('')}
-        </select>
-      </div>
-      <div class="field">
-        <details id="tdRecurDetails" ${taskDraftRecurOpen? 'open':''}>
-          <summary style="cursor:pointer;font-weight:600;color:var(--petrol-dark);">🔁 تكرار المهمة (اختياري)</summary>
-          <div style="margin-top:10px;">
-            <div class="field" style="margin-bottom:10px;">
-              <select id="tdRecurType">
-                <option value="" ${!d.recurType?'selected':''}>بدون تكرار</option>
-                <option value="daily" ${d.recurType==='daily'?'selected':''}>يومي</option>
-                <option value="weekly" ${d.recurType==='weekly'?'selected':''}>أسبوعي</option>
-                <option value="monthly" ${d.recurType==='monthly'?'selected':''}>شهري</option>
-              </select>
-            </div>
-            ${d.recurType==='weekly'? dowPicker('tdRecurDays', d.recur||[], 'أيام التكرار') :''}
-            ${d.recurType==='monthly'? `
-            <div class="field" style="margin-bottom:10px;">
-              <label style="font-size:var(--t2);">يوم الشهر (١-٣١)</label>
-              <input type="number" id="tdRecurMonthDay" min="1" max="31" value="${d.recurMonthDay||''}" placeholder="مثال: 5"/>
-            </div>`:''}
-            ${d.recurType? `
-            ${/* a date input has a wide minimum of its own — two of them side by
-                  side on a phone push each other off the edge, so they stack */''}
-            <div style="display:flex;gap:10px;flex-wrap:wrap;">
-              <div style="flex:1 1 150px;min-width:0;">
-                <label style="font-size:var(--t2);">تبدأ من (اختياري)</label>
-                <input type="date" id="tdRecurStart" value="${d.recurStart||''}"/>
-              </div>
-              <div style="flex:1 1 150px;min-width:0;">
-                <label style="font-size:var(--t2);">تنتهي في (اختياري)</label>
-                <input type="date" id="tdRecurEnd" value="${d.recurEnd||''}"/>
-              </div>
-            </div>
-            ${helpNote('auto40','المهمة ترجع تظهر تلقائيًا حسب التكرار المحدد، بعد ما تنجزينها.')}
-            `:''}
-          </div>
-        </details>
-      </div>
-      <div class="field">
-        <label>🔗 رابط مساعد</label>
-        <input type="text" id="tdLink" value="${escapeHtml(d.link||'')}" placeholder="مثال: رابط فيديو يوتيوب يساعدك تسوين المهمة" style="direction:ltr;text-align:left;"/>
-        ${helpNote('auto41','ما عندي بحث تلقائي بالنسخة المستضافة، بس اطلبي مني رابط فيديو بالمحادثة وأنا أدورلك عليه وأعطيك إياه جاهز تلصقينه هنا.')}
-      </div>
-      <div class="field">
-        <label>ملاحظة طويلة</label>
-        <div class="rte-toolbar">
-          <button type="button" data-rte-cmd="bold" title="عريض"><b>B</b></button>
-          <button type="button" data-rte-cmd="italic" class="rte-italic" title="مائل"><i>I</i></button>
-          <button type="button" data-rte-cmd="insertOrderedList" title="ترقيم">1.</button>
-          <button type="button" data-rte-cmd="insertUnorderedList" title="تنقيط">•</button>
+      ${/* the two short ones share a row: alone they were each two-thirds empty,
+            and it is a column of near-empty rows that makes a form feel crowded,
+            not the number of fields in it */''}
+      <div class="td-two">
+        <div class="field">
+          <label>الأولوية</label>
+          <select id="tdPriority">
+            ${PRIORITIES.map(p=>`<option value="${escapeHtml(p)}" ${d.priority===p?'selected':''}>${escapeHtml(p)}</option>`).join('')}
+          </select>
         </div>
-        <div id="tdLongNote" class="rte-editable" contenteditable="true">${d.longNote||''}</div>
+        <div class="field">
+          <label>موعدها</label>
+          <input id="tdDue" type="date" value="${d.due||''}"/>
+        </div>
       </div>
-      <div class="field">
-        <label>📎 مرفقات (أي نوع ملف)</label>
-        ${(d.attachments||[]).length? `
-        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">
-          ${d.attachments.map((a,i)=>`
-            <div class="inbox-row" data-tdattach-row="${i}" style="align-items:center;">
-              <span class="dot"></span>
-              <a href="${a.dataUrl}" download="${escapeHtml(a.name)}" style="flex:1;color:var(--petrol-dark);font-size:var(--t3);text-decoration:none;">📄 ${escapeHtml(a.name)} <span class="muted" style="font-size:var(--t1);">(${Math.round(a.size/1024)} كيلوبايت)</span></a>
-              <button type="button" class="icon-btn" data-tdattach-del="${i}">✕</button>
-            </div>`).join('')}
+
+      <p class="td-marks-label">أضيفي لها</p>
+      <div class="td-marks">
+        ${TASK_PANES.map(p=>`
+          <button type="button" class="td-mark ${taskPane===p.id?'on':''}" data-task-pane="${p.id}"
+                  title="${escapeHtml(p.label)}" aria-label="${escapeHtml(p.label)}">
+            ${p.has(d)? '<span class="td-dot"></span>':''}${p.icon}
+          </button>`).join('')}
+      </div>
+
+      ${pane? `<div class="td-pane">
+        <p class="td-pane-title">${escapeHtml(pane.label)}</p>
+
+        ${taskPane==='action'? `
+        <div class="field" style="margin-bottom:0;">
+          <select id="tdAction">
+            <option value="">بدون تحديد</option>
+            ${(state.actionTypes||[]).map(a=>`<option value="${escapeHtml(a)}" ${d.actionType===a?'selected':''}>${escapeHtml(a)}</option>`).join('')}
+            ${d.actionType && !(state.actionTypes||[]).includes(d.actionType)? `<option value="${escapeHtml(d.actionType)}" selected>${escapeHtml(d.actionType)} (نوع محذوف)</option>`:''}
+          </select>
         </div>`:''}
-        <input type="file" id="tdAttachInput" style="width:100%;padding:10px;border:1.5px dashed var(--line);border-radius:10px;background:var(--parchment);font-size:var(--t3);"/>
-        ${attachError? `<p class="muted" style="color:var(--rose-dark);margin-top:6px;">${escapeHtml(attachError)}</p>`:''}
-        ${helpNote('auto42','حجم أقصى ٨٠٠ كيلوبايت لكل ملف (تخزين محلي بالجهاز).')}
-      </div>
+
+        ${taskPane==='period'? `
+        <div class="field" style="margin-bottom:0;">
+          <select id="tdPeriodSel">
+            <option value="">— أي وقت —</option>
+            ${state.timeBoxes.map(p=>`<option value="${p.id}" ${d.period===p.id?'selected':''}>${escapeHtml(p.label)}</option>`).join('')}
+          </select>
+        </div>`:''}
+
+        ${taskPane==='device'? `
+        <div class="field" style="margin-bottom:0;">
+          <select id="tdDevice">
+            <option value="">— بدون تحديد —</option>
+            ${Object.keys(DEVICE_LABELS).map(k=>`<option value="${k}" ${d.device===k?'selected':''}>${escapeHtml(DEVICE_LABELS[k])}</option>`).join('')}
+          </select>
+        </div>`:''}
+
+        ${taskPane==='recur'? `
+        <div class="field" style="margin-bottom:10px;">
+          <select id="tdRecurType">
+            <option value="" ${!d.recurType?'selected':''}>بدون تكرار</option>
+            <option value="daily" ${d.recurType==='daily'?'selected':''}>يومي</option>
+            <option value="weekly" ${d.recurType==='weekly'?'selected':''}>أسبوعي</option>
+            <option value="monthly" ${d.recurType==='monthly'?'selected':''}>شهري</option>
+          </select>
         </div>
-      </details>
+        ${d.recurType==='weekly'? dowPicker('tdRecurDays', d.recur||[], 'أيام التكرار') :''}
+        ${d.recurType==='monthly'? `
+        <div class="field" style="margin-bottom:10px;">
+          <label style="font-size:var(--t2);">يوم الشهر (١-٣١)</label>
+          <input type="number" id="tdRecurMonthDay" min="1" max="31" value="${d.recurMonthDay||''}" placeholder="مثال: 5"/>
+        </div>`:''}
+        ${d.recurType? `
+        ${/* a date input has a wide minimum of its own — two of them side by side
+              on a phone push each other off the edge, so they stack */''}
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <div style="flex:1 1 150px;min-width:0;">
+            <label style="font-size:var(--t2);">تبدأ من (اختياري)</label>
+            <input type="date" id="tdRecurStart" value="${d.recurStart||''}"/>
+          </div>
+          <div style="flex:1 1 150px;min-width:0;">
+            <label style="font-size:var(--t2);">تنتهي في (اختياري)</label>
+            <input type="date" id="tdRecurEnd" value="${d.recurEnd||''}"/>
+          </div>
+        </div>
+        ${helpNote('auto40','المهمة ترجع تظهر تلقائيًا حسب التكرار المحدد، بعد ما تنجزينها.')}
+        `:''}`:''}
+
+        ${taskPane==='link'? `
+        <div class="field" style="margin-bottom:0;">
+          <input type="text" id="tdLink" value="${escapeHtml(d.link||'')}" placeholder="مثال: رابط فيديو يوتيوب يساعدك تسوين المهمة" style="direction:ltr;text-align:left;"/>
+          ${helpNote('auto41','ما عندي بحث تلقائي بالنسخة المستضافة، بس اطلبي مني رابط فيديو بالمحادثة وأنا أدورلك عليه وأعطيك إياه جاهز تلصقينه هنا.')}
+        </div>`:''}
+
+        ${taskPane==='note'? `
+        <div class="field" style="margin-bottom:0;">
+          <div class="rte-toolbar">
+            <button type="button" data-rte-cmd="bold" title="عريض"><b>B</b></button>
+            <button type="button" data-rte-cmd="italic" class="rte-italic" title="مائل"><i>I</i></button>
+            <button type="button" data-rte-cmd="insertOrderedList" title="ترقيم">1.</button>
+            <button type="button" data-rte-cmd="insertUnorderedList" title="تنقيط">•</button>
+          </div>
+          <div id="tdLongNote" class="rte-editable" contenteditable="true">${d.longNote||''}</div>
+        </div>`:''}
+
+        ${taskPane==='attach'? `
+        <div class="field" style="margin-bottom:0;">
+          ${(d.attachments||[]).length? `
+          <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">
+            ${d.attachments.map((a,i)=>`
+              <div class="inbox-row" data-tdattach-row="${i}" style="align-items:center;">
+                <span class="dot"></span>
+                <a href="${a.dataUrl}" download="${escapeHtml(a.name)}" style="flex:1;color:var(--petrol-dark);font-size:var(--t3);text-decoration:none;">📄 ${escapeHtml(a.name)} <span class="muted" style="font-size:var(--t1);">(${Math.round(a.size/1024)} كيلوبايت)</span></a>
+                <button type="button" class="icon-btn" data-tdattach-del="${i}">✕</button>
+              </div>`).join('')}
+          </div>`:''}
+          <input type="file" id="tdAttachInput" style="width:100%;padding:10px;border:1.5px dashed var(--line);border-radius:10px;background:var(--parchment);font-size:var(--t3);"/>
+          ${attachError? `<p class="muted" style="color:var(--rose-dark);margin-top:6px;">${escapeHtml(attachError)}</p>`:''}
+          ${helpNote('auto42','حجم أقصى ٨٠٠ كيلوبايت لكل ملف (تخزين محلي بالجهاز).')}
+        </div>`:''}
+      </div>`:''}
 
       <div style="display:flex;gap:10px;margin-top:8px;">
         <button class="btn btn-block" id="tdSave">حفظ المهمة</button>
@@ -9067,8 +9115,13 @@ function attachDowPickers(){
   });
 }
 function attachTaskDraftEvents(){
-  const tdMore = document.getElementById('tdMoreDetails');
-  if(tdMore) tdMore.ontoggle = ()=>{ taskDraftMoreOpen = tdMore.open; };
+  /* the marks: one open at a time, and tapping the open one shuts it. syncDraft
+     first, so whatever she typed in the pane she is leaving is kept. */
+  document.querySelectorAll('[data-task-pane]').forEach(b=> b.onclick=()=>{
+    syncDraft();
+    taskPane = (taskPane===b.dataset.taskPane)? null : b.dataset.taskPane;
+    render();
+  });
   const tdGoal = document.getElementById('tdGoal');
   if(tdGoal) tdGoal.onchange = ()=>{
     syncDraft();
@@ -9091,13 +9144,10 @@ function attachTaskDraftEvents(){
 
   const tdDevice = document.getElementById('tdDevice');
   if(tdDevice) tdDevice.onchange = ()=>{ syncDraft(); taskDraft.device = tdDevice.value || null; render(); };
-  const recurDetails = document.getElementById('tdRecurDetails');
-  if(recurDetails) recurDetails.ontoggle = ()=>{ taskDraftRecurOpen = recurDetails.open; };
   const tdRecurType = document.getElementById('tdRecurType');
   if(tdRecurType) tdRecurType.onchange = ()=>{
     syncDraft();
     taskDraft.recurType = tdRecurType.value || null;
-    taskDraftRecurOpen = true;
     render();
   };
   attachDowPickers();
@@ -9197,15 +9247,23 @@ function attachTaskDraftEvents(){
   };
   document.getElementById('tdCancel').onclick = ()=>{ taskDraft=null; attachError=null; render(); };
 }
-function syncDraft(){
-  taskDraft.title = document.getElementById('tdTitle').value;
-  taskDraft.goalId = document.getElementById('tdGoal').value;
-  /* the domain is no longer asked for on a task — it rides along invisibly from
-     the goal, which is the only thing that still uses it (to pick a time box) */
+/* Reads whatever is currently on screen back into the draft.
 
-  taskDraft.actionType = document.getElementById('tdAction').value;
-  taskDraft.due = document.getElementById('tdDue').value;
-  taskDraft.link = document.getElementById('tdLink').value;
+   Only the name, the goal, the priority and the date are always there now — the
+   optional fields exist only while their mark is open, so every one of them has
+   to be read defensively. Reaching straight for tdAction the way this used to
+   threw the moment a different mark was showing, and the whole window stopped
+   responding. */
+function syncDraft(){
+  const val = (id)=>{ const el = document.getElementById(id); return el? el.value : null; };
+  taskDraft.title = val('tdTitle') ?? taskDraft.title;
+  taskDraft.goalId = val('tdGoal') ?? taskDraft.goalId;
+  taskDraft.due = val('tdDue') ?? taskDraft.due;
+  const pr = val('tdPriority'); if(pr!=null) taskDraft.priority = pr;
+  const ac = val('tdAction');   if(ac!=null) taskDraft.actionType = ac;
+  const lk = val('tdLink');     if(lk!=null) taskDraft.link = lk;
+  const pe = val('tdPeriodSel');if(pe!=null) taskDraft.period = pe || null;
+  const dv = val('tdDevice');   if(dv!=null) taskDraft.device = dv || null;
   const rs = document.getElementById('tdRecurStart');
   const re = document.getElementById('tdRecurEnd');
   if(rs) taskDraft.recurStart = rs.value;
@@ -9369,7 +9427,7 @@ function attachGlobalEvents(){
       longNote:t.longNote||'', attachments:(t.attachments||[]).slice()
     };
     attachError = null;
-    taskDraftRecurOpen = !!t.recurType;
+    taskPane = null;
     render();
   });
 
@@ -9482,7 +9540,7 @@ function attachGlobalEvents(){
   if(cancelTop3Pick) cancelTop3Pick.onclick = ()=>{ top3Picker = null; render(); };
 
   const addTask = document.getElementById('goAddTask2');
-  if(addTask) addTask.onclick = ()=>{ taskDraft={title:'',goalId:'',priority:'متوسطة',period:currentTimeBoxId(),due: selectedDate!==todayStr()? selectedDate : '', recur:[]}; taskDraftRecurOpen=false; attachError=null; render(); };
+  if(addTask) addTask.onclick = ()=>{ taskDraft={title:'',goalId:'',priority:'متوسطة',period:currentTimeBoxId(),due: selectedDate!==todayStr()? selectedDate : '', recur:[]}; taskPane=null; attachError=null; render(); };
 
   const addTaskPeriod = document.getElementById('goAddTaskPeriod');
   if(addTaskPeriod) addTaskPeriod.onclick = ()=>{
@@ -9491,11 +9549,11 @@ function attachGlobalEvents(){
       device: addTaskPeriod.dataset.addDevice || null,
       actionType: addTaskPeriod.dataset.addAction || '',
       due: selectedDate!==todayStr()? selectedDate : '', recur:[]};
-    taskDraftRecurOpen=false; attachError=null; render();
+    taskPane=null; attachError=null; render();
   };
 
   document.querySelectorAll('[data-addtaskfor]').forEach(b=> b.onclick=()=>{
-    taskDraft={title:'',goalId:b.dataset.addtaskfor,priority:'متوسطة',period:currentTimeBoxId(),due:'', recur:[]}; taskDraftRecurOpen=false; attachError=null; render();
+    taskDraft={title:'',goalId:b.dataset.addtaskfor,priority:'متوسطة',period:currentTimeBoxId(),due:'', recur:[]}; taskPane=null; attachError=null; render();
   });
 
   const addGoal = document.getElementById('goAddGoal') || document.getElementById('goAddGoal2');
