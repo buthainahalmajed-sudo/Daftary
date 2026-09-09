@@ -412,6 +412,22 @@ input[type=date], input[type=time]{
 .sync-state.on{color:var(--sage);}
 .sync-state.off{color:var(--rose-dark);}
 
+/* the focus session: a budget, and what fits inside it */
+.fs-budget{
+  flex-shrink:0;font-size:var(--t1);font-weight:700;color:var(--petrol-dark);
+  background:rgba(143,169,152,.22);border-radius:20px;padding:2px 9px;
+  font-variant-numeric:tabular-nums;
+}
+.fs-budget.over{background:rgba(178,76,99,.14);color:var(--rose-dark);}
+.fs-row{
+  display:flex;align-items:center;gap:8px;padding:7px 2px;
+  border-bottom:1px dashed var(--line);
+}
+.fs-row:last-of-type{border-bottom:none;}
+.fs-row .fs-name{flex:1;min-width:0;font-size:var(--t3);color:var(--ink);}
+.fs-row .fs-mins{flex-shrink:0;font-size:var(--t1);font-weight:700;color:var(--petrol-dark);font-variant-numeric:tabular-nums;}
+.fs-row.muted-row .fs-name{color:#6b7a78;}
+
 /* the optional half of a task: a row of marks instead of seven labelled rows */
 .td-two{display:grid;grid-template-columns:repeat(auto-fit,minmax(136px,1fr));gap:10px;}
 .td-marks-label{font-size:var(--t1);font-weight:700;color:var(--petrol-dark);margin:2px 0 6px;}
@@ -1375,6 +1391,7 @@ const HOME_CARDS = [
   {id:'questions',   label:'التساؤلات',            hint:'أسئلتك اليومية'},
   {id:'mood',        label:'شعور اليوم',           hint:'كيف تبين تحسين'},
   {id:'schedule',    label:'يومك',                 hint:'أهم ٣ ومهام كل فترة'},
+  {id:'session',     label:'جلسة تركيز',           hint:'وش يدخل بوقتك المخصص'},
   {id:'suggestions', label:'مقترحات ذكية',         hint:'اقتراحات مبنية على أهدافك'},
   {id:'calm',        label:'رسالة يوم هادئ',       hint:'تظهر حين ما فيه شي عاجل'},
 ];
@@ -1624,7 +1641,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 108';
+const APP_BUILD = '2026-08-17 · 109';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -2348,7 +2365,7 @@ const SYNCED_LISTS = ['tasks','goals','habits','journal','projectLedger','goalPi
                       'timeBoxes','dailyQuestions','moods','inbox',
                       'socialIdeas','socialTopics'];
 const SYNCED_SINGLES = ['financialGoal','safety','sharedIncome','expenseDiag','lifeVision',
-                        'dayTemplates','homeCards','actionTypes',
+                        'dayTemplates','homeCards','actionTypes','session',
                         'questionsTitle','moodTitle','name','projectLedgerClaimed'];
 let prevShape = null;   /* "list|id" -> the item as it was at the previous save */
 function itemSig(x){
@@ -4217,6 +4234,7 @@ function renderHome(){
 
   ${isToday && homeCardOn('voice')? renderVoiceQuickAddCard() : ''}
   ${homeCardOn('schedule')? renderScheduleCard(selectedDate) : ''}
+  ${isToday && homeCardOn('session')? renderFocusSession() : ''}
   ${homeCardOn('habits')? renderHabitsCard(tpl, log, dow) : ''}
 
   ${/* three cards that all ask her to reflect used to stack as three identical
@@ -4432,6 +4450,7 @@ function taskRowHtml(t, opts){
       </div>` : ''}
       <span class="tag p-${t.priority}">${t.priority}</span>
       ${t.actionType? `<span class="tag">🔸 ${escapeHtml(t.actionType)}</span>`:''}
+      ${t.size? `<span class="tag">⏳ ${sizeShort(t)}</span>`:''}
       ${t.period? `<span class="tag" ${timeBoxTagStyle(box)}>${box? escapeHtml(box.label) : escapeHtml(t.period)}</span>`:''}
       ${t.due? `<span class="tag">🗓️ ${t.due}</span>`:''}
       ${t.recurType? `<span class="tag">🔁 ${recurLabel(t)}</span>`:''}
@@ -8724,6 +8743,182 @@ function dowPicker(id, chosen, label){
     </details>
   </div>`;
 }
+/* ---- حجم المهمة ----
+   Three sizes, not a minutes field. Nobody estimates minutes honestly, but
+   everyone knows the difference between a phone call and a design — and three
+   buckets are accurate enough to fill a two-hour budget. A task with no size
+   set counts as متوسطة, so the session works from day one without her having
+   to go back and label everything she already wrote down. */
+const TASK_SIZES = [
+  {mins:15, label:'صغيرة · ١٥ دقيقة', short:'١٥د'},
+  {mins:30, label:'متوسطة · ٣٠ دقيقة', short:'٣٠د'},
+  {mins:60, label:'كبيرة · ٦٠ دقيقة',  short:'٦٠د'},
+];
+const DEFAULT_TASK_MINS = 30;
+function taskMins(t){ return (t && t.size) ? t.size : DEFAULT_TASK_MINS; }
+function sizeShort(t){
+  if(!t || !t.size) return '';
+  const s = TASK_SIZES.find(x=>x.mins===t.size);
+  return s? s.short : t.size+'د';
+}
+function arNum(n){ return String(n).replace(/\d/g, d=>'٠١٢٣٤٥٦٧٨٩'[d]); }
+
+/* ---- جلسة تركيز ----
+   Two hours is a budget, and until now nothing in the app knew how long
+   anything takes — so it could not answer the only question she was asking:
+   which of these fits in the time I have.
+
+   It fills the budget first-fit down her own priority order: the highest
+   scoring task that still fits goes in, and a big one that would overflow is
+   skipped rather than ending the list, so the last few minutes get used. The
+   choice is kept on the day, which is also what a later "did it actually
+   fit?" would read. */
+function sessionCfg(){
+  if(!state.session || typeof state.session!=='object') state.session = {goalId:null, minutes:120};
+  if(!state.session.minutes) state.session.minutes = 120;
+  return state.session;
+}
+function sessionPool(){
+  const cfg = sessionCfg();
+  if(!cfg.goalId) return [];
+  return state.tasks
+    .filter(t=> !taskDoneToday(t) && !t.lapsedFrom)
+    .filter(t=> (t.goalId||null) === cfg.goalId)
+    .sort((a,b)=> scoreTask(b) - scoreTask(a));
+}
+/* what the session holds today: her own edits if she has made any, otherwise
+   the automatic fill */
+function sessionPicked(){
+  const log = getLog(todayStr());
+  const pool = sessionPool();
+  if(Array.isArray(log.sessionIds)){
+    return log.sessionIds.map(id=> pool.find(t=>t.id===id)).filter(Boolean);
+  }
+  const budget = sessionCfg().minutes;
+  const out = []; let used = 0;
+  pool.forEach(t=>{
+    const m = taskMins(t);
+    if(used + m <= budget){ out.push(t); used += m; }
+  });
+  return out;
+}
+function sessionMinutes(list){ return list.reduce((s,t)=> s + taskMins(t), 0); }
+function renderFocusSession(){
+  const cfg = sessionCfg();
+  const key = 'focusSession';
+  if(state.collapsed[key] === undefined) state.collapsed[key] = true;
+  const closed = !!state.collapsed[key];
+  const goal = cfg.goalId? allGoals().find(g=>g.id===cfg.goalId) : null;
+  const title = goal? `جلسة ${escapeHtml(goal.title)}` : 'جلسة تركيز';
+  const budget = cfg.minutes;
+
+  if(!goal){
+    return `
+    <div class="card">
+      <button type="button" class="fold-line" data-toggle-collapse="${key}">
+        <span class="grow">⏱️ جلسة تركيز</span><span class="chev ${closed?'':'open'}">▾</span>
+      </button>
+      ${closed? '' : `
+      ${helpNote('focusSetup','تحددين الهدف والوقت مرة وحدة، وبعدها كل يوم يعبّي لك الوقت من مهام هذا الهدف حسب أولوياتك.')}
+      <div class="field" style="margin-top:8px;">
+        <label>الجلسة لأي هدف؟</label>
+        <select id="fsGoalSel">
+          <option value="">— اختاري هدفًا —</option>
+          ${allGoals().map(g=>{ const p = pillarOf(goalPillarId(g));
+            return `<option value="${g.id}">${p? p.icon+' '+p.label+' › ':''}${escapeHtml(g.title)}</option>`;}).join('')}
+        </select>
+      </div>
+      <div class="field">
+        <label>كم وقتها؟</label>
+        <select id="fsMinsSel">
+          <option value="60"  ${budget===60?'selected':''}>ساعة</option>
+          <option value="90"  ${budget===90?'selected':''}>ساعة ونصف</option>
+          <option value="120" ${budget===120?'selected':''}>ساعتان</option>
+          <option value="180" ${budget===180?'selected':''}>ثلاث ساعات</option>
+        </select>
+      </div>`}
+    </div>`;
+  }
+
+  const picked = sessionPicked();
+  const used = sessionMinutes(picked);
+  const over = used > budget;
+  const rest = sessionPool().filter(t=> !picked.some(p=>p.id===t.id));
+  return `
+  <div class="card">
+    <button type="button" class="fold-line" data-toggle-collapse="${key}">
+      <span class="grow">⏱️ ${title}</span>
+      <span class="fs-budget ${over?'over':''}">${arNum(used)} / ${arNum(budget)} د</span>
+      <span class="chev ${closed?'':'open'}">▾</span>
+    </button>
+    ${closed? '' : `
+    ${picked.length? picked.map(t=>`
+      <div class="fs-row">
+        <button type="button" class="icon-btn" data-fs-drop="${t.id}" title="شيليها من الجلسة">−</button>
+        <span class="fs-name">${escapeHtml(t.title)}</span>
+        <span class="fs-mins">${t.size? arNum(t.size)+'د' : arNum(DEFAULT_TASK_MINS)+'د؟'}</span>
+      </div>`).join('')
+    : `<div class="empty tight">ما فيه مهام مفتوحة تحت هذا الهدف</div>`}
+    ${rest.length? `
+      ${(()=>{ const k='fsRest'; if(state.collapsed[k]===undefined) state.collapsed[k]=true;
+        const c = !!state.collapsed[k];
+        return `<button type="button" class="fold-line" style="margin-top:8px;" data-toggle-collapse="${k}">
+          <span class="grow">ما دخلت الجلسة (${arNum(rest.length)})</span><span class="chev ${c?'':'open'}">▾</span>
+        </button>
+        ${c? '' : rest.map(t=>`
+          <div class="fs-row muted-row">
+            <button type="button" class="icon-btn" data-fs-add="${t.id}" title="ضيفيها للجلسة">＋</button>
+            <span class="fs-name">${escapeHtml(t.title)}</span>
+            <span class="fs-mins">${t.size? arNum(t.size)+'د' : arNum(DEFAULT_TASK_MINS)+'د؟'}</span>
+          </div>`).join('')}`;})()}
+    `:''}
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+      <button class="btn ghost sm" id="fsReset">↻ رجّعيها تلقائية</button>
+      <button class="btn ghost sm" id="fsSettings">⚙ الهدف والوقت</button>
+    </div>
+    ${helpNote('focusSession','المهمة بلا حجم تُحسب ٣٠ دقيقة — علامة ؟ جنب الرقم تقول إنه تقدير مني مو منك. حددي حجمها من رمز ⏳ بنافذة المهمة.')}
+    `}
+  </div>`;
+}
+function attachFocusSessionEvents(){
+  const goalSel = document.getElementById('fsGoalSel');
+  if(goalSel) goalSel.onchange = ()=>{
+    sessionCfg().goalId = goalSel.value || null;
+    delete getLog(todayStr()).sessionIds;   /* a new goal means a new fill */
+    saveState(); render();
+  };
+  const minsSel = document.getElementById('fsMinsSel');
+  if(minsSel) minsSel.onchange = ()=>{
+    sessionCfg().minutes = parseInt(minsSel.value,10) || 120;
+    delete getLog(todayStr()).sessionIds;
+    saveState(); render();
+  };
+  /* the moment she edits the list it becomes hers, so the automatic fill stops
+     overwriting it — until she asks for it back */
+  const takeOver = ()=>{
+    const log = getLog(todayStr());
+    if(!Array.isArray(log.sessionIds)) log.sessionIds = sessionPicked().map(t=>t.id);
+    return log;
+  };
+  document.querySelectorAll('[data-fs-drop]').forEach(b=> b.onclick=()=>{
+    const log = takeOver();
+    log.sessionIds = log.sessionIds.filter(id=> id!==b.dataset.fsDrop);
+    saveState(); render();
+  });
+  document.querySelectorAll('[data-fs-add]').forEach(b=> b.onclick=()=>{
+    const log = takeOver();
+    if(!log.sessionIds.includes(b.dataset.fsAdd)) log.sessionIds.push(b.dataset.fsAdd);
+    saveState(); render();
+  });
+  const fsReset = document.getElementById('fsReset');
+  if(fsReset) fsReset.onclick = ()=>{ delete getLog(todayStr()).sessionIds; saveState(); render(); };
+  const fsSettings = document.getElementById('fsSettings');
+  if(fsSettings) fsSettings.onclick = ()=>{
+    sessionCfg().goalId = null;   /* back to the setup form; the time is kept */
+    saveState(); render();
+  };
+}
+
 /* ============ task draft (add/edit) ============ */
 /* The optional half of a task — everything that is not its name, its goal, its
    priority and its date. It used to arrive as seven labelled rows at once, and
@@ -8734,6 +8929,7 @@ function dowPicker(id, chosen, label){
    carrying something, which is the only thing that makes folding safe — without
    it a value she set last week is invisible until she goes looking. */
 const TASK_PANES = [
+  {id:'size',   icon:'⏳', label:'حجم المهمة',        has:d=> !!d.size},
   {id:'action', icon:'🔸', label:'نوع الفعل المطلوب', has:d=> !!d.actionType},
   {id:'period', icon:'⏰', label:'فترة اليوم',        has:d=> !!d.period},
   {id:'device', icon:'💻', label:'على أي جهاز؟',      has:d=> !!d.device},
@@ -8794,6 +8990,15 @@ function renderTaskDraft(){
 
       ${pane? `<div class="td-pane">
         <p class="td-pane-title">${escapeHtml(pane.label)}</p>
+
+        ${taskPane==='size'? `
+        <div class="field" style="margin-bottom:0;">
+          <select id="tdSize">
+            <option value="">— بدون تحديد —</option>
+            ${TASK_SIZES.map(s=>`<option value="${s.mins}" ${String(d.size)===String(s.mins)?'selected':''}>${s.label}</option>`).join('')}
+          </select>
+          ${helpNote('tsize','ثلاثة أحجام تكفي — تخمين الدقائق بالضبط ما يضبط لأحد، بس كل وحدة تعرف الفرق بين مكالمة وتصميم. الحجم هو اللي يخلي «جلسة تركيز» تعرف وش يدخل بوقتك.')}
+        </div>`:''}
 
         ${taskPane==='action'? `
         <div class="field" style="margin-bottom:0;">
@@ -8947,6 +9152,8 @@ function attachTaskDraftEvents(){
   if(tdGoal) tdGoal.onchange = ()=>{ syncDraft(); render(); };
   const tdPriority = document.getElementById('tdPriority');
   if(tdPriority) tdPriority.onchange = ()=>{ syncDraft(); taskDraft.priority = tdPriority.value; render(); };
+  const tdSize = document.getElementById('tdSize');
+  if(tdSize) tdSize.onchange = ()=>{ syncDraft(); taskDraft.size = tdSize.value? parseInt(tdSize.value,10) : null; render(); };
   const tdPeriodSel = document.getElementById('tdPeriodSel');
   if(tdPeriodSel) tdPeriodSel.onchange = ()=>{ syncDraft(); taskDraft.period = tdPeriodSel.value || null; render(); };
 
@@ -9027,6 +9234,7 @@ function attachTaskDraftEvents(){
         t.link = taskDraft.link||null;
         t.device = taskDraft.device||null;
         t.actionType = taskDraft.actionType||null;
+        t.size = taskDraft.size||null;
         t.longNote = taskDraft.longNote||'';
         t.attachments = (taskDraft.attachments||[]).slice();
         t.recurType = recurType;
@@ -9044,7 +9252,7 @@ function attachTaskDraftEvents(){
       state.tasks.push({
         id:uid(), title:taskDraft.title.trim(), goalId:taskDraft.goalId||null, category:taskDraft.category||null,
         priority:taskDraft.priority, period:taskDraft.period||null, due:taskDraft.due||null, link:taskDraft.link||null,
-        device:taskDraft.device||null, actionType:taskDraft.actionType||null,
+        device:taskDraft.device||null, actionType:taskDraft.actionType||null, size:taskDraft.size||null,
         longNote:taskDraft.longNote||'', attachments:(taskDraft.attachments||[]).slice(),
         recurType, recur, recurMonthDay, recurStart, recurEnd, lastDoneDate:null, done:false, createdAt:todayStr()
       });
@@ -9229,7 +9437,7 @@ function attachGlobalEvents(){
     if(!t) return;
     taskDraft = {
       id:t.id, title:t.title, goalId:t.goalId||'', category:t.category||'',
-      priority:t.priority, period:t.period||null, due:t.due||'', link:t.link||'', recurType:t.recurType||null,
+      priority:t.priority, period:t.period||null, due:t.due||'', link:t.link||'', recurType:t.recurType||null, size:t.size||null,
       recur:(t.recur||[]).slice(), recurMonthDay:t.recurMonthDay||'', recurStart:t.recurStart||'', recurEnd:t.recurEnd||'',
       device:t.device||null, actionType:t.actionType||'',
       longNote:t.longNote||'', attachments:(t.attachments||[]).slice()
@@ -9419,6 +9627,7 @@ function attachGlobalEvents(){
   attachDowPickers();
   attachMultiPickers();
   attachSocialEvents();
+  attachFocusSessionEvents();
 
   const visionStart = document.getElementById('visionStart');
   if(visionStart) visionStart.onclick = ()=>{ visionWizard = {step:'questions', answers:[]}; render(); };
