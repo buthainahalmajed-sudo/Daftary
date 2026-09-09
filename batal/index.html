@@ -100,6 +100,17 @@ body.has-timer{padding-bottom:calc(126px + env(safe-area-inset-bottom));}
 .score b{display:block; font-size:1.375rem; font-weight:800; line-height:1.2;}
 .score small{display:block; font-size:0.7188rem; opacity:.82;}
 
+/* شريط حالة المزامنة أسفل الترويسة */
+.syncchip{
+  width:100%; margin-top:10px; display:flex; align-items:center; justify-content:center; gap:7px;
+  border:1px solid rgba(255,255,255,.22); background:rgba(255,255,255,.10); color:#fff;
+  border-radius:99px; padding:7px 12px; font-size:0.75rem; font-weight:700; cursor:pointer;
+}
+.syncchip.ok{opacity:.72;}
+.syncchip.warn{background:#B77B08; border-color:#B77B08;}
+.syncchip.bad{background:var(--rose); border-color:var(--rose);}
+.syncchip:active{transform:scale(.99);}
+
 .stadium{margin-top:14px;}
 .stadium-row{display:flex; align-items:baseline; gap:6px; font-size:0.8125rem; margin-bottom:6px;}
 .stadium-row b{font-weight:700;} .stadium-row span{opacity:.75; margin-inline-start:auto; font-size:0.75rem;}
@@ -335,7 +346,7 @@ body.has-timer{padding-bottom:calc(126px + env(safe-area-inset-bottom));}
    يتزامن بين الجوالين عبر GitHub Gist، نفس طريقة الربط المستخدمة في دفتري.
    ========================================================================= */
 
-const APP_VERSION   = 'v6';
+const APP_VERSION   = 'v7';
 const CLOUD_FILE    = 'batal-data.json';
 const LS_STATE      = 'batalState';
 const LS_CLOUD      = 'batalCloudCfg';
@@ -878,6 +889,16 @@ function setRole(r){
 let cloud = {token:'', gistId:'', linked:false, baseVersion:null};
 let cloudStatus = 'idle', cloudMsg = '', cloudLastSync = null, pushInFlight = 0, pushTimer = null;
 
+/* معرّف ثابت لهذا الجوال، عشان نعرف أي جهاز رفع آخر مرة */
+function deviceId(){
+  try{
+    let d = localStorage.getItem('batalDevice');
+    if(!d){ d = Math.random().toString(36).slice(2,8); localStorage.setItem('batalDevice', d); }
+    return d;
+  }catch(e){ return 'x'; }
+}
+function deviceLabel(){ return (role === 'parent' ? 'جوال ماما' : 'جوال ' + (state.child.name || 'البطل')) + ' (' + deviceId() + ')'; }
+
 function loadCloud(){ try{ const raw = localStorage.getItem(LS_CLOUD); if(raw) cloud = Object.assign(cloud, JSON.parse(raw)); }catch(e){} }
 function saveCloud(){ try{ localStorage.setItem(LS_CLOUD, JSON.stringify(cloud)); }catch(e){} }
 function ghHead(extra){ return Object.assign({'Authorization':'token ' + cloud.token, 'Accept':'application/vnd.github+json'}, extra||{}); }
@@ -931,6 +952,8 @@ async function cloudPush(){
       if(theirs && typeof theirs === 'object') mergeStates(theirs);
       setBase(remote);
     }
+    /* بصمة آخر رفع: تخبر الجهاز الثاني من رفع ومتى، وهي أساس بطاقة الفحص */
+    state.lastPush = {by: role || '?', id: deviceId(), at: now(), label: deviceLabel()};
     const body = JSON.stringify({files: {[CLOUD_FILE]: {content: JSON.stringify(state)}}});
     const res = await fetch('https://api.github.com/gists/' + cloud.gistId, {method:'PATCH', headers: ghHead({'Content-Type':'application/json'}), body});
     if(!res.ok) throw new Error('فشل الرفع للسحاب (كود ' + res.status + ')');
@@ -945,6 +968,62 @@ async function cloudPush(){
     setTimeout(() => { if(cloud.linked && state._pendingSync) cloudPush(); }, 30000);
     return false;
   }finally{ pushInFlight--; paintSync(); }
+}
+
+/* فحص الربط — يجيب على السؤال الحقيقي: «ليش شغل ولدي ما وصلني؟»
+   يفحص خطوة خطوة ويقول أين توقّف، ويكشف أي جهاز رفع آخر مرة ومتى. */
+async function runDiagnosis(){
+  const L = [];
+  const ok  = t => L.push({k:'ok',  t});
+  const bad = t => L.push({k:'bad', t});
+  const inf = t => L.push({k:'inf', t});
+
+  inf('هذا الجهاز: ' + deviceLabel());
+
+  if(!cloud.gistId){ bad('ما فيه Gist ID في هذا الجهاز — الربط ما اكتمل هنا.'); return L; }
+  ok('Gist ID موجود');
+  if(!cloud.token){ bad('ما فيه توكن في هذا الجهاز — الربط ما اكتمل هنا.'); return L; }
+  ok('التوكن موجود');
+  if(!cloud.linked) bad('الجهاز غير مُفعَّل للمزامنة — اضغطي «اسحبي البيانات» أو «ارفعي بيانات هذا الجهاز» تحت.');
+
+  let res;
+  try{ res = await fetch('https://api.github.com/gists/' + cloud.gistId, {headers: ghHead(), cache:'no-store'}); }
+  catch(e){ bad('ما فيه اتصال بالإنترنت الآن.'); return L; }
+
+  if(res.status === 401 || res.status === 403){ bad('التوكن مرفوض (' + res.status + ') — منتهي أو بلا صلاحية gist. أنشئي توكنًا جديدًا.'); return L; }
+  if(res.status === 404){ bad('ما فيه Gist بهذا المعرّف (404) — تأكدي أن المعرّف نفسه في الجهازين.'); return L; }
+  if(!res.ok){ bad('السحاب ردّ بكود ' + res.status + '.'); return L; }
+  ok('الوصول للـ Gist شغّال');
+
+  const data = await res.json();
+  const file = data.files && data.files[CLOUD_FILE];
+  if(!file){
+    const names = Object.keys(data.files || {}).join('، ') || 'لا شيء';
+    bad('ما فيه ملف باسم ' + CLOUD_FILE + ' داخل الـ Gist. الملفات الموجودة: ' + names + '.');
+    return L;
+  }
+  ok('ملف البيانات موجود');
+
+  let cloudState = null;
+  try{ cloudState = JSON.parse(file.content || '{}'); }catch(e){}
+  if(!cloudState || typeof cloudState !== 'object'){ bad('محتوى الملف غير صالح.'); return L; }
+
+  const mine   = (state.ledger || []).filter(e => !e.void).length;
+  const theirs = (cloudState.ledger || []).filter(e => !e.void).length;
+  inf('حركات في السحاب: ' + theirs + ' · على هذا الجهاز: ' + mine);
+
+  const lp = cloudState.lastPush;
+  if(lp && lp.at) inf('آخر رفع للسحاب: ' + (lp.label || lp.by || 'جهاز') + ' — ' + sinceText(lp.at));
+  else inf('السحاب ما فيه بصمة رفع بعد (نسخة قديمة أو أول رفع).');
+
+  if(lp && lp.id === deviceId()) bad('كل الرفعات من هذا الجهاز فقط — الجهاز الثاني ما رفع ولا مرة. تأكدي أن الربط تم عليه هو أيضًا.');
+  else if(lp) ok('الجهاز الثاني يرفع فعلًا');
+
+  if(theirs > mine) bad('في السحاب حركات أكثر من هذا الجهاز — اضغطي «زامني الآن» عشان تنزل.');
+  else if(mine > theirs) inf('عند هذا الجهاز حركات ما رُفعت بعد — «زامني الآن» ترفعها.');
+  else ok('الجهازان على نفس العدد');
+
+  return L;
 }
 
 function queuePush(){
@@ -986,6 +1065,29 @@ function syncLabel(){
   if(cloudStatus === 'error') return '<span class="pill rose">' + esc(cloudMsg || 'ما تزامن') + '</span>';
   if(state._pendingSync) return '<span class="pill gold">باقي رفع</span>';
   return '<span class="pill ok">متزامن</span>';
+}
+
+/* حالة الربط في الترويسة — هادئة لما كل شيء تمام، وصارخة لما ينقطع.
+   شِلتها في تحديث سابق فصار انقطاع المزامنة غير مرئي تمامًا. */
+function syncChipState(){
+  if(!cloud.linked)             return {k:'bad',  t:'غير مرتبط — اضغطي للربط'};
+  if(cloudStatus === 'syncing') return {k:'busy', t:'يتزامن…'};
+  if(cloudStatus === 'error')   return {k:'bad',  t: cloudMsg || 'ما تزامن — اضغطي للإعادة'};
+  if(state._pendingSync)        return {k:'warn', t:'باقي رفع — اضغطي'};
+  return {k:'ok', t:'متزامن' + (cloudLastSync ? ' · ' + sinceText(cloudLastSync.getTime()) : '')};
+}
+function heroSyncChip(){
+  const s = syncChipState();
+  return `<button class="syncchip ${s.k}" id="btnSync">
+    <span>${s.k === 'ok' ? '✓' : s.k === 'busy' ? '⟳' : '⚠️'}</span><span>${esc(s.t)}</span></button>`;
+}
+function sinceText(ts){
+  const m = Math.floor((now() - ts) / 60000);
+  if(m < 1) return 'الآن';
+  if(m < 60) return 'قبل ' + m + ' د';
+  const h = Math.floor(m/60);
+  if(h < 24) return 'قبل ' + h + ' س';
+  return 'قبل ' + Math.floor(h/24) + ' يوم';
 }
 
 /* ---------------------------------------------------------------------
@@ -1099,6 +1201,7 @@ function hero(){
       <div class="score"><b>${minsShort(minutesLeft())}</b><small>وقت الأجهزة</small></div>
       <div class="score"><b>${streakEndingAt(dayComplete(today()) ? today() : addDays(today(),-1))}</b><small>أيام متتالية</small></div>
     </div>
+    ${heroSyncChip()}
   </div></div>`;
 }
 
@@ -1597,23 +1700,28 @@ function openSettings(){
       <div class="field"><label>Personal Access Token</label><input id="cfgToken" class="ltr" placeholder="ghp_..." value="${esc(cloud.token)}"></div>
       ${linked ? `
         <button class="btn" id="syncNow">☁️ زامني الآن</button>
-        <button class="btn ghost" id="unlink">فكّي الربط عن هذا الجهاز</button>
       ` : `
         <button class="btn" id="linkPull">🔽 هذا جهاز ثانٍ — اسحبي البيانات الموجودة</button>
         <button class="btn ghost" id="linkPush">🔼 هذا أول جهاز — ارفعي بياناته</button>
       `}
+      <button class="btn ghost" id="diagBtn">🔎 افحصي الربط</button>
+      <div id="diagOut"></div>
+      ${linked ? `<button class="btn ghost" id="unlink" style="color:var(--rose);">فكّي الربط عن هذا الجهاز</button>` : ''}
+      <p class="muted" style="margin-top:10px;">هذا الجهاز: <b>${esc(deviceLabel())}</b></p>
     </div>
 
-    ${role === 'parent' ? `
     <div class="card">
       <h3>دور هذا الجهاز</h3>
-      <p class="sub">يخص هذا الجوال وحده ولا يتزامن</p>
-      <div class="row">
-        <button class="btn sm" data-setrole="parent" disabled>👩 جوال ماما</button>
-        <button class="btn sm ghost" data-setrole="child">🧒 حوّليه لجوال ${esc(state.child.name || 'البطل')}</button>
-      </div>
+      ${role === 'parent' ? `
+      <p class="sub">هذا الجهاز الآن <b>👩 جوال ماما</b> — يعني شاشة المتابعة مفتوحة عليه.</p>
+      <button class="btn ghost" data-setrole="child">🧒 حوّليه لجوال ${esc(state.child.name || 'البطل')}</button>
       <p class="muted" style="margin-top:8px;">لو حوّلتيه، تختفي شاشة ماما من هذا الجهاز تمامًا. لإرجاعها: اضغطي مطوّلًا على الكرة ⚽ في أعلى الشاشة ٣ ثوانٍ.</p>
-    </div>` : ''}
+      ` : `
+      <p class="sub">هذا الجهاز <b>🧒 جوال ${esc(state.child.name || 'البطل')}</b> — شاشة ماما مخفية عنه.</p>
+      <p class="muted" style="margin:0;">لتحويله لجوال ماما: اضغطي مطوّلًا على الكرة ⚽ في أعلى الشاشة ٣ ثوانٍ.</p>
+      `}
+      <p class="muted" style="margin-top:8px;">الدور يخص هذا الجوال وحده ولا يتزامن.</p>
+    </div>
 
     <div class="card">
       <h3>نسخة احتياطية</h3>
@@ -1688,6 +1796,14 @@ document.addEventListener('click', async ev => {
 
   /* الترويسة */
   if(t.id === 'btnSettings'){ openSettings(); return; }
+  if(t.id === 'btnSync'){
+    if(!cloud.linked){ openSettings(); cheer('لازم نربط الجهاز أول'); return; }
+    cheer('يتزامن…');
+    await cloudPush(); await cloudPull();
+    checkAlarms(); render();
+    cheer(cloudStatus === 'error' ? (cloudMsg || 'ما تزامن') : 'تزامن ✅');
+    return;
+  }
   if(t.id === 'btnSwap'){                       /* جوال ماما فقط: تنقّل حر بين الشاشتين */
     if(role !== 'parent') return;
     mode = mode === 'parent' ? 'child' : 'parent';
@@ -1824,6 +1940,21 @@ document.addEventListener('click', async ev => {
       openSettings(); render(); return;
     }
     await cloudPush(); await cloudPull(); openSettings(); render(); return;
+  }
+  if(t.id === 'diagBtn'){
+    const out = $('#diagOut'); if(!out) return;
+    out.innerHTML = '<p class="muted" style="margin:10px 0 0;">جاري الفحص…</p>';
+    cloud.gistId = (($('#cfgGist')||{}).value || cloud.gistId || '').trim();
+    cloud.token  = (($('#cfgToken')||{}).value || cloud.token || '').trim();
+    let lines;
+    try{ lines = await runDiagnosis(); }
+    catch(e){ lines = [{k:'bad', t:'تعذّر الفحص: ' + (e.message || 'خطأ')}]; }
+    out.innerHTML = `<div style="margin-top:10px;border:1px solid var(--line);border-radius:var(--r-sm);padding:10px;">`
+      + lines.map(l => `<div class="lg" style="align-items:flex-start;">
+          <span>${l.k === 'ok' ? '✅' : l.k === 'bad' ? '⛔' : 'ℹ️'}</span>
+          <span style="flex:1;">${esc(l.t)}</span></div>`).join('')
+      + `</div>`;
+    return;
   }
   if(t.id === 'unlink'){
     if(!confirm('تفكين الربط عن هذا الجهاز؟ البيانات تبقى محفوظة هنا.')) return;
