@@ -659,6 +659,13 @@ font-size:var(--t1);color:#a9c9bb;margin-top:8px;line-height:1.6;}
 .period-tabs{display:flex;gap:6px;margin-bottom:8px;}
 .period-tab{flex:1;text-align:center;padding:7px;border-radius:8px;background:var(--parchment);border:1px solid var(--line);font-size:var(--t2);font-weight:700;color:#6b7a78;}
 .period-tab.active{background:var(--petrol);color:#fff;border-color:var(--petrol);}
+/* a tab that is only its mark: taller than it is wide would look like a slip, so
+   it keeps a real tap target and centres the drawing */
+.period-tab.mark-only{
+  display:flex;align-items:center;justify-content:center;gap:5px;
+  min-height:38px;padding:6px 4px;
+}
+.period-tab.mark-only svg{display:block;}
 /* how many tasks sit in each box, so a day's workload reads without tabbing through */
 /* the three that matter most, sitting above the day's periods in the same card
    so a task is never listed twice on one screen */
@@ -1641,7 +1648,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 109';
+const APP_BUILD = '2026-08-17 · 110';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -4399,6 +4406,9 @@ function deviceIconSvg(kind, size){
   if(kind==='work') return `<svg ${s} viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="13" rx="2" fill="#000"/><rect x="9" y="18" width="6" height="2" fill="#000"/><rect x="6" y="21" width="12" height="1.6" rx="0.8" fill="#000"/></svg>`;
   if(kind==='home') return `<svg ${s} viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="13" rx="2" fill="#fff" stroke="#2c2c2a" stroke-width="1.6"/><rect x="9" y="18" width="6" height="2" fill="#2c2c2a"/><rect x="6" y="21" width="12" height="1.6" rx="0.8" fill="#2c2c2a"/></svg>`;
   if(kind==='laptop') return `<svg ${s} viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="10" rx="1.4" fill="#2E5C5A"/><path d="M2 18h20l-2.2 2.2H4.2z" fill="#2E5C5A"/></svg>`;
+  /* "anywhere" is the absence of a device, so it gets an empty outline rather
+     than a picture — otherwise it is the one text tab in a row of marks */
+  if(kind==='any') return `<svg ${s} viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2" fill="none" stroke="#9aa6a4" stroke-width="1.6" stroke-dasharray="3 2.4"/></svg>`;
   return '';
 }
 function taskRowHtml(t, opts){
@@ -4573,14 +4583,23 @@ function renderScheduleCard(){
       <button type="button" class="gs-btn ${byAction?'on':''}" data-daygroup="action">✍️ نوع الفعل</button>
     </div>
     <div class="period-tabs">
+      ${/* Under the device cut the mark says it on its own — "💻 كمبيوتر العمل
+            (أسود)" spent a whole tab restating what the picture already shows,
+            and three of those filled the row. The name stays as the tab's label
+            for a long press and for a screen reader. */''}
       ${buckets.map(b=>{
         const n = countIn(b.id);
         const on = period===b.id;
-        return `<button type="button" class="period-tab ${on?'active':''}" data-period="${b.id}" ${(on&&b.color)?`style="background:${b.color};border-color:${b.color};color:#fff;"`:''}>${b.icon? b.icon+' ' : ''}${escapeHtml(b.label)}${n? ` <span class="ptab-count">${n}</span>`:''}</button>`;
+        const markOnly = byDevice && b.icon;
+        return `<button type="button" class="period-tab ${on?'active':''} ${markOnly?'mark-only':''}" data-period="${b.id}"
+          ${markOnly? `title="${escapeHtml(b.label)}" aria-label="${escapeHtml(b.label)}"`:''}
+          ${(on&&b.color)?`style="background:${b.color};border-color:${b.color};color:#fff;"`:''}>${b.icon? b.icon+(markOnly?'':' ') : ''}${markOnly? '' : escapeHtml(b.label)}${n? ` <span class="ptab-count">${n}</span>`:''}</button>`;
       }).join('')}
       ${/* shown whenever something is sitting in it, so nothing scheduled can go
             missing — and while it is the open tab, so she can get back out */''}
-      ${((countIn(ANYTIME) || period===ANYTIME) && !ownAnyBox)? `<button type="button" class="period-tab ${period===ANYTIME?'active':''}" data-period="${ANYTIME}" ${period===ANYTIME?'style="background:var(--sage);border-color:var(--sage);color:#fff;"':''}>${byAction? 'بدون نوع' : byDevice? 'أي مكان' : 'أي وقت'}${countIn(ANYTIME)? ` <span class="ptab-count">${countIn(ANYTIME)}</span>`:''}</button>`:''}
+      ${((countIn(ANYTIME) || period===ANYTIME) && !ownAnyBox)? `<button type="button" class="period-tab ${period===ANYTIME?'active':''} ${byDevice?'mark-only':''}" data-period="${ANYTIME}"
+        ${byDevice? 'title="أي مكان" aria-label="أي مكان"':''}
+        ${period===ANYTIME?'style="background:var(--sage);border-color:var(--sage);color:#fff;"':''}>${byDevice? deviceIconSvg('any',15) : byAction? 'بدون نوع' : 'أي وقت'}${countIn(ANYTIME)? ` <span class="ptab-count">${countIn(ANYTIME)}</span>`:''}</button>`:''}
     </div>
     ${/* the box also listed every category assigned to it, which ran to a line
           and a half of names she never acts on from here */''}
