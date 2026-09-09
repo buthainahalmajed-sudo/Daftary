@@ -346,7 +346,7 @@ body.has-timer{padding-bottom:calc(126px + env(safe-area-inset-bottom));}
    يتزامن بين الجوالين عبر GitHub Gist، نفس طريقة الربط المستخدمة في دفتري.
    ========================================================================= */
 
-const APP_VERSION   = 'v7';
+const APP_VERSION   = 'v8';
 const CLOUD_FILE    = 'batal-data.json';
 const LS_STATE      = 'batalState';
 const LS_CLOUD      = 'batalCloudCfg';
@@ -1696,6 +1696,15 @@ function openSettings(){
       <h3>الربط بين الجوالين</h3>
       <p class="sub">نفس طريقة دفتري — Gist خاص + توكن. حطي نفس القيمتين في جوالك وجواله.</p>
       <p id="syncLine" style="margin:0 0 10px;">${syncLabel()}</p>
+      ${!linked ? `
+      <div style="border:1px solid var(--line);border-radius:var(--r-sm);padding:10px;margin-bottom:12px;">
+        <b style="display:block;margin-bottom:6px;">ما عندك القيمتين؟</b>
+        <p class="muted" style="margin:0 0 8px;">التوكن نفسه اللي في دفتري يشتغل هنا — تحتاجين Gist جديدًا فقط.</p>
+        <a class="btn ghost" style="text-decoration:none;text-align:center;"
+           href="https://gist.github.com/" target="_blank" rel="noopener">١) أنشئي Gist سري باسم ${CLOUD_FILE}</a>
+        <a class="btn ghost" style="text-decoration:none;text-align:center;"
+           href="https://github.com/settings/tokens/new?scopes=gist&description=Batal" target="_blank" rel="noopener">٢) أنشئي توكن بصلاحية gist</a>
+      </div>` : ''}
       <div class="field"><label>Gist ID</label><input id="cfgGist" class="ltr" placeholder="8f2a1b3c..." value="${esc(cloud.gistId)}"></div>
       <div class="field"><label>Personal Access Token</label><input id="cfgToken" class="ltr" placeholder="ghp_..." value="${esc(cloud.token)}"></div>
       ${linked ? `

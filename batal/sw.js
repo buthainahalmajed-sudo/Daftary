@@ -1,6 +1,6 @@
 /* خدمة العمل بدون إنترنت — نفس أسلوب دفتري.
    ارفعي SW_VERSION لما تبين كل الأجهزة المفتوحة تسحب نسخة جديدة من index.html. */
-const SW_VERSION = 'v7';
+const SW_VERSION = 'v8';
 const CACHE = 'batal-' + SW_VERSION;
 
 self.addEventListener('install', e => {
