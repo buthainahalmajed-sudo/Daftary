@@ -699,6 +699,33 @@ font-size:var(--t1);color:#a9c9bb;margin-top:8px;line-height:1.6;}
 /* time-box color picker + management rows */
 .color-dot{width:26px;height:26px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;flex-shrink:0;}
 .color-dot.selected{border-color:var(--petrol-dark);box-shadow:0 0 0 2px var(--paper) inset;}
+/* a pillar's colour sits on its own line under the row, so eight swatches never
+   squeeze the name they belong to */
+.pillar-colors{flex:1 1 100%;display:flex;flex-wrap:wrap;gap:6px;order:2;}
+.pillar-colors .color-dot{width:24px;height:24px;}
+
+/* the focus mark in the top bar: what the app is wearing, and the way in */
+.focus-mark{
+  width:30px;height:30px;flex-shrink:0;border-radius:50%;
+  border:1.5px solid var(--line);background:var(--parchment);
+  font-size:14px;line-height:1;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;
+}
+.focus-mark.on{box-shadow:0 0 0 2px var(--paper) inset;}
+.focus-picker .fp-pillar{
+  font-size:var(--t2);font-weight:700;color:var(--petrol-dark);
+  margin:12px 0 4px;display:flex;align-items:center;gap:7px;
+}
+.focus-picker .fp-nocolor{font-weight:400;color:#6b7a78;font-size:var(--t1);}
+.fp-dot{width:13px;height:13px;border-radius:50%;flex-shrink:0;display:inline-block;}
+.focus-picker .fp-goal{
+  width:100%;display:flex;align-items:center;gap:9px;text-align:right;
+  padding:9px 10px;margin-bottom:5px;border-radius:10px;
+  border:1.5px solid var(--line);background:var(--parchment);
+  font-family:inherit;font-size:var(--t3);color:var(--ink);cursor:pointer;
+}
+.focus-picker .fp-goal .grow{flex:1;min-width:0;}
+.focus-picker .fp-goal.on{border-color:var(--petrol);background:var(--paper);font-weight:700;}
 .tbox-row{display:flex;flex-direction:column;gap:8px;padding:12px 0;border-bottom:1px dashed var(--line);}
 .tbox-row:last-of-type{border-bottom:none;}
 .tbox-times{display:flex;align-items:center;gap:8px;}
@@ -1594,6 +1621,7 @@ let plEditingId = null; /* same idea, for one row in the project financial ledge
 let visionWizard = null; /* {step:'questions'|'review', answers:[], draftText:''} while building/redoing the life vision */
 let visionEditing = false; /* whether the confirmed life-vision text is currently shown as an editable textarea */
 let syncPane = null;  /* which of the three link tools is open: 'revisions' | 'link' | 'unlink' — one at a time, so the card shows one thing */
+let focusPickerOpen = false;  /* the "what am I focusing on" sheet */
 let cloudRevisions = null; /* the Gist's revision list once fetched, so a bad sync or a bad migration can be undone */
 let revLoading = false;
 let revError = null;
@@ -1648,7 +1676,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 110';
+const APP_BUILD = '2026-08-17 · 111';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -2372,7 +2400,7 @@ const SYNCED_LISTS = ['tasks','goals','habits','journal','projectLedger','goalPi
                       'timeBoxes','dailyQuestions','moods','inbox',
                       'socialIdeas','socialTopics'];
 const SYNCED_SINGLES = ['financialGoal','safety','sharedIncome','expenseDiag','lifeVision',
-                        'dayTemplates','homeCards','actionTypes','session',
+                        'dayTemplates','homeCards','actionTypes','session','focusGoalId',
                         'questionsTitle','moodTitle','name','projectLedgerClaimed'];
 let prevShape = null;   /* "list|id" -> the item as it was at the previous save */
 function itemSig(x){
@@ -2807,6 +2835,9 @@ function moveHabitInDow(dow, habitId, dir){
 function render(){
   const app = document.getElementById('app');
   if(!storageReady){ app.innerHTML = '<div class="empty">جارٍ فتح دفترك…</div>'; return; }
+  /* before anything is drawn, so the page is never painted in one colour and
+     then repainted in another while she watches */
+  applyFocusTint();
   syncStageTasks();
   if(settingsOpen){ app.innerHTML = renderSettings(); attachSettingsEvents(); return; }
   if(!state.onboarded){ app.innerHTML = renderOnboarding(); attachOnboardingEvents(); return; }
@@ -2828,6 +2859,7 @@ function render(){
   app.innerHTML = `
     ${renderTopbar()}
     <div id="storageWarn"></div>
+    ${renderFocusPicker()}
     ${renderCloudConflict()}
     ${body}
     ${renderNav()}
@@ -3727,6 +3759,7 @@ function attachSettingsEvents(){
 
   attachManagerEvents();
   attachDowPickers();
+  attachFocusEvents();   /* the pillar colour swatches live in Settings */
   paintVersionLine();
   checkAppUpdate();
 
@@ -4110,6 +4143,108 @@ function attachSocialEvents(){
   });
 }
 
+/* ---- لون التركيز ----
+   A colour belongs to a pillar, not to a goal. She has a handful of pillars and
+   many goals, and a colour only works as a signal while there are few enough of
+   them to know by heart — fifteen colours is a legend, not a language. A goal
+   wears its pillar's colour, so choosing a goal to focus on still paints the
+   app; the goals under one pillar simply share its colour.
+
+   The set is fixed rather than a free colour picker, and every entry is dark
+   enough to carry white button text and to sit as a heading on parchment. A
+   free picker would let her choose a yellow that makes half the app unreadable,
+   and she would have no way of knowing why. */
+const PILLAR_COLORS = [
+  {id:'petrol', label:'بترولي',        main:'#2E5C5A', dark:'#1D3E3C', soft:'#8FA998'},
+  {id:'wine',   label:'نبيذي',         main:'#8F3A4E', dark:'#6E2A3B', soft:'#C99AA6'},
+  {id:'navy',   label:'كحلي',          main:'#2B4A7E', dark:'#1C3255', soft:'#93A9C9'},
+  {id:'olive',  label:'زيتوني',        main:'#5A6B33', dark:'#3E4A22', soft:'#A9B98A'},
+  {id:'clay',   label:'برتقالي محروق', main:'#9A5427', dark:'#6F3B1A', soft:'#D2A484'},
+  {id:'violet', label:'بنفسجي',        main:'#5B4180', dark:'#3E2C58', soft:'#B0A0CE'},
+  {id:'teal',   label:'تركوازي',       main:'#1F6B70', dark:'#144A4E', soft:'#8CBFC1'},
+  {id:'bronze', label:'بني ذهبي',      main:'#7A5A2E', dark:'#56401F', soft:'#C9AE83'},
+];
+function pillarColorOf(p){
+  if(!p || !p.color) return null;
+  return PILLAR_COLORS.find(c=>c.id===p.color) || null;
+}
+/* the colour a goal wears — its pillar's */
+function goalColor(g){ return pillarColorOf(g? pillarOf(goalPillarId(g)) : null); }
+
+/* Repainting only the three tokens that are decoration: the identity colour, its
+   dark twin, and the soft partner. The ground, the rules and the body ink stay
+   exactly where they are — a focus colour should change what the app feels like,
+   never whether she can read it. */
+function applyFocusTint(){
+  const root = document.documentElement;
+  const clear = ()=>{ ['--petrol','--petrol-dark','--sage'].forEach(v=> root.style.removeProperty(v)); };
+  if(!state || !state.focusGoalId) return clear();
+  const g = allGoals().find(x=>x.id===state.focusGoalId);
+  const c = goalColor(g);
+  if(!c) return clear();
+  root.style.setProperty('--petrol', c.main);
+  root.style.setProperty('--petrol-dark', c.dark);
+  root.style.setProperty('--sage', c.soft);
+}
+function focusGoal(){ return state.focusGoalId? allGoals().find(g=>g.id===state.focusGoalId) : null; }
+
+/* the swatch in the top bar: what the app is currently wearing, and the way in
+   and out of it. A goal whose pillar has no colour yet is still focusable — the
+   app just stays its own colour, and the picker says so. */
+function renderFocusMark(){
+  const g = focusGoal();
+  const c = goalColor(g);
+  return `<button type="button" class="focus-mark ${g?'on':''}" id="focusMark"
+    title="${g? 'التركيز على '+escapeHtml(g.title) : 'اختاري تركيزك'}"
+    aria-label="${g? 'التركيز على '+escapeHtml(g.title) : 'اختاري تركيزك'}"
+    style="${c? 'background:'+c.main+';border-color:'+c.main+';' : ''}">${g? '' : '🎯'}</button>`;
+}
+function renderFocusPicker(){
+  if(!focusPickerOpen) return '';
+  const rows = state.goalPillars.map(p=>{
+    const gs = state.goals.filter(g=> goalPillarId(g)===p.id);
+    if(!gs.length) return '';
+    const c = pillarColorOf(p);
+    return `
+    <p class="fp-pillar">${p.icon} ${escapeHtml(p.label)}
+      ${c? `<span class="fp-dot" style="background:${c.main};"></span>`
+          : `<span class="fp-nocolor">بلا لون — حدّديه من الإعدادات</span>`}</p>
+    ${gs.map(g=>`
+      <button type="button" class="fp-goal ${state.focusGoalId===g.id?'on':''}" data-focus-goal="${g.id}">
+        <span class="fp-dot" style="background:${c? c.main : 'var(--line)'};"></span>
+        <span class="grow">${escapeHtml(g.title)}</span>
+      </button>`).join('')}`;
+  }).join('');
+  return `
+  <div class="card focus-picker">
+    <div class="card-title"><h3>🎯 وش تركيزك الآن؟</h3>
+      <button class="icon-btn" id="focusClose">✕</button>
+    </div>
+    ${helpNote('focusTint','التطبيق يلبس لون البند اللي تحته الهدف، فتعرفين بنظرة وش أنتِ فيه. الألوان تنحدد لبنود الهوية من الإعدادات.')}
+    ${rows || `<div class="empty tight">ما عندك أهداف تحت بنود بعد</div>`}
+    ${state.focusGoalId? `<button class="btn ghost btn-block" style="margin-top:10px;" id="focusOff">↩︎ بلا تركيز — رجّعي ألوان دفتري</button>`:''}
+  </div>`;
+}
+function attachFocusEvents(){
+  const mark = document.getElementById('focusMark');
+  if(mark) mark.onclick = ()=>{ focusPickerOpen = !focusPickerOpen; render(); };
+  const close = document.getElementById('focusClose');
+  if(close) close.onclick = ()=>{ focusPickerOpen = false; render(); };
+  document.querySelectorAll('[data-focus-goal]').forEach(b=> b.onclick=()=>{
+    state.focusGoalId = (state.focusGoalId===b.dataset.focusGoal)? null : b.dataset.focusGoal;
+    focusPickerOpen = false;
+    saveState(); render();
+  });
+  const off = document.getElementById('focusOff');
+  if(off) off.onclick = ()=>{ state.focusGoalId = null; focusPickerOpen = false; saveState(); render(); };
+  document.querySelectorAll('[data-pillar-color]').forEach(b=> b.onclick=()=>{
+    const p = pillarOf(b.dataset.pillarColor);
+    if(!p) return;
+    p.color = (p.color===b.dataset.color)? null : b.dataset.color;
+    saveState(); render();
+  });
+}
+
 /* ============ topbar ============ */
 function renderTopbar(){
   const d = new Date();
@@ -4118,6 +4253,7 @@ function renderTopbar(){
   <div class="topbar">
     <div class="brand"><div class="seal">د</div><h1 style="font-size:var(--t5);">دفتري للأمان المالي</h1></div>
     <div style="display:flex;align-items:center;gap:8px;">
+      ${renderFocusMark()}
       <button type="button" class="icon-btn" id="openSettings" title="نسخ البيانات بين الأجهزة" style="font-size:18px;">⚙️</button>
       <div class="size-ctrl">
         <button type="button" id="sizeDown" title="تصغير الخط">A-</button>
@@ -4646,11 +4782,15 @@ function renderGoalPillarManager(){
     <summary><h3>🧱 بنود الهوية الرئيسية <span class="chev">▾</span></h3></summary>
     <div class="details-body">
       ${helpNote('pillars','<b>العمود الفقري للتطبيق.</b> رؤيتك تتفرّع لبنود، وكل بند تحته أهدافه، وكل هدف تحته مهامه — بهالترتيب تظهر بصفحتَي الأساس والمهام. سميها بما يمثلك (مثل «أنا سعيدة»، «أنا ثرية»).')}
+      ${helpNote('pillarColor','اللون اللي تختارينه للبند يلبسه التطبيق كله لما تختارين التركيز على هدف تحته — من 🎯 بأعلى الصفحة.')}
       ${state.goalPillars.map(p=>`
         <div class="tcat-row" data-pillar-row="${p.id}">
           <input type="text" data-pillar-icon="${p.id}" value="${escapeHtml(p.icon)}" placeholder="✨" style="width:52px;text-align:center;flex-shrink:0;"/>
           <input type="text" data-pillar-label="${p.id}" value="${escapeHtml(p.label)}" placeholder="اسم البند" style="flex:1;"/>
           <button type="button" class="icon-btn" data-pillar-del="${p.id}">✕</button>
+          <div class="pillar-colors">
+            ${PILLAR_COLORS.map(c=>`<button type="button" class="color-dot ${p.color===c.id?'selected':''}" data-pillar-color="${p.id}" data-color="${c.id}" style="background:${c.main};" title="${escapeHtml(c.label)}" aria-label="${escapeHtml(c.label)}"></button>`).join('')}
+          </div>
         </div>`).join('')}
       <button type="button" class="btn ghost btn-block" style="margin-top:10px;" id="pillarAddNew">+ إضافة بند جديد</button>
     </div>
@@ -9647,6 +9787,7 @@ function attachGlobalEvents(){
   attachMultiPickers();
   attachSocialEvents();
   attachFocusSessionEvents();
+  attachFocusEvents();
 
   const visionStart = document.getElementById('visionStart');
   if(visionStart) visionStart.onclick = ()=>{ visionWizard = {step:'questions', answers:[]}; render(); };
