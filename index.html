@@ -726,6 +726,12 @@ font-size:var(--t1);color:#a9c9bb;margin-top:8px;line-height:1.6;}
 }
 .focus-picker .fp-goal .grow{flex:1;min-width:0;}
 .focus-picker .fp-goal.on{border-color:var(--petrol);background:var(--paper);font-weight:700;}
+.focus-picker .fp-sub{font-weight:400;font-size:var(--t1);color:#6b7a78;}
+.focus-picker .fp-now{
+  flex-shrink:0;font-size:var(--t1);font-weight:700;color:var(--petrol-dark);
+  background:rgba(143,169,152,.28);border-radius:20px;padding:1px 8px;
+}
+.focus-picker .fp-hint{font-size:var(--t1);color:#6b7a78;margin:12px 0 4px;}
 .tbox-row{display:flex;flex-direction:column;gap:8px;padding:12px 0;border-bottom:1px dashed var(--line);}
 .tbox-row:last-of-type{border-bottom:none;}
 .tbox-times{display:flex;align-items:center;gap:8px;}
@@ -1676,7 +1682,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 111';
+const APP_BUILD = '2026-08-17 · 112';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -2400,7 +2406,7 @@ const SYNCED_LISTS = ['tasks','goals','habits','journal','projectLedger','goalPi
                       'timeBoxes','dailyQuestions','moods','inbox',
                       'socialIdeas','socialTopics'];
 const SYNCED_SINGLES = ['financialGoal','safety','sharedIncome','expenseDiag','lifeVision',
-                        'dayTemplates','homeCards','actionTypes','session','focusGoalId',
+                        'dayTemplates','homeCards','actionTypes','session','focusGoalId','focusMode','autoGoalId',
                         'questionsTitle','moodTitle','name','projectLedgerClaimed'];
 let prevShape = null;   /* "list|id" -> the item as it was at the previous save */
 function itemSig(x){
@@ -4178,15 +4184,45 @@ function goalColor(g){ return pillarColorOf(g? pillarOf(goalPillarId(g)) : null)
 function applyFocusTint(){
   const root = document.documentElement;
   const clear = ()=>{ ['--petrol','--petrol-dark','--sage'].forEach(v=> root.style.removeProperty(v)); };
-  if(!state || !state.focusGoalId) return clear();
-  const g = allGoals().find(x=>x.id===state.focusGoalId);
-  const c = goalColor(g);
+  const c = goalColor(focusGoal());
   if(!c) return clear();
   root.style.setProperty('--petrol', c.main);
   root.style.setProperty('--petrol-dark', c.dark);
   root.style.setProperty('--sage', c.soft);
 }
-function focusGoal(){ return state.focusGoalId? allGoals().find(g=>g.id===state.focusGoalId) : null; }
+/* ---- which goal the app is wearing ----
+   Three states, and the default is the one she asked for: the colour follows
+   her work rather than waiting to be told. 'auto' takes the last goal she
+   actually did something on, 'manual' pins one until she says otherwise, 'off'
+   leaves the app its own colour.
+
+   Manual has to exist beside auto rather than replacing it: pinning a goal is
+   how she says "stay here even while I clear other things off my plate", and
+   an auto-only design would keep pulling the app away from it. */
+function focusMode(){
+  if(!state.focusMode){
+    /* an existing pinned goal from before this became automatic stays pinned */
+    state.focusMode = state.focusGoalId? 'manual' : 'auto';
+  }
+  return state.focusMode;
+}
+function focusGoal(){
+  if(!state || !state.goals) return null;
+  const mode = focusMode();
+  if(mode === 'off') return null;
+  const id = (mode === 'manual')? state.focusGoalId : state.autoGoalId;
+  return id? allGoals().find(g=>g.id===id) || null : null;
+}
+/* Called by the few acts that really mean "I am working on this": ticking a
+   task off, saving one, opening a new one under a goal, and naming the goal of
+   a focus session. Not by every render and not by merely looking at a page —
+   a colour that changes while she scrolls is a flicker, not a signal. */
+function markWorkedOn(goalId){
+  if(!goalId || goalId === state.autoGoalId) return false;
+  state.autoGoalId = goalId;
+  return focusMode() === 'auto';   /* did this actually change what she sees */
+}
+function markWorkedOnTask(t){ return t? markWorkedOn(t.goalId || null) : false; }
 
 /* the swatch in the top bar: what the app is currently wearing, and the way in
    and out of it. A goal whose pillar has no colour yet is still focusable — the
@@ -4210,19 +4246,28 @@ function renderFocusPicker(){
       ${c? `<span class="fp-dot" style="background:${c.main};"></span>`
           : `<span class="fp-nocolor">بلا لون — حدّديه من الإعدادات</span>`}</p>
     ${gs.map(g=>`
-      <button type="button" class="fp-goal ${state.focusGoalId===g.id?'on':''}" data-focus-goal="${g.id}">
+      <button type="button" class="fp-goal ${(focusMode()==='manual' && state.focusGoalId===g.id)?'on':''}" data-focus-goal="${g.id}">
         <span class="fp-dot" style="background:${c? c.main : 'var(--line)'};"></span>
         <span class="grow">${escapeHtml(g.title)}</span>
+        ${(focusMode()==='auto' && state.autoGoalId===g.id)? `<span class="fp-now">الآن</span>`:''}
       </button>`).join('')}`;
   }).join('');
+  const auto = focusMode()==='auto';
+  const now = auto? allGoals().find(g=>g.id===state.autoGoalId) : null;
   return `
   <div class="card focus-picker">
     <div class="card-title"><h3>🎯 وش تركيزك الآن؟</h3>
       <button class="icon-btn" id="focusClose">✕</button>
     </div>
     ${helpNote('focusTint','التطبيق يلبس لون البند اللي تحته الهدف، فتعرفين بنظرة وش أنتِ فيه. الألوان تنحدد لبنود الهوية من الإعدادات.')}
+    ${/* the automatic mode first: it is the one that needs no upkeep */''}
+    <button type="button" class="fp-goal ${auto?'on':''}" id="focusAuto">
+      <span class="fp-dot" style="background:${goalColor(now)? goalColor(now).main : 'var(--line)'};"></span>
+      <span class="grow">🔄 تلقائي — يتبع آخر هدف اشتغلتِ عليه${now? `<br><span class="fp-sub">الآن: ${escapeHtml(now.title)}</span>`:''}</span>
+    </button>
+    <p class="fp-hint">أو ثبّتي هدفًا فيبقى لونه مهما اشتغلتِ على غيره:</p>
     ${rows || `<div class="empty tight">ما عندك أهداف تحت بنود بعد</div>`}
-    ${state.focusGoalId? `<button class="btn ghost btn-block" style="margin-top:10px;" id="focusOff">↩︎ بلا تركيز — رجّعي ألوان دفتري</button>`:''}
+    ${focusMode()!=='off'? `<button class="btn ghost btn-block" style="margin-top:10px;" id="focusOff">↩︎ بلا تركيز — رجّعي ألوان دفتري</button>`:''}
   </div>`;
 }
 function attachFocusEvents(){
@@ -4230,13 +4275,21 @@ function attachFocusEvents(){
   if(mark) mark.onclick = ()=>{ focusPickerOpen = !focusPickerOpen; render(); };
   const close = document.getElementById('focusClose');
   if(close) close.onclick = ()=>{ focusPickerOpen = false; render(); };
+  const autoBtn = document.getElementById('focusAuto');
+  if(autoBtn) autoBtn.onclick = ()=>{
+    state.focusMode = 'auto'; focusPickerOpen = false; saveState(); render();
+  };
+  /* pinning one: tapping the pinned goal again lets go of it and hands the
+     colour back to her work */
   document.querySelectorAll('[data-focus-goal]').forEach(b=> b.onclick=()=>{
-    state.focusGoalId = (state.focusGoalId===b.dataset.focusGoal)? null : b.dataset.focusGoal;
+    const id = b.dataset.focusGoal;
+    if(focusMode()==='manual' && state.focusGoalId===id){ state.focusMode='auto'; }
+    else { state.focusMode='manual'; state.focusGoalId = id; }
     focusPickerOpen = false;
     saveState(); render();
   });
   const off = document.getElementById('focusOff');
-  if(off) off.onclick = ()=>{ state.focusGoalId = null; focusPickerOpen = false; saveState(); render(); };
+  if(off) off.onclick = ()=>{ state.focusMode = 'off'; focusPickerOpen = false; saveState(); render(); };
   document.querySelectorAll('[data-pillar-color]').forEach(b=> b.onclick=()=>{
     const p = pillarOf(b.dataset.pillarColor);
     if(!p) return;
@@ -9044,6 +9097,9 @@ function attachFocusSessionEvents(){
   if(goalSel) goalSel.onchange = ()=>{
     sessionCfg().goalId = goalSel.value || null;
     delete getLog(todayStr()).sessionIds;   /* a new goal means a new fill */
+    /* naming a session's goal is the most deliberate way she has of saying
+       what she is about to work on */
+    markWorkedOn(sessionCfg().goalId);
     saveState(); render();
   };
   const minsSel = document.getElementById('fsMinsSel');
@@ -9416,6 +9472,8 @@ function attachTaskDraftEvents(){
         recurType, recur, recurMonthDay, recurStart, recurEnd, lastDoneDate:null, done:false, createdAt:todayStr()
       });
     }
+    /* writing a task down for a goal is working on it too */
+    markWorkedOn(taskDraft.goalId || null);
     saveState();
     taskDraft = null;
     render();
@@ -9587,6 +9645,9 @@ function attachGlobalEvents(){
        flagged them permanently done. taskDoneToday() only ever reads
        lastDoneDate for a recurring task, so they never hid and never came back. */
     toggleTaskDone(t);
+    /* ticking something off is the plainest statement of what she is working
+       on, so it is what moves the app's colour */
+    if(taskDoneToday(t)) markWorkedOnTask(t);
     saveState();
     render();
   });
@@ -9728,6 +9789,7 @@ function attachGlobalEvents(){
   };
 
   document.querySelectorAll('[data-addtaskfor]').forEach(b=> b.onclick=()=>{
+    markWorkedOn(b.dataset.addtaskfor);
     taskDraft={title:'',goalId:b.dataset.addtaskfor,priority:'متوسطة',period:currentTimeBoxId(),due:'', recur:[]}; taskPane=null; attachError=null; render();
   });
 
