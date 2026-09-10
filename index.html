@@ -951,12 +951,12 @@ table.htable td.habit-label-cell{text-align:right;font-size:var(--t2);padding-ri
 }
 .card::before{
   content:'';position:absolute;top:14px;bottom:14px;right:14px;
-  width:1px;background:var(--gold);opacity:.45;
+  width:3px;border-radius:2px;background:var(--accent-vivid, var(--gold));opacity:var(--accent-op, .45);
 }
 details.card > summary{padding:14px 26px 14px 14px;}
 details.card > summary::before{
   content:'';position:absolute;top:14px;bottom:14px;right:14px;
-  width:1px;background:var(--gold);opacity:.45;
+  width:3px;border-radius:2px;background:var(--accent-vivid, var(--gold));opacity:var(--accent-op, .45);
 }
 details.card > .details-body{padding:0 26px 14px 14px;}
 details.card::before{display:none;}
@@ -1655,7 +1655,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 116';
+const APP_BUILD = '2026-08-17 · 117';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -4121,30 +4121,32 @@ function attachSocialEvents(){
   });
 }
 
-/* ---- لون التركيز ----
-   A colour belongs to a pillar, not to a goal. She has a handful of pillars and
-   many goals, and a colour only works as a signal while there are few enough of
-   them to know by heart — fifteen colours is a legend, not a language. A goal
-   wears its pillar's colour, so choosing a goal to focus on still paints the
-   app; the goals under one pillar simply share its colour.
+/* ---- ألوان التركيز ----
+   Her six, and the reason each one carries four values rather than one.
 
-   The set is fixed rather than a free colour picker, and every entry is dark
-   enough to carry white button text and to sit as a heading on parchment. A
-   free picker would let her choose a yellow that makes half the app unreadable,
-   and she would have no way of knowing why. */
+   A colour has two jobs here and they pull against each other. It has to be
+   unmistakable — that is the whole point, and the muted set failed at it — and
+   it has to sit under white button text and beside body text without either
+   becoming unreadable. Yellow and neon green cannot do both: white on vivid
+   yellow is invisible. So the vivid tone is spent where nothing has to be read
+   on top of it — the rule down every card, the stripe on a goal, the dot, and
+   the tint in the paper — while a deep version of the same hue takes the
+   headings and the filled buttons. Same colour, two weights, and she reads the
+   hue either way. */
 const PILLAR_COLORS = [
-  {id:'petrol', label:'بترولي',       main:'#2E5C5A', dark:'#1D3E3C', soft:'#8FA998'},
-  {id:'rose',   label:'وردي مغبّر',    main:'#8A5560', dark:'#653C45', soft:'#C6A5AC'},
-  {id:'blue',   label:'أزرق مغبّر',    main:'#47607B', dark:'#2F4155', soft:'#A6B8C9'},
-  {id:'olive',  label:'زيتوني هادئ',  main:'#646C4A', dark:'#454B31', soft:'#B7BDA0'},
-  {id:'clay',   label:'طيني',         main:'#8C6248', dark:'#634433', soft:'#CFAF9B'},
-  {id:'plum',   label:'بنفسجي مغبّر',  main:'#675575', dark:'#483B51', soft:'#B9ACC3'},
-  {id:'sea',    label:'أخضر بحري',    main:'#487068', dark:'#2F4E47', soft:'#A2C0B8'},
-  {id:'sand',   label:'رملي بني',     main:'#7A6748', dark:'#564930', soft:'#C6B79B'},
+  {id:'red',    label:'أحمر',            vivid:'#E4322B', main:'#B02318', dark:'#7E1710', soft:'#C4443A'},
+  {id:'orange', label:'برتقالي',         vivid:'#F58220', main:'#A85411', dark:'#78390A', soft:'#BE6314'},
+  {id:'yellow', label:'أصفر',            vivid:'#F5C518', main:'#8A6A00', dark:'#5E4800', soft:'#9C7A08'},
+  {id:'grass',  label:'أخضر عشبي',       vivid:'#4CAF50', main:'#26692A', dark:'#194D1D', soft:'#357C39'},
+  {id:'neon',   label:'أخضر فسفوري',     vivid:'#8BE03A', main:'#4C7A1B', dark:'#35560F', soft:'#5A8F25'},
+  {id:'blue',   label:'أزرق',            vivid:'#2D8FE0', main:'#1B5FA8', dark:'#124273', soft:'#2470BF'},
 ];
-/* Her old ids, so a pillar she coloured before this keeps its colour rather
-   than quietly going blank. */
-const PILLAR_COLOR_ALIASES = {wine:'rose', navy:'blue', violet:'plum', teal:'sea', bronze:'sand'};
+/* every id she has ever picked, pointed at its nearest colour in the set above,
+   so a pillar she coloured under an older palette keeps a colour */
+const PILLAR_COLOR_ALIASES = {
+  petrol:'blue', wine:'red', rose:'red', navy:'blue', violet:'blue', plum:'blue',
+  teal:'grass', sea:'grass', olive:'grass', clay:'orange', bronze:'orange', sand:'orange',
+};
 function pillarColorOf(p){
   if(!p || !p.color) return null;
   const id = PILLAR_COLOR_ALIASES[p.color] || p.color;
@@ -4161,7 +4163,7 @@ function goalStripe(g){
   /* the whole rule inline, not just its colour: a later card rule was resetting
      the 4px stripe back to a hairline, so painting only the colour produced a
      correctly-coloured line nobody could see */
-  return c? `style="border-right:5px solid ${c.main};"` : '';
+  return c? `style="border-right:6px solid ${c.vivid};"` : '';
 }
 
 /* Repainting only the three tokens that are decoration: the identity colour, its
@@ -4178,21 +4180,27 @@ function mixHex(base, tint, amount){
 const GROUND = {parchment:'#F6F1E7', paper:'#FFFDF8', line:'#DDD2BA'};
 function applyFocusTint(){
   const root = document.documentElement;
-  const vars = ['--petrol','--petrol-dark','--sage','--parchment','--paper','--line'];
+  const vars = ['--petrol','--petrol-dark','--sage','--gold',
+                '--accent-vivid','--accent-op','--parchment','--paper','--line'];
   const clear = ()=> vars.forEach(v=> root.style.removeProperty(v));
   const c = goalColor(focusGoal());
   if(!c) return clear();
+  /* the deep weight, wherever something has to be read */
   root.style.setProperty('--petrol', c.main);
   root.style.setProperty('--petrol-dark', c.dark);
   root.style.setProperty('--sage', c.soft);
-  /* And a breath of it in the ground itself. Colouring only the ink and the
-     buttons leaves the app looking like the same cream page wearing a different
-     pen; a few percent stirred into the paper is what makes the whole thing
-     feel like it belongs to this goal. Kept this low on purpose — the text has
-     to stay as readable on it as it was on plain parchment. */
-  root.style.setProperty('--parchment', mixHex(GROUND.parchment, c.main, 0.07));
-  root.style.setProperty('--paper',     mixHex(GROUND.paper,     c.main, 0.035));
-  root.style.setProperty('--line',      mixHex(GROUND.line,      c.main, 0.18));
+  root.style.setProperty('--gold', c.main);
+  /* the vivid weight, wherever nothing does. The rule down every card is what
+     carries it across the whole app, so it is drawn at full strength and three
+     times wider than the hairline it was â the last set was so quiet she could
+     not tell a focus was on at all. */
+  root.style.setProperty('--accent-vivid', c.vivid);
+  root.style.setProperty('--accent-op', '1');
+  /* and the page itself, mixed from the notebook own grounds so the result is
+     always a shade of Ø¯ÙØªØ±Ù rather than a different palette laid over it */
+  root.style.setProperty('--parchment', mixHex(GROUND.parchment, c.vivid, 0.13));
+  root.style.setProperty('--paper',     mixHex(GROUND.paper,     c.vivid, 0.06));
+  root.style.setProperty('--line',      mixHex(GROUND.line,      c.vivid, 0.30));
 }
 /* One focus, not two.
 
@@ -4761,7 +4769,7 @@ function renderGoalPillarManager(){
           <input type="text" data-pillar-label="${p.id}" value="${escapeHtml(p.label)}" placeholder="اسم البند" style="flex:1;"/>
           <button type="button" class="icon-btn" data-pillar-del="${p.id}">✕</button>
           <div class="pillar-colors">
-            ${PILLAR_COLORS.map(c=>`<button type="button" class="color-dot ${p.color===c.id?'selected':''}" data-pillar-color="${p.id}" data-color="${c.id}" style="background:${c.main};" title="${escapeHtml(c.label)}" aria-label="${escapeHtml(c.label)}"></button>`).join('')}
+            ${PILLAR_COLORS.map(c=>`<button type="button" class="color-dot ${p.color===c.id?'selected':''}" data-pillar-color="${p.id}" data-color="${c.id}" style="background:${c.vivid};" title="${escapeHtml(c.label)}" aria-label="${escapeHtml(c.label)}"></button>`).join('')}
           </div>
         </div>`).join('')}
       <button type="button" class="btn ghost btn-block" style="margin-top:10px;" id="pillarAddNew">+ إضافة بند جديد</button>
@@ -5550,7 +5558,7 @@ function renderGoals(){
     const collapsed = state.collapsed[key];
     return `
     <div style="margin-bottom:14px;">
-      <h4 style="cursor:pointer;font-size:var(--t4);color:var(--petrol-dark);margin-bottom:8px;display:flex;align-items:center;gap:7px;" data-toggle-collapse="${key}"><span style="flex:1;display:flex;align-items:center;gap:7px;">${color? `<span class="fp-dot" style="background:${color.main};"></span>`:''}<span>${icon} ${escapeHtml(label)}</span> <span class="muted" style="font-size:var(--t2);font-weight:400;">(${goals.length})</span></span><span class="chev ${collapsed?"":"open"}">▾</span></h4>
+      <h4 style="cursor:pointer;font-size:var(--t4);color:var(--petrol-dark);margin-bottom:8px;display:flex;align-items:center;gap:7px;" data-toggle-collapse="${key}"><span style="flex:1;display:flex;align-items:center;gap:7px;">${color? `<span class="fp-dot" style="background:${color.vivid};"></span>`:''}<span>${icon} ${escapeHtml(label)}</span> <span class="muted" style="font-size:var(--t2);font-weight:400;">(${goals.length})</span></span><span class="chev ${collapsed?"":"open"}">▾</span></h4>
       ${collapsed? '' : goals.map(renderGoalCard).join('')}
     </div>`;
   };
