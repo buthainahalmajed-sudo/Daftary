@@ -1682,7 +1682,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 113';
+const APP_BUILD = '2026-08-17 · 114';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -4182,7 +4182,10 @@ function goalColor(g){ return pillarColorOf(g? pillarOf(goalPillarId(g)) : null)
    which a badge or a dot on every card would. */
 function goalStripe(g){
   const c = goalColor(g);
-  return c? `style="border-right-color:${c.main};"` : '';
+  /* the whole rule inline, not just its colour: a later card rule was resetting
+     the 4px stripe back to a hairline, so painting only the colour produced a
+     correctly-coloured line nobody could see */
+  return c? `style="border-right:5px solid ${c.main};"` : '';
 }
 
 /* Repainting only the three tokens that are decoration: the identity colour, its
