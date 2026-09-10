@@ -1655,7 +1655,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 115';
+const APP_BUILD = '2026-08-17 · 116';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -4168,14 +4168,31 @@ function goalStripe(g){
    dark twin, and the soft partner. The ground, the rules and the body ink stay
    exactly where they are — a focus colour should change what the app feels like,
    never whether she can read it. */
+/* a few percent of one colour stirred into another */
+function mixHex(base, tint, amount){
+  const h = s => [1,3,5].map(i=> parseInt(s.substr(i,2),16));
+  const [r1,g1,b1] = h(base), [r2,g2,b2] = h(tint);
+  const m = (a,b)=> Math.round(a + (b-a)*amount).toString(16).padStart(2,'0');
+  return '#' + m(r1,r2) + m(g1,g2) + m(b1,b2);
+}
+const GROUND = {parchment:'#F6F1E7', paper:'#FFFDF8', line:'#DDD2BA'};
 function applyFocusTint(){
   const root = document.documentElement;
-  const clear = ()=>{ ['--petrol','--petrol-dark','--sage'].forEach(v=> root.style.removeProperty(v)); };
+  const vars = ['--petrol','--petrol-dark','--sage','--parchment','--paper','--line'];
+  const clear = ()=> vars.forEach(v=> root.style.removeProperty(v));
   const c = goalColor(focusGoal());
   if(!c) return clear();
   root.style.setProperty('--petrol', c.main);
   root.style.setProperty('--petrol-dark', c.dark);
   root.style.setProperty('--sage', c.soft);
+  /* And a breath of it in the ground itself. Colouring only the ink and the
+     buttons leaves the app looking like the same cream page wearing a different
+     pen; a few percent stirred into the paper is what makes the whole thing
+     feel like it belongs to this goal. Kept this low on purpose — the text has
+     to stay as readable on it as it was on plain parchment. */
+  root.style.setProperty('--parchment', mixHex(GROUND.parchment, c.main, 0.07));
+  root.style.setProperty('--paper',     mixHex(GROUND.paper,     c.main, 0.035));
+  root.style.setProperty('--line',      mixHex(GROUND.line,      c.main, 0.18));
 }
 /* One focus, not two.
 
