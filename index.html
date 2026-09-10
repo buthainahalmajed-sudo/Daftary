@@ -704,34 +704,8 @@ font-size:var(--t1);color:#a9c9bb;margin-top:8px;line-height:1.6;}
 .pillar-colors{flex:1 1 100%;display:flex;flex-wrap:wrap;gap:6px;order:2;}
 .pillar-colors .color-dot{width:24px;height:24px;}
 
-/* the focus mark in the top bar: what the app is wearing, and the way in */
-.focus-mark{
-  width:30px;height:30px;flex-shrink:0;border-radius:50%;
-  border:1.5px solid var(--line);background:var(--parchment);
-  font-size:14px;line-height:1;cursor:pointer;
-  display:inline-flex;align-items:center;justify-content:center;
-}
-.focus-mark.on{box-shadow:0 0 0 2px var(--paper) inset;}
-.focus-picker .fp-pillar{
-  font-size:var(--t2);font-weight:700;color:var(--petrol-dark);
-  margin:12px 0 4px;display:flex;align-items:center;gap:7px;
-}
-.focus-picker .fp-nocolor{font-weight:400;color:#6b7a78;font-size:var(--t1);}
+/* the pillar dot, still used on Ø§ÙØ£Ø³Ø§Ø³ headings */
 .fp-dot{width:13px;height:13px;border-radius:50%;flex-shrink:0;display:inline-block;}
-.focus-picker .fp-goal{
-  width:100%;display:flex;align-items:center;gap:9px;text-align:right;
-  padding:9px 10px;margin-bottom:5px;border-radius:10px;
-  border:1.5px solid var(--line);background:var(--parchment);
-  font-family:inherit;font-size:var(--t3);color:var(--ink);cursor:pointer;
-}
-.focus-picker .fp-goal .grow{flex:1;min-width:0;}
-.focus-picker .fp-goal.on{border-color:var(--petrol);background:var(--paper);font-weight:700;}
-.focus-picker .fp-sub{font-weight:400;font-size:var(--t1);color:#6b7a78;}
-.focus-picker .fp-now{
-  flex-shrink:0;font-size:var(--t1);font-weight:700;color:var(--petrol-dark);
-  background:rgba(143,169,152,.28);border-radius:20px;padding:1px 8px;
-}
-.focus-picker .fp-hint{font-size:var(--t1);color:#6b7a78;margin:12px 0 4px;}
 .tbox-row{display:flex;flex-direction:column;gap:8px;padding:12px 0;border-bottom:1px dashed var(--line);}
 .tbox-row:last-of-type{border-bottom:none;}
 .tbox-times{display:flex;align-items:center;gap:8px;}
@@ -1627,7 +1601,6 @@ let plEditingId = null; /* same idea, for one row in the project financial ledge
 let visionWizard = null; /* {step:'questions'|'review', answers:[], draftText:''} while building/redoing the life vision */
 let visionEditing = false; /* whether the confirmed life-vision text is currently shown as an editable textarea */
 let syncPane = null;  /* which of the three link tools is open: 'revisions' | 'link' | 'unlink' — one at a time, so the card shows one thing */
-let focusPickerOpen = false;  /* the "what am I focusing on" sheet */
 let cloudRevisions = null; /* the Gist's revision list once fetched, so a bad sync or a bad migration can be undone */
 let revLoading = false;
 let revError = null;
@@ -1682,7 +1655,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 114';
+const APP_BUILD = '2026-08-17 · 115';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -2406,7 +2379,7 @@ const SYNCED_LISTS = ['tasks','goals','habits','journal','projectLedger','goalPi
                       'timeBoxes','dailyQuestions','moods','inbox',
                       'socialIdeas','socialTopics'];
 const SYNCED_SINGLES = ['financialGoal','safety','sharedIncome','expenseDiag','lifeVision',
-                        'dayTemplates','homeCards','actionTypes','session','focusGoalId','focusMode','autoGoalId',
+                        'dayTemplates','homeCards','actionTypes','session',
                         'questionsTitle','moodTitle','name','projectLedgerClaimed'];
 let prevShape = null;   /* "list|id" -> the item as it was at the previous save */
 function itemSig(x){
@@ -2865,7 +2838,6 @@ function render(){
   app.innerHTML = `
     ${renderTopbar()}
     <div id="storageWarn"></div>
-    ${renderFocusPicker()}
     ${renderCloudConflict()}
     ${body}
     ${renderNav()}
@@ -4161,18 +4133,22 @@ function attachSocialEvents(){
    free picker would let her choose a yellow that makes half the app unreadable,
    and she would have no way of knowing why. */
 const PILLAR_COLORS = [
-  {id:'petrol', label:'بترولي',        main:'#2E5C5A', dark:'#1D3E3C', soft:'#8FA998'},
-  {id:'wine',   label:'نبيذي',         main:'#8F3A4E', dark:'#6E2A3B', soft:'#C99AA6'},
-  {id:'navy',   label:'كحلي',          main:'#2B4A7E', dark:'#1C3255', soft:'#93A9C9'},
-  {id:'olive',  label:'زيتوني',        main:'#5A6B33', dark:'#3E4A22', soft:'#A9B98A'},
-  {id:'clay',   label:'برتقالي محروق', main:'#9A5427', dark:'#6F3B1A', soft:'#D2A484'},
-  {id:'violet', label:'بنفسجي',        main:'#5B4180', dark:'#3E2C58', soft:'#B0A0CE'},
-  {id:'teal',   label:'تركوازي',       main:'#1F6B70', dark:'#144A4E', soft:'#8CBFC1'},
-  {id:'bronze', label:'بني ذهبي',      main:'#7A5A2E', dark:'#56401F', soft:'#C9AE83'},
+  {id:'petrol', label:'بترولي',       main:'#2E5C5A', dark:'#1D3E3C', soft:'#8FA998'},
+  {id:'rose',   label:'وردي مغبّر',    main:'#8A5560', dark:'#653C45', soft:'#C6A5AC'},
+  {id:'blue',   label:'أزرق مغبّر',    main:'#47607B', dark:'#2F4155', soft:'#A6B8C9'},
+  {id:'olive',  label:'زيتوني هادئ',  main:'#646C4A', dark:'#454B31', soft:'#B7BDA0'},
+  {id:'clay',   label:'طيني',         main:'#8C6248', dark:'#634433', soft:'#CFAF9B'},
+  {id:'plum',   label:'بنفسجي مغبّر',  main:'#675575', dark:'#483B51', soft:'#B9ACC3'},
+  {id:'sea',    label:'أخضر بحري',    main:'#487068', dark:'#2F4E47', soft:'#A2C0B8'},
+  {id:'sand',   label:'رملي بني',     main:'#7A6748', dark:'#564930', soft:'#C6B79B'},
 ];
+/* Her old ids, so a pillar she coloured before this keeps its colour rather
+   than quietly going blank. */
+const PILLAR_COLOR_ALIASES = {wine:'rose', navy:'blue', violet:'plum', teal:'sea', bronze:'sand'};
 function pillarColorOf(p){
   if(!p || !p.color) return null;
-  return PILLAR_COLORS.find(c=>c.id===p.color) || null;
+  const id = PILLAR_COLOR_ALIASES[p.color] || p.color;
+  return PILLAR_COLORS.find(c=>c.id===id) || null;
 }
 /* the colour a goal wears — its pillar's */
 function goalColor(g){ return pillarColorOf(g? pillarOf(goalPillarId(g)) : null); }
@@ -4201,106 +4177,22 @@ function applyFocusTint(){
   root.style.setProperty('--petrol-dark', c.dark);
   root.style.setProperty('--sage', c.soft);
 }
-/* ---- which goal the app is wearing ----
-   Three states, and the default is the one she asked for: the colour follows
-   her work rather than waiting to be told. 'auto' takes the last goal she
-   actually did something on, 'manual' pins one until she says otherwise, 'off'
-   leaves the app its own colour.
+/* One focus, not two.
 
-   Manual has to exist beside auto rather than replacing it: pinning a goal is
-   how she says "stay here even while I clear other things off my plate", and
-   an auto-only design would keep pulling the app away from it. */
-function focusMode(){
-  if(!state.focusMode){
-    /* an existing pinned goal from before this became automatic stays pinned */
-    state.focusMode = state.focusGoalId? 'manual' : 'auto';
-  }
-  return state.focusMode;
-}
+   I had built a second one: a 🎯 mark in the top bar with its own picker, its
+   own modes and its own memory — sitting next to جلسة تركيز, which already
+   asks the same question and answers it usefully by filling her time with the
+   work. Two controls for one idea is worse than either alone, because now she
+   has to know which of them is the real one.
+
+   The session is the real one. Its goal is what she is focused on, and that is
+   what the app wears. Choosing it is one act with one result. */
 function focusGoal(){
   if(!state || !state.goals) return null;
-  const mode = focusMode();
-  if(mode === 'off') return null;
-  const id = (mode === 'manual')? state.focusGoalId : state.autoGoalId;
+  const id = state.session && state.session.goalId;
   return id? allGoals().find(g=>g.id===id) || null : null;
 }
-/* Called by the few acts that really mean "I am working on this": ticking a
-   task off, saving one, opening a new one under a goal, and naming the goal of
-   a focus session. Not by every render and not by merely looking at a page —
-   a colour that changes while she scrolls is a flicker, not a signal. */
-function markWorkedOn(goalId){
-  if(!goalId || goalId === state.autoGoalId) return false;
-  state.autoGoalId = goalId;
-  return focusMode() === 'auto';   /* did this actually change what she sees */
-}
-function markWorkedOnTask(t){ return t? markWorkedOn(t.goalId || null) : false; }
-
-/* the swatch in the top bar: what the app is currently wearing, and the way in
-   and out of it. A goal whose pillar has no colour yet is still focusable — the
-   app just stays its own colour, and the picker says so. */
-function renderFocusMark(){
-  const g = focusGoal();
-  const c = goalColor(g);
-  return `<button type="button" class="focus-mark ${g?'on':''}" id="focusMark"
-    title="${g? 'التركيز على '+escapeHtml(g.title) : 'اختاري تركيزك'}"
-    aria-label="${g? 'التركيز على '+escapeHtml(g.title) : 'اختاري تركيزك'}"
-    style="${c? 'background:'+c.main+';border-color:'+c.main+';' : ''}">${g? '' : '🎯'}</button>`;
-}
-function renderFocusPicker(){
-  if(!focusPickerOpen) return '';
-  const rows = state.goalPillars.map(p=>{
-    const gs = state.goals.filter(g=> goalPillarId(g)===p.id);
-    if(!gs.length) return '';
-    const c = pillarColorOf(p);
-    return `
-    <p class="fp-pillar">${p.icon} ${escapeHtml(p.label)}
-      ${c? `<span class="fp-dot" style="background:${c.main};"></span>`
-          : `<span class="fp-nocolor">بلا لون — حدّديه من الإعدادات</span>`}</p>
-    ${gs.map(g=>`
-      <button type="button" class="fp-goal ${(focusMode()==='manual' && state.focusGoalId===g.id)?'on':''}" data-focus-goal="${g.id}">
-        <span class="fp-dot" style="background:${c? c.main : 'var(--line)'};"></span>
-        <span class="grow">${escapeHtml(g.title)}</span>
-        ${(focusMode()==='auto' && state.autoGoalId===g.id)? `<span class="fp-now">الآن</span>`:''}
-      </button>`).join('')}`;
-  }).join('');
-  const auto = focusMode()==='auto';
-  const now = auto? allGoals().find(g=>g.id===state.autoGoalId) : null;
-  return `
-  <div class="card focus-picker">
-    <div class="card-title"><h3>🎯 وش تركيزك الآن؟</h3>
-      <button class="icon-btn" id="focusClose">✕</button>
-    </div>
-    ${helpNote('focusTint','التطبيق يلبس لون البند اللي تحته الهدف، فتعرفين بنظرة وش أنتِ فيه. الألوان تنحدد لبنود الهوية من الإعدادات.')}
-    ${/* the automatic mode first: it is the one that needs no upkeep */''}
-    <button type="button" class="fp-goal ${auto?'on':''}" id="focusAuto">
-      <span class="fp-dot" style="background:${goalColor(now)? goalColor(now).main : 'var(--line)'};"></span>
-      <span class="grow">🔄 تلقائي — يتبع آخر هدف اشتغلتِ عليه${now? `<br><span class="fp-sub">الآن: ${escapeHtml(now.title)}</span>`:''}</span>
-    </button>
-    <p class="fp-hint">أو ثبّتي هدفًا فيبقى لونه مهما اشتغلتِ على غيره:</p>
-    ${rows || `<div class="empty tight">ما عندك أهداف تحت بنود بعد</div>`}
-    ${focusMode()!=='off'? `<button class="btn ghost btn-block" style="margin-top:10px;" id="focusOff">↩︎ بلا تركيز — رجّعي ألوان دفتري</button>`:''}
-  </div>`;
-}
 function attachFocusEvents(){
-  const mark = document.getElementById('focusMark');
-  if(mark) mark.onclick = ()=>{ focusPickerOpen = !focusPickerOpen; render(); };
-  const close = document.getElementById('focusClose');
-  if(close) close.onclick = ()=>{ focusPickerOpen = false; render(); };
-  const autoBtn = document.getElementById('focusAuto');
-  if(autoBtn) autoBtn.onclick = ()=>{
-    state.focusMode = 'auto'; focusPickerOpen = false; saveState(); render();
-  };
-  /* pinning one: tapping the pinned goal again lets go of it and hands the
-     colour back to her work */
-  document.querySelectorAll('[data-focus-goal]').forEach(b=> b.onclick=()=>{
-    const id = b.dataset.focusGoal;
-    if(focusMode()==='manual' && state.focusGoalId===id){ state.focusMode='auto'; }
-    else { state.focusMode='manual'; state.focusGoalId = id; }
-    focusPickerOpen = false;
-    saveState(); render();
-  });
-  const off = document.getElementById('focusOff');
-  if(off) off.onclick = ()=>{ state.focusMode = 'off'; focusPickerOpen = false; saveState(); render(); };
   document.querySelectorAll('[data-pillar-color]').forEach(b=> b.onclick=()=>{
     const p = pillarOf(b.dataset.pillarColor);
     if(!p) return;
@@ -4317,7 +4209,6 @@ function renderTopbar(){
   <div class="topbar">
     <div class="brand"><div class="seal">د</div><h1 style="font-size:var(--t5);">دفتري للأمان المالي</h1></div>
     <div style="display:flex;align-items:center;gap:8px;">
-      ${renderFocusMark()}
       <button type="button" class="icon-btn" id="openSettings" title="نسخ البيانات بين الأجهزة" style="font-size:18px;">⚙️</button>
       <div class="size-ctrl">
         <button type="button" id="sizeDown" title="تصغير الخط">A-</button>
@@ -4846,7 +4737,7 @@ function renderGoalPillarManager(){
     <summary><h3>🧱 بنود الهوية الرئيسية <span class="chev">▾</span></h3></summary>
     <div class="details-body">
       ${helpNote('pillars','<b>العمود الفقري للتطبيق.</b> رؤيتك تتفرّع لبنود، وكل بند تحته أهدافه، وكل هدف تحته مهامه — بهالترتيب تظهر بصفحتَي الأساس والمهام. سميها بما يمثلك (مثل «أنا سعيدة»، «أنا ثرية»).')}
-      ${helpNote('pillarColor','اللون اللي تختارينه للبند يلبسه التطبيق كله لما تختارين التركيز على هدف تحته — من 🎯 بأعلى الصفحة.')}
+      ${helpNote('pillarColor','اللون اللي تختارينه للبند يلبسه التطبيق كله لما تكون «جلسة تركيز» على هدف تحته، ويظهر شريطًا جنب كل هدف بصفحة الأساس.')}
       ${state.goalPillars.map(p=>`
         <div class="tcat-row" data-pillar-row="${p.id}">
           <input type="text" data-pillar-icon="${p.id}" value="${escapeHtml(p.icon)}" placeholder="✨" style="width:52px;text-align:center;flex-shrink:0;"/>
@@ -9044,7 +8935,7 @@ function renderFocusSession(){
         <span class="grow">⏱️ جلسة تركيز</span><span class="chev ${closed?'':'open'}">▾</span>
       </button>
       ${closed? '' : `
-      ${helpNote('focusSetup','تحددين الهدف والوقت مرة وحدة، وبعدها كل يوم يعبّي لك الوقت من مهام هذا الهدف حسب أولوياتك.')}
+      ${helpNote('focusSetup','تحددين الهدف والوقت مرة وحدة، وبعدها كل يوم يعبّي لك الوقت من مهام هذا الهدف حسب أولوياتك — والتطبيق يلبس لون بند هذا الهدف، فتعرفين بنظرة وين أنتِ.')}
       <div class="field" style="margin-top:8px;">
         <label>الجلسة لأي هدف؟</label>
         <select id="fsGoalSel">
@@ -9110,9 +9001,6 @@ function attachFocusSessionEvents(){
   if(goalSel) goalSel.onchange = ()=>{
     sessionCfg().goalId = goalSel.value || null;
     delete getLog(todayStr()).sessionIds;   /* a new goal means a new fill */
-    /* naming a session's goal is the most deliberate way she has of saying
-       what she is about to work on */
-    markWorkedOn(sessionCfg().goalId);
     saveState(); render();
   };
   const minsSel = document.getElementById('fsMinsSel');
@@ -9485,8 +9373,6 @@ function attachTaskDraftEvents(){
         recurType, recur, recurMonthDay, recurStart, recurEnd, lastDoneDate:null, done:false, createdAt:todayStr()
       });
     }
-    /* writing a task down for a goal is working on it too */
-    markWorkedOn(taskDraft.goalId || null);
     saveState();
     taskDraft = null;
     render();
@@ -9658,9 +9544,6 @@ function attachGlobalEvents(){
        flagged them permanently done. taskDoneToday() only ever reads
        lastDoneDate for a recurring task, so they never hid and never came back. */
     toggleTaskDone(t);
-    /* ticking something off is the plainest statement of what she is working
-       on, so it is what moves the app's colour */
-    if(taskDoneToday(t)) markWorkedOnTask(t);
     saveState();
     render();
   });
@@ -9802,7 +9685,6 @@ function attachGlobalEvents(){
   };
 
   document.querySelectorAll('[data-addtaskfor]').forEach(b=> b.onclick=()=>{
-    markWorkedOn(b.dataset.addtaskfor);
     taskDraft={title:'',goalId:b.dataset.addtaskfor,priority:'متوسطة',period:currentTimeBoxId(),due:'', recur:[]}; taskPane=null; attachError=null; render();
   });
 
