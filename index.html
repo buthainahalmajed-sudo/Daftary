@@ -1682,7 +1682,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 112';
+const APP_BUILD = '2026-08-17 · 113';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -4176,6 +4176,14 @@ function pillarColorOf(p){
 }
 /* the colour a goal wears — its pillar's */
 function goalColor(g){ return pillarColorOf(g? pillarOf(goalPillarId(g)) : null); }
+/* A goal card already carries a 4px rule down its edge; it just always drew it
+   in the app's own colour. Painting it the pillar's turns الأساس into something
+   she can read by colour before she reads a word of it — and it costs no space,
+   which a badge or a dot on every card would. */
+function goalStripe(g){
+  const c = goalColor(g);
+  return c? `style="border-right-color:${c.main};"` : '';
+}
 
 /* Repainting only the three tokens that are decoration: the identity colour, its
    dark twin, and the soft partner. The ground, the rules and the body ink stay
@@ -5541,7 +5549,7 @@ function renderGoalCard(g){
     const fg = state.financialGoal;
     const pct = fg.targetAmount? Math.min(100, Math.round(fg.currentAmount/fg.targetAmount*100)) : 0;
     return `
-    <div class="card goal-card">
+    <div class="card goal-card" ${goalStripe(g)}>
       <button type="button" class="goal-head" data-goto-money="1">
         <span class="grow">
           <span class="gh-title">💰 ${escapeHtml(fg.title)}</span>
@@ -5578,7 +5586,7 @@ function renderGoalCard(g){
   if(state.collapsed[key] === undefined) state.collapsed[key] = true;
   const closed = !!state.collapsed[key];
   return `
-  <div class="card goal-card">
+  <div class="card goal-card" ${goalStripe(g)}>
     <button type="button" class="goal-head" data-toggle-collapse="${key}">
       <span class="chev ${closed?'':'open'}">▾</span>
       <span class="grow">
@@ -5624,17 +5632,19 @@ function renderGoals(){
     if(pid && pillarOf(pid)) (byPillar[pid] = byPillar[pid]||[]).push(g);
     else noPillar.push(g);
   });
-  const goalGroupHtml = (key, icon, label, goals)=>{
+  /* the pillar's own colour on its heading, so the stripe down each goal card
+     under it reads as belonging to it rather than as decoration */
+  const goalGroupHtml = (key, icon, label, goals, color)=>{
     if(!goals || !goals.length) return '';
     const collapsed = state.collapsed[key];
     return `
     <div style="margin-bottom:14px;">
-      <h4 style="cursor:pointer;font-size:var(--t4);color:var(--petrol-dark);margin-bottom:8px;display:flex;align-items:center;gap:7px;" data-toggle-collapse="${key}"><span style="flex:1;">${icon} ${escapeHtml(label)} <span class="muted" style="font-size:var(--t2);font-weight:400;">(${goals.length})</span></span><span class="chev ${collapsed?"":"open"}">▾</span></h4>
+      <h4 style="cursor:pointer;font-size:var(--t4);color:var(--petrol-dark);margin-bottom:8px;display:flex;align-items:center;gap:7px;" data-toggle-collapse="${key}"><span style="flex:1;display:flex;align-items:center;gap:7px;">${color? `<span class="fp-dot" style="background:${color.main};"></span>`:''}<span>${icon} ${escapeHtml(label)}</span> <span class="muted" style="font-size:var(--t2);font-weight:400;">(${goals.length})</span></span><span class="chev ${collapsed?"":"open"}">▾</span></h4>
       ${collapsed? '' : goals.map(renderGoalCard).join('')}
     </div>`;
   };
-  const groupedGoalsHtml = state.goalPillars.map(p=> goalGroupHtml('pillarGroup:'+p.id, p.icon, p.label, byPillar[p.id])).join('')
-    + goalGroupHtml('pillarGroup:__none__', '🗂️', 'بدون بند', noPillar);
+  const groupedGoalsHtml = state.goalPillars.map(p=> goalGroupHtml('pillarGroup:'+p.id, p.icon, p.label, byPillar[p.id], pillarColorOf(p))).join('')
+    + goalGroupHtml('pillarGroup:__none__', '🗂️', 'بدون بند', noPillar, null);
   return `
   <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:4px;">الأساس</h2>
   ${helpNote('goalsChain','رؤيتك ← <b>بنود هويتك</b> ← أهداف كل بند ← مهام كل هدف. البند هو مَن تكونين، والهدف خطوتك نحوه، والمهام شغلك اليومي عليه — نفس التسلسل بصفحة المهام.')}
