@@ -1399,11 +1399,11 @@ const DEFAULT_MOOD_TITLE =
    so a ritual she doesn't keep still cost her a scroll past it every morning. */
 const HOME_CARDS = [
   {id:'progress',    label:'تقدّم اليوم والأسبوع', hint:'عدّاد المنجز من المخطط'},
+  {id:'questions',   label:'التساؤلات',            hint:'أسئلتك اليومية'},
   {id:'voice',       label:'إضافة سريعة بالصوت',   hint:'تسجيل مهمة بالكلام'},
 
   {id:'habits',      label:'العادات',              hint:'عادات هذا اليوم'},
-  {id:'questions',   label:'التساؤلات',            hint:'أسئلتك اليومية'},
-  {id:'mood',        label:'شعور اليوم',           hint:'كيف تبين تحسين'},
+  {id:'mood',       label:'شعور اليوم',           hint:'كيف تبين تحسين'},
   {id:'schedule',    label:'يومك',                 hint:'أهم ٣ ومهام كل فترة'},
   {id:'session',     label:'جلسة تركيز',           hint:'وش يدخل بوقتك المخصص'},
   {id:'suggestions', label:'مقترحات ذكية',         hint:'اقتراحات مبنية على أهدافك'},
@@ -4354,19 +4354,21 @@ function renderHome(){
 
   ${isToday? '' : `${helpNote('auto12','تقدرين تراجعين أو تخططين لهذا اليوم من هنا')}`}
 
+  ${/* the day's questions open the page, straight under the greeting, rather
+        than sitting at the bottom with the other reflection cards */''}
+  ${homeCardOn('questions')? renderQuestionsCard(log) : ''}
 
   ${isToday && homeCardOn('voice')? renderVoiceQuickAddCard() : ''}
   ${homeCardOn('schedule')? renderScheduleCard(selectedDate) : ''}
   ${isToday && homeCardOn('session')? renderFocusSession() : ''}
   ${homeCardOn('habits')? renderHabitsCard(tpl, log, dow) : ''}
 
-  ${/* three cards that all ask her to reflect used to stack as three identical
-        collapsed bars. They keep their own titles, folds and on/off switches —
-        they just share one frame now instead of three. */''}
-  ${(homeCardOn('questions') || homeCardOn('mood') || homeCardOn('suggestions'))? `
+  ${/* the mood and suggestions cards used to stack as identical collapsed bars.
+        They keep their own titles, folds and on/off switches — they just share
+        one frame now instead of separate ones. (The questions card left this
+        group and opens the page instead.) */''}
+  ${(homeCardOn('mood') || homeCardOn('suggestions'))? `
   <div class="reflect-group">
-  ${homeCardOn('questions')? renderQuestionsCard(log) : ''}
-
   ${!homeCardOn('mood')? '' : `
   <div class="card">
     <div class="card-title"><h3 style="cursor:pointer;flex:1;display:flex;align-items:center;gap:7px;" data-toggle-collapse="mood"><span style="flex:1;">${escapeHtml(state.moodTitle || DEFAULT_MOOD_TITLE)}</span><span class="chev ${state.collapsed.mood?"":"open"}">▾</span></h3></div>
