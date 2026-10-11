@@ -516,6 +516,20 @@ input[type=date], input[type=time]{
    fills the whole day view and buries everything under it. Folded to a few
    lines with the rest one tap away. */
 .note-clamp{position:relative;}
+/* A pasted note can arrive at any length, and the one size that suits a
+   three-line reminder is not the one that suits a page of them. Only the note
+   she is reading changes size — the editor stays at 16px, because iOS zooms the
+   whole page whenever a focused field is smaller than that. */
+.note-clamp .note-read{font-size:var(--note-size, 16px);}
+.note-foot{display:flex;align-items:center;gap:8px;}
+.note-foot .note-more{flex:1;text-align:right;}
+.note-size{display:inline-flex;gap:4px;flex-shrink:0;}
+.note-size button{
+  min-width:30px;padding:3px 6px;border-radius:7px;
+  border:1px solid var(--line);background:var(--parchment);
+  font-family:inherit;font-size:var(--t1);font-weight:700;color:var(--petrol-dark);cursor:pointer;
+}
+.note-size button:active{background:var(--sage);color:#fff;}
 .note-clamp.short .rte-editable{max-height:132px;overflow:hidden;}
 .note-clamp.short::after{
   content:'';position:absolute;inset-inline:0;bottom:26px;height:44px;pointer-events:none;
@@ -1655,7 +1669,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 117';
+const APP_BUILD = '2026-08-17 · 118';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -2379,7 +2393,7 @@ const SYNCED_LISTS = ['tasks','goals','habits','journal','projectLedger','goalPi
                       'timeBoxes','dailyQuestions','moods','inbox',
                       'socialIdeas','socialTopics'];
 const SYNCED_SINGLES = ['financialGoal','safety','sharedIncome','expenseDiag','lifeVision',
-                        'dayTemplates','homeCards','actionTypes','session',
+                        'dayTemplates','homeCards','actionTypes','session','noteSize',
                         'questionsTitle','moodTitle','name','projectLedgerClaimed'];
 let prevShape = null;   /* "list|id" -> the item as it was at the previous save */
 function itemSig(x){
@@ -2817,6 +2831,7 @@ function render(){
   /* before anything is drawn, so the page is never painted in one colour and
      then repainted in another while she watches */
   applyFocusTint();
+  applyNoteSize();
   syncStageTasks();
   if(settingsOpen){ app.innerHTML = renderSettings(); attachSettingsEvents(); return; }
   if(!state.onboarded){ app.innerHTML = renderOnboarding(); attachOnboardingEvents(); return; }
@@ -4178,6 +4193,15 @@ function mixHex(base, tint, amount){
   return '#' + m(r1,r2) + m(g1,g2) + m(b1,b2);
 }
 const GROUND = {parchment:'#F6F1E7', paper:'#FFFDF8', line:'#DDD2BA'};
+/* how big she wants a note's text, between a comfortable floor and ceiling */
+const NOTE_SIZE_MIN = 12, NOTE_SIZE_MAX = 26, NOTE_SIZE_DEFAULT = 16;
+function noteSize(){
+  const n = parseInt(state.noteSize, 10);
+  return (n >= NOTE_SIZE_MIN && n <= NOTE_SIZE_MAX)? n : NOTE_SIZE_DEFAULT;
+}
+function applyNoteSize(){
+  document.documentElement.style.setProperty('--note-size', noteSize()+'px');
+}
 function applyFocusTint(){
   const root = document.documentElement;
   const vars = ['--petrol','--petrol-dark','--sage','--gold',
@@ -4216,6 +4240,16 @@ function focusGoal(){
   if(!state || !state.goals) return null;
   const id = state.session && state.session.goalId;
   return id? allGoals().find(g=>g.id===id) || null : null;
+}
+function attachNoteSizeEvents(){
+  document.querySelectorAll('[data-note-size]').forEach(b=> b.onclick=()=>{
+    const step = parseInt(b.dataset.noteSize,10) * 2;
+    state.noteSize = Math.max(NOTE_SIZE_MIN, Math.min(NOTE_SIZE_MAX, noteSize() + step));
+    /* applied straight to the page, not through render: she is looking at the
+       note while she taps, and a redraw would scroll it out from under her */
+    applyNoteSize();
+    saveState();
+  });
 }
 function attachFocusEvents(){
   document.querySelectorAll('[data-pillar-color]').forEach(b=> b.onclick=()=>{
@@ -4590,8 +4624,17 @@ function taskRowHtml(t, opts){
         if(state.collapsed[key] === undefined) state.collapsed[key] = true;
         const short = !!state.collapsed[key];
         return `<div class="note-clamp ${short?'short':''}" style="width:100%;margin-top:6px;">
-          <div class="rte-editable" style="min-height:auto;border-style:dashed;width:100%;">${t.longNote}</div>
-          <button type="button" class="note-more" data-toggle-collapse="${key}">${short? '▾ الملاحظة كاملة' : '▴ اختصريها'}</button>
+          <div class="rte-editable note-read" style="min-height:auto;border-style:dashed;width:100%;">${t.longNote}</div>
+          ${/* the size control sits here, next to the text it changes, rather
+                than in a settings page two taps away from the thing she is
+                squinting at */''}
+          <div class="note-foot">
+            <button type="button" class="note-more" data-toggle-collapse="${key}">${short? '▾ الملاحظة كاملة' : '▴ اختصريها'}</button>
+            <span class="note-size">
+              <button type="button" data-note-size="-1" title="تصغير خط الملاحظة" aria-label="تصغير خط الملاحظة">A-</button>
+              <button type="button" data-note-size="1" title="تكبير خط الملاحظة" aria-label="تكبير خط الملاحظة">A+</button>
+            </span>
+          </div>
         </div>`;
       })():''}
       ${(t.attachments&&t.attachments.length)? `<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;width:100%;">${t.attachments.map(a=>`<a href="${a.dataUrl}" download="${escapeHtml(a.name)}" style="font-size:var(--t3);color:var(--petrol-dark);text-decoration:none;">📄 ${escapeHtml(a.name)}</a>`).join('')}</div>`:''}
@@ -9772,6 +9815,7 @@ function attachGlobalEvents(){
   attachSocialEvents();
   attachFocusSessionEvents();
   attachFocusEvents();
+  attachNoteSizeEvents();
 
   const visionStart = document.getElementById('visionStart');
   if(visionStart) visionStart.onclick = ()=>{ visionWizard = {step:'questions', answers:[]}; render(); };
