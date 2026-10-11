@@ -511,7 +511,13 @@ input[type=date], input[type=time]{
 .rte-toolbar button{width:34px;height:34px;border-radius:8px;border:1.5px solid var(--line);background:var(--parchment);color:var(--ink);font-size:14px;}
 .rte-toolbar button:active{background:var(--sage);color:#fff;}
 .rte-toolbar button.rte-italic{font-style:italic;}
-.rte-editable{min-height:120px;border:1.5px solid var(--line);border-radius:10px;padding:12px 13px;background:var(--parchment);font-size:16px;color:var(--ink);line-height:1.7;}
+/* the size pair sits apart from the formatting marks, at the far end of the bar */
+.rte-toolbar .rte-gap{flex:1;}
+.rte-toolbar button[data-note-size]{width:auto;min-width:36px;padding:0 8px;font-weight:700;color:var(--petrol-dark);}
+/* the box she types in follows the same size as the notes she reads, but never
+   drops under 16px: Safari zooms the whole page when a focused field is smaller,
+   and she'd be pinching her way back on every note. */
+.rte-editable{min-height:120px;border:1.5px solid var(--line);border-radius:10px;padding:12px 13px;background:var(--parchment);font-size:max(16px, var(--note-size, 16px));color:var(--ink);line-height:1.7;}
 /* A note pasted from a web page can run to hundreds of lines — one task then
    fills the whole day view and buries everything under it. Folded to a few
    lines with the rest one tap away. */
@@ -1669,7 +1675,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 118';
+const APP_BUILD = '2026-08-17 · 119';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -4242,13 +4248,18 @@ function focusGoal(){
   return id? allGoals().find(g=>g.id===id) || null : null;
 }
 function attachNoteSizeEvents(){
-  document.querySelectorAll('[data-note-size]').forEach(b=> b.onclick=()=>{
+  document.querySelectorAll('[data-note-size]').forEach(b=>{
+  /* she taps these while writing: without this the button takes the focus and
+     the caret is gone, so she'd have to find her place again after every tap */
+  b.onmousedown = e=> e.preventDefault();
+  b.onclick=()=>{
     const step = parseInt(b.dataset.noteSize,10) * 2;
     state.noteSize = Math.max(NOTE_SIZE_MIN, Math.min(NOTE_SIZE_MAX, noteSize() + step));
     /* applied straight to the page, not through render: she is looking at the
        note while she taps, and a redraw would scroll it out from under her */
     applyNoteSize();
     saveState();
+  };
   });
 }
 function attachFocusEvents(){
@@ -9255,6 +9266,9 @@ function renderTaskDraft(){
             <button type="button" data-rte-cmd="italic" class="rte-italic" title="مائل"><i>I</i></button>
             <button type="button" data-rte-cmd="insertOrderedList" title="ترقيم">1.</button>
             <button type="button" data-rte-cmd="insertUnorderedList" title="تنقيط">•</button>
+            <span class="rte-gap"></span>
+            <button type="button" data-note-size="-1" title="تصغير خط الملاحظة" aria-label="تصغير خط الملاحظة">A-</button>
+            <button type="button" data-note-size="1" title="تكبير خط الملاحظة" aria-label="تكبير خط الملاحظة">A+</button>
           </div>
           <div id="tdLongNote" class="rte-editable" contenteditable="true">${d.longNote||''}</div>
         </div>`:''}
@@ -9352,6 +9366,7 @@ function attachTaskDraftEvents(){
     render();
   };
   attachDowPickers();
+  attachNoteSizeEvents();   /* A- / A+ live in the note toolbar too */
   document.querySelectorAll('[data-rte-cmd]').forEach(b=> b.onclick=()=>{
     document.getElementById('tdLongNote').focus();
     document.execCommand(b.dataset.rteCmd, false, null);
