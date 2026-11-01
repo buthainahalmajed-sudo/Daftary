@@ -2245,10 +2245,14 @@ async function loadState(){
      follows would write that stripped copy over the files held here. Reading
      local first also means her data is on screen before the network answers. */
   let fromIdb = null, fromLocal = null;
+  /* true only when both reads answered (empty is fine). A read that threw may
+     have hidden real data, and a one-time batch added on top of that would
+     land on a device that just doesn't know what it already has. */
+  let loadOk = true;
   try{ const raw = await idbGet(); if(raw) fromIdb = JSON.parse(raw); }
-  catch(e){ console.error('تعذر القراءة من IndexedDB', e); }
+  catch(e){ loadOk = false; console.error('تعذر القراءة من IndexedDB', e); }
   try{ const raw = localStorage.getItem('plannerState'); if(raw) fromLocal = JSON.parse(raw); }
-  catch(e){ console.error('تعذر القراءة من التخزين المحلي', e); }
+  catch(e){ loadOk = false; console.error('تعذر القراءة من التخزين المحلي', e); }
 
   /* prefer IndexedDB, except where it holds nothing and localStorage does. Never
      let an attachment-stripped fallback copy overwrite a full one. */
@@ -2268,13 +2272,17 @@ async function loadState(){
   storageReady = true;
   selectedDate = todayStr();
   weekRef = todayStr();
+  if(!cloud.linked) await seedNov2026w1(loadOk);
   render();
 
   /* then the cloud — unless this device is still carrying something it never
      managed to upload, in which case that goes up first and nothing comes down */
   if(cloud.linked){
-    if(state._pendingSync) await cloudPush();
-    else await cloudPull();
+    const reached = state._pendingSync? await cloudPush() : await cloudPull();
+    /* a linked device seeds only once the cloud has been folded in, so the
+       batch another device already added (and anything she deleted from it)
+       is here first — and a failed sync waits for the next start */
+    await seedNov2026w1(loadOk && reached);
     render();
   }
   startAutoCloudSync();
@@ -2282,6 +2290,52 @@ async function loadState(){
      comes back to it, which is when a reload costs her nothing */
   checkAppUpdate();
   document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') checkAppUpdate(); });
+}
+/* ---- one-time batch: first week of November 2026 ----
+   Added once and never again. The ids are fixed rather than random so two
+   devices that both seed it end up holding the same items, which the merge
+   folds into one; state.seeds itself does not travel. Anything she deleted
+   (its tombstone) is not brought back. */
+async function seedNov2026w1(loadOk){
+  if(!loadOk) return;
+  if(!state.seeds || typeof state.seeds!=='object') state.seeds = {};
+  if(state.seeds.nov2026w1) return;
+  const tombs = state.tombstones || {};
+  if(!Array.isArray(state.habits)) state.habits = [];
+  const ALL = [0,1,2,3,4,5,6];
+  [
+    ['nov26w1-h1', 'الصلاة أول الوقت', ALL],
+    ['nov26w1-h2', 'تأمل 20 دقيقة', ALL],
+    ['nov26w1-h3', 'كلوديا: درس + تطبيق 20 دقيقة', ALL],
+    ['nov26w1-h4', 'رسم 15 دقيقة', [0,2,4,6]],   /* الأحد، الثلاثاء، الخميس، السبت */
+  ].forEach(([id, label, days])=>{
+    if(tombs['habits|'+id] || state.habits.some(h=>h.label===label || h.id===id)) return;
+    state.habits.push({id, label, link:null, days:days.slice()});
+  });
+  [
+    ['إرسال ملف الكتاب لكلود للتدقيق', 'business', 'عالية', 'مساء', '2026-11-01'],
+    ['تسجيل أرقام الويبينار: المسجلات، الحاضرات، مين وصلت للعرض', 'business', 'عالية', 'مساء', '2026-11-01'],
+    ['مراجعة رسائل المتابعة بعد الويبينار مع كلود', 'business', 'عالية', 'مساء', '2026-11-02'],
+    ['نشر ريل يدعو للويبينار', 'business', 'متوسطة', 'مساء', '2026-11-02'],
+    ['فتح حساب أمازون KDP وحساب سماوي', 'business', 'متوسطة', 'مساء', '2026-11-03'],
+    ['تحديد مكان الدجاج والغنم في المزرعة', 'project', 'منخفضة', 'مساء', '2026-11-03'],
+    ['ربط نهاية الفوضى المالية بعرض الويبينار', 'business', 'عالية', 'مساء', '2026-11-04'],
+    ['نشر منشور قيمة مالية', 'business', 'متوسطة', 'مساء', '2026-11-04'],
+    ['مراجعة أرقام الويبينار بعد 5 أيام مع كلود', 'business', 'عالية', 'مساء', '2026-11-05'],
+    ['مراجعة تدقيق الكتاب واعتماده', 'business', 'عالية', 'صباح', '2026-11-06'],
+    ['السؤال عن أسعار الدجاج والغنم والعلف', 'project', 'منخفضة', 'ظهر', '2026-11-06'],
+    ['نشر ريل', 'business', 'متوسطة', 'ظهر', '2026-11-06'],
+    ['وزن نفسي وتسجيل الرقم', 'personal', 'متوسطة', 'صباح', '2026-11-07'],
+    ['مراجعة الأسبوع وطلب مهام الأسبوع الثاني', 'personal', 'عالية', 'صباح', '2026-11-07'],
+  ].forEach(([title, category, priority, period, due], i)=>{
+    const id = 'nov26w1-t'+(i+1);
+    if(tombs['tasks|'+id] || state.tasks.some(t=>t.id===id)) return;
+    state.tasks.push({id, title, goalId:null, category, priority,
+      period: state.timeBoxes.some(b=>b.id===period)? period : null,
+      due, link:null, done:false, createdAt:todayStr()});
+  });
+  state.seeds.nov2026w1 = true;
+  await saveState();
 }
 /* ---- local store ----
    The state lives in IndexedDB, not localStorage. Attachments are held inside the
