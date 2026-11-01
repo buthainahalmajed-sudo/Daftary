@@ -1954,6 +1954,20 @@ function saveCloudCfg(){
 function ghHeaders(extra){
   return Object.assign({ 'Authorization':'token '+cloud.token, 'Accept':'application/vnd.github+json' }, extra||{});
 }
+/* "كود 403" alone told her nothing — a token that lost its write access and a
+   GitHub that is just asking her to slow down look identical. GitHub says which
+   it is in the reply, so that goes on the error, with what to do about it. */
+async function ghError(prefix, res){
+  let said = '';
+  try{ said = ((await res.json()) || {}).message || ''; }catch(e){}
+  const limited = res.status===429 || /rate limit|abuse/i.test(said) || res.headers.get('x-ratelimit-remaining')==='0';
+  let hint = '';
+  if(limited) hint = 'GitHub موقّف الكتابة مؤقتاً لكثرة الطلبات — يرجع لحاله بعد شوي.';
+  else if(res.status===401) hint = 'التوكن انتهى أو انحذف — سوّي توكن جديد بصلاحية gist.';
+  else if(res.status===403) hint = 'التوكن ما عنده صلاحية الكتابة على الـGist — سوّي توكن جديد بصلاحية gist.';
+  else if(res.status===404) hint = 'ما لقيت الـGist بهذا التوكن — تأكدي إن الـGist والتوكن لنفس الحساب.';
+  return new Error(prefix+' (كود '+res.status+')'+(hint? ' — '+hint : '')+(said? ' [GitHub: '+said+']' : ''));
+}
 /* A pull no longer replaces anything. It folds the cloud copy into this one, so
    there is nothing left for the old unsent-work guard to protect: work this
    device has not uploaded yet simply survives the merge. `replace` is kept for
@@ -1966,7 +1980,7 @@ async function cloudPull(opts){
   cloudStatus='syncing'; cloudStatusMsg='';
   try{
     const res = await fetch('https://api.github.com/gists/'+cloud.gistId, { headers: ghHeaders() });
-    if(!res.ok) throw new Error('فشل الاتصال بالسحاب (كود '+res.status+')');
+    if(!res.ok) throw await ghError('فشل الاتصال بالسحاب', res);
     const data = await res.json();
     const file = data.files && data.files[CLOUD_FILENAME];
     if(!file) throw new Error('ما لقيت ملف البيانات داخل الـ Gist، تأكدي من اسم الملف.');
@@ -2009,13 +2023,13 @@ async function cloudPull(opts){
    something it shouldn't have. */
 async function fetchGistRevisions(){
   const res = await fetch('https://api.github.com/gists/'+cloud.gistId, { headers: ghHeaders() });
-  if(!res.ok) throw new Error('ما قدرت أجيب النسخ السابقة (كود '+res.status+')');
+  if(!res.ok) throw await ghError('ما قدرت أجيب النسخ السابقة', res);
   const data = await res.json();
   return (data.history || []).slice(0, 30);
 }
 async function fetchRevisionState(version){
   const res = await fetch('https://api.github.com/gists/'+cloud.gistId+'/'+version, { headers: ghHeaders() });
-  if(!res.ok) throw new Error('ما قدرت أفتح هذي النسخة (كود '+res.status+')');
+  if(!res.ok) throw await ghError('ما قدرت أفتح هذي النسخة', res);
   const data = await res.json();
   const file = data.files && data.files[CLOUD_FILENAME];
   if(!file) throw new Error('ما فيه ملف بيانات داخل هذي النسخة.');
@@ -2154,7 +2168,7 @@ async function cloudPush(){
          through to the upload, so a rate-limited or failed read meant the very
          next PATCH went over the cloud unseen. The edit stays here, marked
          unsent, and the retry takes it up. */
-      if(!head.ok) throw new Error('ما قدرت أقرأ نسخة السحاب قبل الرفع (كود '+head.status+')');
+      if(!head.ok) throw await ghError('ما قدرت أقرأ نسخة السحاب قبل الرفع', head);
       const info = await head.json();
       const remote = (info.history && info.history[0] && info.history[0].version) || null;
       if(remote && remote !== cloudBaseVersion){
@@ -2181,7 +2195,7 @@ async function cloudPush(){
          already gets; the files stay on the device that holds them. */
       body: JSON.stringify({ files:{ [CLOUD_FILENAME]:{ content: JSON.stringify(stateWithoutAttachments()) } } })
     });
-    if(!res.ok) throw new Error('فشل الرفع للسحاب (كود '+res.status+')');
+    if(!res.ok) throw await ghError('فشل الرفع للسحاب', res);
     try{
       const saved = await res.json();
       setCloudBase((saved.history && saved.history[0] && saved.history[0].version) || cloudBaseVersion);
