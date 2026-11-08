@@ -10307,7 +10307,9 @@ function importPlanFromText(text){
       items.push({
         sourceId: uid(),
         text: textPart.replace(/^[-•\d.\)]+\s*/,''),
-        priority: priPart? vqParsePriority(priPart) : 'متوسطة',
+        /* the column holds the value itself ("عالية"), not a phrase from a sentence,
+           so it is read directly before falling back to the phrase matcher */
+        priority: priPart? (/عالي|high/i.test(priPart)? 'عالية' : /منخفض|low/i.test(priPart)? 'منخفضة' : /متوسط|medium/i.test(priPart)? 'متوسطة' : vqParsePriority(priPart)) : 'متوسطة',
         period: perPart? (/صباح/.test(perPart)?'صباح':/ظهر/.test(perPart)?'ظهر':/مساء/.test(perPart)?'مساء':null) : null,
         due: duePart? (/^\d{4}-\d{2}-\d{2}$/.test(duePart)? duePart : /اليوم|today/i.test(duePart)? todayStr() : /بكرة|غدا|غداً|tomorrow/i.test(duePart)? addDays(todayStr(),1) : /أسبوع|اسبوع|week/i.test(duePart)? addDays(todayStr(),6) : null) : null,
         note: '',
