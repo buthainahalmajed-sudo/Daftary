@@ -1675,7 +1675,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-08-17 · 119';
+const APP_BUILD = '2026-11-10 · 120';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -2287,6 +2287,7 @@ async function loadState(){
   selectedDate = todayStr();
   weekRef = todayStr();
   if(!cloud.linked) await seedNov2026w1(loadOk);
+  consumeImportLink();
   render();
 
   /* then the cloud — unless this device is still carrying something it never
@@ -2305,6 +2306,34 @@ async function loadState(){
   checkAppUpdate();
   document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') checkAppUpdate(); });
 }
+/* A link that carries tasks in: …/#import=<text>
+   Claude (in a project, on claude.ai) writes the link; opening it lands on the
+   tasks page with the review card already filled. Nothing is saved until she
+   approves it there.
+   The text is the same format the paste box reads — one task per line,
+   "نص | تصنيف | أولوية | فترة | موعد" — percent-encoded, with "~~" standing in
+   for a line break so the link stays on one line. The hash is never sent to a
+   server and is cleared from the address bar as soon as it is read. */
+function consumeImportLink(){
+  const m = /^#import=([\s\S]*)$/.exec(location.hash || '');
+  if(!m) return false;
+  let text = m[1];
+  try{ text = decodeURIComponent(text); }
+  catch(e){
+    /* a stray "%" that is not an escape: keep it as a literal rather than lose the lot */
+    try{ text = decodeURIComponent(text.replace(/%(?![0-9a-fA-F]{2})/g,'%25')); }catch(e2){}
+  }
+  try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){}
+  text = text.replace(/~~/g,'\n').trim();
+  if(!text) return false;
+  const items = importPlanFromText(text);
+  if(!items.length) return false;
+  aiPlan = items;
+  view = 'tasks';
+  return true;
+}
+/* the app already open when the link is tapped: no reload happens, only the hash changes */
+window.addEventListener('hashchange', ()=>{ if(storageReady && consumeImportLink()) render(); });
 /* ---- one-time batch: first week of November 2026 ----
    Added once and never again. The ids are fixed rather than random so two
    devices that both seed it end up holding the same items, which the merge
