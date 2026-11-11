@@ -1675,7 +1675,7 @@ function getLog(dateStr){
 /* stamped on every release so she can read, on the device itself, which version
    she is actually running — several rounds today were spent on "is this the new
    code or a cached copy?" with no way to tell from the screen */
-const APP_BUILD = '2026-11-10 · 120';
+const APP_BUILD = '2026-11-11 · 121';
 const CLOUD_FILENAME = 'daftari-data.json';
 let cloud = {token:'', gistId:'', linked:false};
 let cloudStatus = 'idle'; /* idle | syncing | synced | error */
@@ -9032,6 +9032,7 @@ function renderAiPlanReview(){
           <input type="date" data-plan-due="${i}" value="${p.due||''}" style="font-size:var(--t2);padding:4px 6px;border-radius:8px;border:1.5px solid var(--line);background:var(--parchment);color:var(--ink);"/>
           <span class="tag p-${p.priority}">${p.priority}</span>
           ${p.period? `<span class="tag">${p.period}</span>`:''}
+          ${p.link? `<a href="${escapeHtml(p.link)}" target="_blank" rel="noopener" class="tag" style="text-decoration:none;">🔗 رابط</a>`:''}
         </div>
         ${p.note? `<div class="pnote">${escapeHtml(p.note)}</div>`:''}
       </div>
@@ -10203,7 +10204,7 @@ function attachGlobalEvents(){
     accepted.forEach(p=>{
       state.tasks.push({
         id:uid(), title:p.text, goalId:p.goalId||null, category:p.category||null, priority:p.priority||'متوسطة',
-        period:p.period||null, due:p.due||null, done:false, createdAt:todayStr()
+        period:p.period||null, due:p.due||null, link:p.link||null, done:false, createdAt:todayStr()
       });
     });
     aiPlan = null;
@@ -10433,9 +10434,17 @@ function importPlanFromText(text){
   const readPriority = s => s? (/عالي|high/i.test(s)? 'عالية' : /منخفض|low/i.test(s)? 'منخفضة' : /متوسط|medium/i.test(s)? 'متوسطة' : vqParsePriority(s)) : 'متوسطة';
   const readPeriod = s => s? (/صباح/.test(s)?'صباح':/ظهر/.test(s)?'ظهر':/مساء/.test(s)?'مساء':null) : null;
   const readDue = s => s? (/^\d{4}-\d{2}-\d{2}$/.test(s)? s : /اليوم|today/i.test(s)? todayStr() : /بكرة|غدا|غداً|tomorrow/i.test(s)? addDays(todayStr(),1) : /أسبوع|اسبوع|week/i.test(s)? addDays(todayStr(),6) : null) : null;
-  const make = (title, f)=>({
+  /* a helper link travels with the task: a 7th pipe column, or a web address
+     written inside the task text (taken out of the title so it stays readable) */
+  const URL_RE = /(https?:\/\/[^\s|]+)/;
+  const make = (title, f)=>{
+    let link = (f.link||'').trim() || null;
+    const um = URL_RE.exec(title||'');
+    if(um){ if(!link) link = um[1]; title = title.replace(um[1],'').replace(/\s{2,}/g,' ').trim(); }
+    return {
     sourceId: uid(),
     text: title,
+    link,
     category: readCategory(f.cat),
     goalId: readGoal(f.goal),
     priority: readPriority(f.pri),
@@ -10443,7 +10452,7 @@ function importPlanFromText(text){
     due: readDue(f.due),
     note: f.note || '',
     include: true,
-  });
+  }; };
 
   const HEAD = /^(عنوان المهمة|تحت [أإا]ي هدف|الأولوية|الاولوية|موعدها|الفترة|التصنيف|نوع الفعل)\s*[:：]\s*(.*)$/;
   const keyOf = h => h==='عنوان المهمة'? 'title' : /^تحت/.test(h)? 'goal' : /ولوية$/.test(h)? 'pri' : h==='موعدها'? 'due' : h==='الفترة'? 'per' : h==='التصنيف'? 'cat' : 'act';
@@ -10477,9 +10486,9 @@ function importPlanFromText(text){
     if(line.includes('|')){
       /* strict pipe-delimited format, e.g. copy-pasted from a chat reply */
       const parts = line.split('|').map(p=>p.trim());
-      const [textPart, catPart, priPart, perPart, duePart, goalPart] = parts;
+      const [textPart, catPart, priPart, perPart, duePart, goalPart, linkPart] = parts;
       if(!textPart) return;
-      items.push(make(textPart.replace(/^[-•\d.\)]+\s*/,''), {cat:catPart, pri:priPart, per:perPart, due:duePart, goal:goalPart}));
+      items.push(make(textPart.replace(/^[-•\d.\)]+\s*/,''), {cat:catPart, pri:priPart, per:perPart, due:duePart, goal:goalPart, link:linkPart}));
       return;
     }
     /* free-form line or paragraph: split into individual tasks and extract

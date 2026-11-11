@@ -1,0 +1,66 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ستوري الخميس — تجربة</title>
+<style>
+@font-face{font-family:Dubai;src:url(Dubai-Regular.woff2);font-weight:400}
+@font-face{font-family:Dubai;src:url(Dubai-Bold.woff2);font-weight:700}
+body{margin:0;font-family:Dubai,system-ui,sans-serif;background:#FBF7EF;color:#141414}
+main{max-width:460px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:24px;margin:4px 0 2px} .sub{color:#6b6257;font-size:15px;margin:0 0 18px}
+.card{background:#fff;border-radius:18px;padding:16px;margin-bottom:18px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.tag{display:inline-block;background:#F5C842;border-radius:999px;padding:2px 12px;font-size:13px;font-weight:700}
+.tag.auto{background:#E9E3D8}
+h2{font-size:19px;margin:10px 0 8px}
+img{width:100%;border-radius:12px;display:block;margin:6px 0 10px;border:1px solid #eee}
+ol{padding-inline-start:20px;margin:6px 0 10px;line-height:1.9;font-size:16px}
+.copy{display:flex;gap:8px;align-items:center;background:#FBF7EF;border-radius:12px;padding:10px 12px;margin:6px 0;font-size:16px}
+.copy span{flex:1} button,a.btn{font-family:inherit;font-size:15px;font-weight:700;border:0;border-radius:10px;padding:9px 14px;background:#141414;color:#fff;cursor:pointer;text-decoration:none;display:inline-block}
+a.btn{background:#D2342A;width:100%;text-align:center;box-sizing:border-box;margin-top:4px}
+.note{font-size:14px;color:#6b6257}
+</style></head><body><main>
+<h1>ستوري اليوم ✨</h1>
+<p class="sub">الخميس ١٢ نوفمبر · يوم تجربة · ٣ ستوريات، دقيقتان لكل واحد</p>
+
+<div class="card">
+<span class="tag">الصباح · تنشرينه أنتِ</span>
+<h2>ستوري التصويت</h2>
+<img src="story-poll.png" alt="ستوري: لما تكونين مضغوطة… وش أكثر شيء تسوينه؟">
+<a class="btn" href="story-poll.png" download="story-poll.png">احفظي الصورة</a>
+<ol>
+<li>افتحي إنستجرام ← ستوري ← اختاري الصورة.</li>
+<li>اضغطي الملصقات ← <b>تصويت (Poll)</b>، وحطيه في المساحة الفاضية تحت السؤال.</li>
+<li>انسخي الخيارات من تحت والصقيها:</li>
+</ol>
+<div class="copy"><span>أنام</span><button data-c="أنام">نسخ</button></div>
+<div class="copy"><span>آكل</span><button data-c="آكل">نسخ</button></div>
+<div class="copy"><span>أطلع</span><button data-c="أطلع">نسخ</button></div>
+<div class="copy"><span>أشتري</span><button data-c="أشتري">نسخ</button></div>
+<p class="note">التصويت يقبل حتى ٤ خيارات. إذا ما ظهر الخيار الرابع، اضغطي «إضافة خيار».</p>
+</div>
+
+<div class="card">
+<span class="tag auto">الظهر · لاحقًا ينزل تلقائيًا</span>
+<h2>ستوري الظهر</h2>
+<img src="story-auto.png" alt="ستوري: أحيانًا أغلى شيء في ميزانيتنا مو الرفاهية… هو الإرهاق.">
+<p class="note">هذا النوع بعد ربط إنستجرام بأداة الجدولة أجدوله أنا، وينزل لحاله. بكرة الربط ما اكتمل، فاحفظيه وانشريه الظهر كما هو، بدون أي ملصق.</p>
+<a class="btn" href="story-auto.png" download="story-auto.png" style="background:#141414">احفظي الصورة</a>
+</div>
+<div class="card">
+<span class="tag">المساء · تنشرينه أنتِ</span>
+<h2>نتيجة التصويت</h2>
+<ol>
+<li>افتحي الستوري حق الصباح ← اضغطي «النشاط» أو «المشاهدات».</li>
+<li>اضغطي سهم المشاركة جنب النتيجة ← «مشاركة في القصة».</li>
+<li>انسخي الجملة والصقيها فوق النتيجة:</li>
+</ol>
+<div class="copy"><span>شفتوا؟ 😂 اللي اختاروا «أشتري»… أنتم سبب موضوع بكرة</span><button data-c="شفتوا؟ 😂 اللي اختاروا «أشتري»… أنتم سبب موضوع بكرة">نسخ</button></div>
+</div>
+
+</main>
+<script>
+document.querySelectorAll('button[data-c]').forEach(b=>b.onclick=async()=>{
+  try{await navigator.clipboard.writeText(b.dataset.c);}catch(e){
+    const t=document.createElement('textarea');t.value=b.dataset.c;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove();}
+  const o=b.textContent;b.textContent='✓ انتسخ';setTimeout(()=>b.textContent=o,1500);
+});
+</script></body></html>
