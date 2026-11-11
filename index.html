@@ -1984,7 +1984,15 @@ async function cloudPull(opts){
     const data = await res.json();
     const file = data.files && data.files[CLOUD_FILENAME];
     if(!file) throw new Error('ما لقيت ملف البيانات داخل الـ Gist، تأكدي من اسم الملف.');
-    const parsed = JSON.parse(file.content || '{}');
+    /* GitHub cuts a large file's body short in this reply and hands over a raw_url
+       for the rest — parsing the cut copy fails, and the pull looks like it did nothing */
+    let body = file.content;
+    if(file.truncated && file.raw_url){
+      const raw = await fetch(file.raw_url);
+      if(!raw.ok) throw await ghError('ما قدرت أقرأ ملف البيانات كامل', raw);
+      body = await raw.text();
+    }
+    const parsed = JSON.parse(body || '{}');
     if(parsed && typeof parsed==='object' && Array.isArray(parsed.tasks)){
       /* the cloud copy carries no files, so neither path may take this device's
          attachments away with it — they are re-attached by id */
@@ -3914,8 +3922,18 @@ function attachSettingsEvents(){
        been used at all was carrying unsent work — the pull returned false, and
        the line below then quietly un-linked it again. Linking a second device
        simply did nothing, with no message saying why. */
-    const ok = await cloudPull({force:true});
-    if(!ok) cloud.linked = false;
+    let ok = false;
+    try{ ok = await cloudPull({force:true}); }
+    catch(e){
+      /* anything thrown past cloudPull's own handling (merging, saving) used to end
+         the click in silence — say what happened instead */
+      console.error('link pull error', e);
+      cloudStatus = 'error'; cloudStatusMsg = friendlyErr(e);
+    }
+    if(!ok){
+      cloud.linked = false;
+      if(cloudStatus!=='error' || !cloudStatusMsg){ cloudStatus = 'error'; cloudStatusMsg = 'ما انربط الجهاز — ما وصلني رد واضح من GitHub. تأكدي من الإنترنت والـGist ID والتوكن وجربي مرة ثانية.'; }
+    }
     saveCloudCfg(); render();
   };
   const unlinkCloud = document.getElementById('unlinkCloud');
@@ -5491,9 +5509,37 @@ function renderCompletedByDay(){
     </div>
   </details>`;
 }
+/* The same task landing twice — a list pasted again, a batch added on two
+   devices — shows up as identical rows. Two tasks count as the same when the
+   title, the due date and the period all match; a title that repeats on
+   different days is a different task and is left alone. Of each set, the one
+   kept is the one that carries the most: finished first, then linked to a goal,
+   then with attachments, then the earliest. */
+function findDuplicateTasks(){
+  const norm = s => (s||'').replace(/[ً-ٟـ]/g,'').replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/\s+/g,' ').trim().toLowerCase();
+  const groups = {};
+  (state.tasks||[]).forEach((t,i)=>{
+    const k = norm(t.title)+'|'+(t.due||'')+'|'+(t.period||'');
+    (groups[k] = groups[k] || []).push({t,i});
+  });
+  const drop = [];
+  Object.values(groups).forEach(g=>{
+    if(g.length<2) return;
+    const score = ({t})=> (t.done||t.doneAt?4:0) + (t.goalId?2:0) + ((t.attachments||[]).length?1:0);
+    const sorted = g.slice().sort((a,b)=> score(b)-score(a) || a.i-b.i);
+    sorted.slice(1).forEach(x=> drop.push(x.t));
+  });
+  return drop;
+}
+function renderDuplicateTasksBar(){
+  const n = findDuplicateTasks().length;
+  if(!n) return '';
+  return `<button class="btn ghost btn-block" id="dedupeTasks" style="margin-bottom:12px;">🧹 فيه ${n} مهمة مكرّرة — احذفيها</button>`;
+}
 function renderTasks(){
   return `
   <h2 style="font-size:var(--t6);color:var(--petrol-dark);margin-bottom:14px;">مهامي</h2>
+  ${renderDuplicateTasksBar()}
   ${renderInboxBox()}
   <div class="field" style="margin-bottom:12px;">
     <input type="text" id="taskSearchInput" placeholder="🔍 ابحثي عن مهمة…" value="${escapeHtml(taskSearchQuery)}"/>
@@ -9773,6 +9819,18 @@ function attachGlobalEvents(){
     else{ t.done = false; t.doneAt = null; }
     saveState(); render();
   });
+
+  const dedupeTasks = document.getElementById('dedupeTasks');
+  if(dedupeTasks) dedupeTasks.onclick = async ()=>{
+    const drop = findDuplicateTasks();
+    if(!drop.length) return;
+    const names = drop.slice(0,8).map(t=>'• '+t.title).join('\n') + (drop.length>8? '\n… و'+(drop.length-8)+' غيرها' : '');
+    if(!confirm(`بنحذف ${drop.length} مهمة مكرّرة (نفس العنوان والموعد والفترة) وتبقى نسخة وحدة من كل وحدة:\n\n${names}\n\nأكملي؟`)) return;
+    await stashRescue('قبل حذف المهام المكرّرة');
+    const ids = new Set(drop.map(t=>t.id));
+    state.tasks = state.tasks.filter(t=>!ids.has(t.id));
+    saveState(); render();
+  };
 
   document.querySelectorAll('[data-del]').forEach(b=> b.onclick=()=>{
     const t = state.tasks.find(x=>x.id===b.dataset.del);
