@@ -3861,10 +3861,31 @@ function attachSettingsEvents(){
 
   const cfgGistId = document.getElementById('cfgGistId');
   const cfgToken = document.getElementById('cfgToken');
-  const syncCfgFields = ()=>{
-    if(cfgGistId) cloud.gistId = cfgGistId.value.trim();
-    if(cfgToken) cloud.token = cfgToken.value.trim();
+  /* What gets copied is often more than the value — a label, a second line, rich
+     text from a notes app — and a Gist ID or a token never contains a space, so
+     the two are picked out of whatever arrived rather than taking it whole. */
+  const pullCreds = s=>{
+    const tk = (s.match(/(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})/)||[''])[0];
+    const id = (s.replace(tk,' ').match(/(?:^|[^0-9a-zA-Z_])([0-9a-f]{20,40})(?![0-9a-zA-Z_])/i)||['',''])[1];
+    return {id, tk};
   };
+  const syncCfgFields = ()=>{
+    if(cfgGistId){ const v = cfgGistId.value.trim(); cloud.gistId = pullCreds(v).id || v; }
+    if(cfgToken){ const v = cfgToken.value.trim(); cloud.token = pullCreds(v).tk || v; }
+  };
+  [cfgGistId, cfgToken].forEach(inp=>{
+    if(!inp) return;
+    inp.addEventListener('paste', e=>{
+      const raw = (e.clipboardData && e.clipboardData.getData('text')) || '';
+      const {id, tk} = pullCreds(raw);
+      if(!id && !tk) return;
+      /* both fields are filled from one paste, whichever one it landed in */
+      e.preventDefault();
+      if(id && cfgGistId) cfgGistId.value = id;
+      if(tk && cfgToken) cfgToken.value = tk;
+      syncCfgFields();
+    });
+  });
 
   const linkPush = document.getElementById('linkPush');
   if(linkPush) linkPush.onclick = async ()=>{
@@ -10324,26 +10345,83 @@ function renderVoicePlanReview(){
   </div>`;
 }
 
+/* Three shapes of text come in here:
+   1. one task per line, "نص | تصنيف | أولوية | فترة | موعد | هدف" (the last column optional)
+   2. a block of labelled lines ("عنوان المهمة: …", "الأولوية: …", …) — consecutive
+      lines are one task, a blank line or the next "عنوان المهمة:" ends it
+   3. plain sentences, split and read for dates the way the voice quick-add does */
 function importPlanFromText(text){
-  const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
   const items = [];
-  lines.forEach(line=>{
+
+  /* the same reading for a value whether it came from a column or a labelled line */
+  const norm = s => (s||'').replace(/[ً-ٟـ]/g,'').replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/\s+/g,' ').trim().toLowerCase();
+  const readCategory = s => /مشروع/.test(s||'')? 'project' : /شخص/.test(s||'')? 'personal' : /عمل|بزنس|business/i.test(s||'')? 'business' : null;
+  /* a path like "سما النخبة › حملات ميتا" is matched on its last part, or on the
+     whole thing; no match leaves the task without a goal rather than guessing one */
+  const readGoal = s=>{
+    const label = (s||'').trim();
+    if(!label) return null;
+    const segs = label.split(/\s*[›»>]\s*/).map(norm).filter(Boolean);
+    const tries = [norm(label)];
+    if(segs.length && segs[segs.length-1] !== tries[0]) tries.push(segs[segs.length-1]);
+    for(const t of tries){
+      const g = (state.goals||[]).find(g=> norm(g.title) === t);
+      if(g) return g.id;
+    }
+    return null;
+  };
+  /* the value itself ("عالية"), not a phrase from a sentence, so it is read
+     directly before falling back to the phrase matcher */
+  const readPriority = s => s? (/عالي|high/i.test(s)? 'عالية' : /منخفض|low/i.test(s)? 'منخفضة' : /متوسط|medium/i.test(s)? 'متوسطة' : vqParsePriority(s)) : 'متوسطة';
+  const readPeriod = s => s? (/صباح/.test(s)?'صباح':/ظهر/.test(s)?'ظهر':/مساء/.test(s)?'مساء':null) : null;
+  const readDue = s => s? (/^\d{4}-\d{2}-\d{2}$/.test(s)? s : /اليوم|today/i.test(s)? todayStr() : /بكرة|غدا|غداً|tomorrow/i.test(s)? addDays(todayStr(),1) : /أسبوع|اسبوع|week/i.test(s)? addDays(todayStr(),6) : null) : null;
+  const make = (title, f)=>({
+    sourceId: uid(),
+    text: title,
+    category: readCategory(f.cat),
+    goalId: readGoal(f.goal),
+    priority: readPriority(f.pri),
+    period: readPeriod(f.per),
+    due: readDue(f.due),
+    note: f.note || '',
+    include: true,
+  });
+
+  const HEAD = /^(عنوان المهمة|تحت [أإا]ي هدف|الأولوية|الاولوية|موعدها|الفترة|التصنيف|نوع الفعل)\s*[:：]\s*(.*)$/;
+  const keyOf = h => h==='عنوان المهمة'? 'title' : /^تحت/.test(h)? 'goal' : /ولوية$/.test(h)? 'pri' : h==='موعدها'? 'due' : h==='الفترة'? 'per' : h==='التصنيف'? 'cat' : 'act';
+  let cur = null;
+  const flush = ()=>{
+    if(cur && cur.f.title){
+      const f = cur.f;
+      /* "نوع الفعل" has no field of its own: it shows on the review card only */
+      items.push(make(f.title, Object.assign({}, f, {note: f.act? 'نوع الفعل: '+f.act : ''})));
+    }
+    cur = null;
+  };
+
+  text.split('\n').forEach(raw=>{
+    const line = raw.trim();
+    if(!line){ flush(); return; }
+    const hm = HEAD.exec(line.replace(/\*\*/g,'').replace(/^[-•*\s]+/,'').trim());
+    if(hm){
+      const key = keyOf(hm[1]);
+      if(cur && key in cur.f) flush();
+      if(!cur) cur = {f:{}, last:null};
+      cur.f[key] = hm[2].trim();
+      cur.last = key;
+      return;
+    }
+    if(cur){
+      /* a line with no label inside a block belongs to the field above it */
+      cur.f[cur.last] = (cur.f[cur.last] + ' ' + line).trim();
+      return;
+    }
     if(line.includes('|')){
       /* strict pipe-delimited format, e.g. copy-pasted from a chat reply */
       const parts = line.split('|').map(p=>p.trim());
-      const [textPart, catPart, priPart, perPart, duePart] = parts;
+      const [textPart, catPart, priPart, perPart, duePart, goalPart] = parts;
       if(!textPart) return;
-      items.push({
-        sourceId: uid(),
-        text: textPart.replace(/^[-•\d.\)]+\s*/,''),
-        /* the column holds the value itself ("عالية"), not a phrase from a sentence,
-           so it is read directly before falling back to the phrase matcher */
-        priority: priPart? (/عالي|high/i.test(priPart)? 'عالية' : /منخفض|low/i.test(priPart)? 'منخفضة' : /متوسط|medium/i.test(priPart)? 'متوسطة' : vqParsePriority(priPart)) : 'متوسطة',
-        period: perPart? (/صباح/.test(perPart)?'صباح':/ظهر/.test(perPart)?'ظهر':/مساء/.test(perPart)?'مساء':null) : null,
-        due: duePart? (/^\d{4}-\d{2}-\d{2}$/.test(duePart)? duePart : /اليوم|today/i.test(duePart)? todayStr() : /بكرة|غدا|غداً|tomorrow/i.test(duePart)? addDays(todayStr(),1) : /أسبوع|اسبوع|week/i.test(duePart)? addDays(todayStr(),6) : null) : null,
-        note: '',
-        include: true,
-      });
+      items.push(make(textPart.replace(/^[-•\d.\)]+\s*/,''), {cat:catPart, pri:priPart, per:perPart, due:duePart, goal:goalPart}));
       return;
     }
     /* free-form line or paragraph: split into individual tasks and extract
@@ -10361,6 +10439,7 @@ function importPlanFromText(text){
       });
     });
   });
+  flush();
   return items;
 }
 async function runImportPaste(){
