@@ -9033,6 +9033,8 @@ function renderAiPlanReview(){
           <span class="tag p-${p.priority}">${p.priority}</span>
           ${p.period? `<span class="tag">${p.period}</span>`:''}
           ${p.link? `<a href="${escapeHtml(p.link)}" target="_blank" rel="noopener" class="tag" style="text-decoration:none;">🔗 رابط</a>`:''}
+          ${p.dup? `<span class="tag" style="background:#fbe3e3;color:var(--rose-dark);">⚠️ ${p.dup==='app'? 'موجودة بتطبيقك' : 'مكرّرة بنفس القائمة'}</span>`:''}
+          ${p.similar? `<span class="tag" style="background:#fff3d6;">≈ تشبه مهمة موجودة</span>`:''}
         </div>
         ${p.note? `<div class="pnote">${escapeHtml(p.note)}</div>`:''}
       </div>
@@ -10453,6 +10455,23 @@ function importPlanFromText(text){
     note: f.note || '',
     include: true,
   }; };
+  /* Whatever comes in is compared with what is already there and with the rest of
+     the same paste, before she sees it. The name is what counts: a task whose
+     title matches one she already has is the same task whatever the date, so it
+     arrives unticked and says so, and adding it again is her choice rather than
+     an accident. A title that merely contains, or sits inside, another is only
+     flagged — it may well be a different step. */
+  const markDuplicates = list=>{
+    const key = s => norm(s).replace(/[^\p{L}\p{N} ]/gu,'').replace(/\s+/g,' ').trim();
+    const seen = (state.tasks||[]).map(t=>({k:key(t.title), where:'app'}));
+    list.forEach(p=>{
+      const k = key(p.text);
+      const same = seen.find(x=> x.k===k);
+      if(same){ p.dup = same.where; p.include = false; }
+      else if(k.length>=12 && seen.some(x=> x.k.length>=12 && (x.k.includes(k) || k.includes(x.k)))) p.similar = true;
+      seen.push({k, where:'batch'});
+    });
+  };
 
   const HEAD = /^(عنوان المهمة|تحت [أإا]ي هدف|الأولوية|الاولوية|موعدها|الفترة|التصنيف|نوع الفعل)\s*[:：]\s*(.*)$/;
   const keyOf = h => h==='عنوان المهمة'? 'title' : /^تحت/.test(h)? 'goal' : /ولوية$/.test(h)? 'pri' : h==='موعدها'? 'due' : h==='الفترة'? 'per' : h==='التصنيف'? 'cat' : 'act';
@@ -10507,6 +10526,7 @@ function importPlanFromText(text){
     });
   });
   flush();
+  markDuplicates(items);
   return items;
 }
 async function runImportPaste(){
