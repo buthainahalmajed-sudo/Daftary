@@ -1628,6 +1628,8 @@ let revPreview = null; /* {version, tasks, goals, pillars, journal, pillarLabels
 let storageReady = false;
 let storageError = null; /* {quota, msg} while the last write to this device failed */
 let importPasteText = '';
+let importLinkText = '';      /* the tasks that arrived through an import link, as the plain lines they were sent as */
+let importWrongPlace = false; /* the link opened in a copy of the app that holds none of her data */
 let importError = null;
 let aiPlan = null; /* array of {sourceId, text, category, priority, period, due, note, include} pending review, from the offline text-extraction flow */
 let journalWorkDraft = '';
@@ -2334,8 +2336,15 @@ function consumeImportLink(){
   try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){}
   text = text.replace(/~~/g,'\n').trim();
   if(!text) return false;
+  /* Her data lives in one browser. A link tapped inside another app (the Claude app
+     opens links in its own small browser) lands in a copy that has none of it —
+     no goals, and no tasks but the first-week batch every new copy is given.
+     When it looks like that, the review says so and offers the tasks as plain
+     text to carry to the place she actually uses. */
+  importWrongPlace = (state.goals||[]).length===0 && (state.tasks||[]).every(t=>/^nov26w1-/.test(t.id));
   const items = importPlanFromText(text);
   if(!items.length) return false;
+  importLinkText = text;
   aiPlan = items;
   view = 'tasks';
   return true;
@@ -9015,6 +9024,12 @@ function renderAiPlanReview(){
   return `
   <div class="card">
     <div class="card-title"><h3>المهام المستخلصة</h3></div>
+    ${importWrongPlace && importLinkText? `
+    <div class="quote-box" style="margin-bottom:12px;border-color:var(--rose);">
+      <p style="margin-bottom:8px;">⚠️ ما لقيت مهامك ولا أهدافك هنا — غالبًا هذا مو المكان اللي تستخدمين فيه دفتري (متصفح ثاني ببيانات منفصلة). الأضمن: انسخي المهام، وافتحي دفتري من مكانك المعتاد، والصقيها في «المهام ← ✨ استخلصي مهام من نص حر».</p>
+      <button type="button" class="btn sm" id="copyImportText">📋 انسخي المهام</button>
+      <textarea readonly id="importLinkBox" style="margin-top:8px;min-height:70px;direction:rtl;">${escapeHtml(importLinkText)}</textarea>
+    </div>`:''}
     ${helpNote('auto38','راجعي المقترحات، ألغي أي وحدة ما تبينها الحين، وبعدين اعتمدي القائمة عشان تنضاف لمهامك.')}
     ${aiPlan.map((p,i)=>`
       <div class="plan-item ${p.include?'':'excluded'}">
@@ -10209,11 +10224,21 @@ function attachGlobalEvents(){
         period:p.period||null, due:p.due||null, link:p.link||null, done:false, createdAt:todayStr()
       });
     });
-    aiPlan = null;
+    aiPlan = null; importWrongPlace = false;
     saveState(); render();
   };
   const discardPlan = document.getElementById('discardPlan');
-  if(discardPlan) discardPlan.onclick = ()=>{ aiPlan=null; render(); };
+  if(discardPlan) discardPlan.onclick = ()=>{ aiPlan=null; importWrongPlace=false; render(); };
+  const copyImportText = document.getElementById('copyImportText');
+  if(copyImportText) copyImportText.onclick = async ()=>{
+    try{ await navigator.clipboard.writeText(importLinkText); copyImportText.textContent = '✓ اننسخت'; }
+    catch(e){
+      /* some in-app browsers refuse the clipboard: select the text so a long-press copies it */
+      const box = document.getElementById('importLinkBox');
+      if(box){ box.focus(); box.select(); }
+      copyImportText.textContent = 'حددتها لك — اضغطي نسخ';
+    }
+  };
 
   /* يوميات */
   const journalWorkInput = document.getElementById('journalWorkInput');
