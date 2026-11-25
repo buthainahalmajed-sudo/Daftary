@@ -1,0 +1,17 @@
+name: Notion → دفتري (مهام اليوم وبكرة)
+on:
+  schedule:
+    - cron: '30 3 * * *'   # 6:30 صباحًا بتوقيت الرياض
+  workflow_dispatch: {}
+jobs:
+  inbox:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: node .github/scripts/notion-inbox.mjs
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+          GIST_ID: ${{ secrets.GIST_ID }}

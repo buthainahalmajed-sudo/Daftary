@@ -2017,6 +2017,7 @@ async function cloudPull(opts){
     }
     /* remember which revision this device is now based on */
     setCloudBase((data.history && data.history[0] && data.history[0].version) || null);
+    offerNotionInbox(data);
     cloudConflict = null;
     cloudStatus='synced'; cloudLastSync = new Date();
     return true;
@@ -2025,6 +2026,40 @@ async function cloudPull(opts){
     cloudStatus='error'; cloudStatusMsg = friendlyErr(e);
     return false;
   }
+}
+/* ---- tasks waiting in Notion ----
+   Every morning a GitHub Action reads her Notion task list and leaves the open
+   tasks due by tomorrow in a second file of the same gist. Here they arrive as
+   the usual review list: she ticks and approves, nothing is added on its own.
+   A task added carries the Notion page id in its own id; one she leaves out is
+   remembered as a tombstone — so neither is offered again, on any device. */
+const NOTION_INBOX_FILE = 'notion-inbox.json';
+function skipNotionItems(list){
+  const now = Date.now();
+  if(!state.tombstones) state.tombstones = {};
+  (list||[]).forEach(p=>{ if(p && p.notionId) state.tombstones['tasks|notion-'+p.notionId] = now; });
+}
+function offerNotionInbox(data){
+  try{
+    const f = data && data.files && data.files[NOTION_INBOX_FILE];
+    if(!f || !f.content) return;
+    const inbox = JSON.parse(f.content);
+    const list = Array.isArray(inbox && inbox.items)? inbox.items : [];
+    const tombs = state.tombstones || {};
+    const have = new Set((state.tasks||[]).map(t=>t.id));
+    const pending = new Set((aiPlan||[]).map(p=>p.notionId).filter(Boolean));
+    const fresh = list.filter(it=> it && it.id && it.title && !have.has('notion-'+it.id)
+      && !tombs['tasks|notion-'+it.id] && !pending.has(it.id));
+    if(!fresh.length) return;
+    const clean = v => String(v==null? '' : v).replace(/\|/g,'/').replace(/\r?\n/g,' ⏎ ').trim();
+    const lines = fresh.map(it=> [it.title, it.cat, it.pri, it.per, it.due, '', it.link, it.desc].map(clean).join(' | '));
+    const items = importPlanFromText(lines.join('\n'));
+    if(items.length !== fresh.length) return;
+    items.forEach((p,i)=>{ p.notionId = fresh[i].id; });
+    aiPlan = (aiPlan||[]).concat(items);
+    view = 'tasks';
+    if(storageReady) render();
+  }catch(e){ console.error('notion inbox', e); }
 }
 /* ---- revision history ----
    Every cloudPush writes a new Gist revision, so the Gist is a full backup
@@ -9048,6 +9083,7 @@ function renderAiPlanReview(){
           <span class="tag p-${p.priority}">${p.priority}</span>
           ${p.period? `<span class="tag">${p.period}</span>`:''}
           ${p.link? `<a href="${escapeHtml(p.link)}" target="_blank" rel="noopener" class="tag" style="text-decoration:none;">🔗 رابط</a>`:''}
+          ${p.notionId? `<span class="tag">📥 من Notion</span>`:''}
           ${p.dup? `<span class="tag" style="background:#fbe3e3;color:var(--rose-dark);">⚠️ ${p.dup==='app'? 'موجودة بتطبيقك' : 'مكرّرة بنفس القائمة'}</span>`:''}
           ${p.similar? `<span class="tag" style="background:#fff3d6;">≈ تشبه مهمة موجودة</span>`:''}
         </div>
@@ -10220,15 +10256,16 @@ function attachGlobalEvents(){
     const accepted = aiPlan.filter(p=>p.include);
     accepted.forEach(p=>{
       state.tasks.push({
-        id:uid(), title:p.text, goalId:p.goalId||null, category:p.category||null, priority:p.priority||'متوسطة',
-        period:p.period||null, due:p.due||null, link:p.link||null, done:false, createdAt:todayStr()
+        id: p.notionId? 'notion-'+p.notionId : uid(), title:p.text, goalId:p.goalId||null, category:p.category||null, priority:p.priority||'متوسطة',
+        period:p.period||null, due:p.due||null, link:p.link||null, longNote:p.longNote||'', done:false, createdAt:todayStr()
       });
     });
+    skipNotionItems(aiPlan.filter(p=>!p.include));
     aiPlan = null; importWrongPlace = false;
     saveState(); render();
   };
   const discardPlan = document.getElementById('discardPlan');
-  if(discardPlan) discardPlan.onclick = ()=>{ aiPlan=null; importWrongPlace=false; render(); };
+  if(discardPlan) discardPlan.onclick = ()=>{ skipNotionItems(aiPlan||[]); saveState(); aiPlan=null; importWrongPlace=false; render(); };
   const copyImportText = document.getElementById('copyImportText');
   if(copyImportText) copyImportText.onclick = async ()=>{
     try{ await navigator.clipboard.writeText(importLinkText); copyImportText.textContent = '✓ اننسخت'; }
@@ -10477,7 +10514,10 @@ function importPlanFromText(text){
     priority: readPriority(f.pri),
     period: readPeriod(f.per),
     due: readDue(f.due),
-    note: f.note || '',
+    /* an 8th column is the task's full description (steps, script, shot list).
+       " ⏎ " stands for a line break, since one task has to fit on one line */
+    note: f.note || (f.desc? f.desc.replace(/ ⏎ /g,' · ').slice(0,160) + (f.desc.length>160? '…':'') : ''),
+    longNote: f.desc? escapeHtml(f.desc).replace(/ ⏎ /g,'<br>') : '',
     include: true,
   }; };
   /* Whatever comes in is compared with what is already there and with the rest of
@@ -10530,9 +10570,9 @@ function importPlanFromText(text){
     if(line.includes('|')){
       /* strict pipe-delimited format, e.g. copy-pasted from a chat reply */
       const parts = line.split('|').map(p=>p.trim());
-      const [textPart, catPart, priPart, perPart, duePart, goalPart, linkPart] = parts;
+      const [textPart, catPart, priPart, perPart, duePart, goalPart, linkPart, descPart] = parts;
       if(!textPart) return;
-      items.push(make(textPart.replace(/^[-•\d.\)]+\s*/,''), {cat:catPart, pri:priPart, per:perPart, due:duePart, goal:goalPart, link:linkPart}));
+      items.push(make(textPart.replace(/^[-•\d.\)]+\s*/,''), {cat:catPart, pri:priPart, per:perPart, due:duePart, goal:goalPart, link:linkPart, desc:descPart}));
       return;
     }
     /* free-form line or paragraph: split into individual tasks and extract
